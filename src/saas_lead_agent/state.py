@@ -11,4 +11,6 @@ class LeadState(TypedDict):
     domain: str
     messages: Annotated[list[AnyMessage], add_messages]
     company_profile: dict[str, Any] | None
+    contact: dict[str, Any] | None
+    signals: list[dict[str, Any]] | None
     errors: Annotated[list[str], operator.add]
