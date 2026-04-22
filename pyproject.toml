@@ -1,0 +1,57 @@
+[project]
+name = "saas-lead-agent"
+version = "0.1.0"
+description = "Multi-agent AI SDR for B2B SaaS lead research"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    # LangGraph / LangChain — pinned as per CLAUDE.md
+    # Note: langchain 1.0.x pins langgraph<1.1; must use langchain>=1.1 to unlock langgraph>=1.1
+    "langgraph>=1.1,<1.2",
+    "langgraph-prebuilt==1.0.10",
+    "langchain>=1.1,<1.3",
+    "langchain-core>=1.3,<1.4",
+    "langchain-google-genai>=4.0,<5.0",
+    "langchain-openai>=1.0,<2.0",
+    # API
+    "fastapi>=0.115,<0.116",
+    "uvicorn[standard]>=0.34,<0.35",
+    "pydantic>=2.0,<3.0",
+    # Tools
+    "httpx>=0.28,<0.29",
+    "beautifulsoup4>=4.12,<5.0",
+    "tavily-python>=0.5,<0.6",
+    # Env
+    "python-dotenv>=1.0,<2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.25,<0.26",
+    "ruff>=0.9,<0.10",
+    "mypy>=1.14,<2.0",
+    "types-beautifulsoup4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/saas_lead_agent"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

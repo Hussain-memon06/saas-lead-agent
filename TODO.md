@@ -1,0 +1,1 @@
+- [ ] Phase 1: Set up project skeleton (pyproject.toml, state, graph entrypoint)
