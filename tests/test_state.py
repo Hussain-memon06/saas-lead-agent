@@ -7,7 +7,6 @@ from saas_lead_agent.state import LeadState
 
 def _merge(a: LeadState, b: dict) -> LeadState:  # type: ignore[return]
     """Apply reducer logic field-by-field, mirroring LangGraph behaviour."""
-    from langchain_core.messages import AnyMessage
     from langgraph.graph.message import add_messages
 
     result = dict(a)
