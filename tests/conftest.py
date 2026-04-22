@@ -12,3 +12,4 @@ def pytest_configure() -> None:
     os.environ.setdefault("TAVILY_API_KEY", "test-stub")
     os.environ.setdefault("GOOGLE_API_KEY", "test-stub")
     os.environ.setdefault("OPENAI_API_KEY", "test-stub")
+    os.environ.setdefault("HUNTER_API_KEY", "test-stub")
