@@ -4,7 +4,8 @@
 Multi-agent AI system for researching B2B SaaS companies (seed–Series B). Input: company URL. Output: one-page dossier with company profile, decision-maker contact, buying signals, fit score (0–100), and personalized outreach email.
 
 ## Stack
-- Python 3.11, FastAPI, LangGraph 1.1 (`langgraph>=1.1,<1.2`, `langchain>=1.0,<1.1`)
+- Python 3.11, FastAPI, LangGraph 1.1 (`langgraph>=1.1,<1.2`, `langchain>=1.1,<1.3`)
+  - Note: `langchain<1.1` hard-pins `langgraph<1.1` and cannot be used with LangGraph 1.1+
 - LLMs: Gemini 2.5 Flash-Lite (agents), OpenAI GPT-4o-mini (email writer only)
 - Tools: Tavily (search), Hunter.io (email), httpx+BeautifulSoup (scrape)
 - Persistence: Supabase Postgres via `AsyncPostgresSaver`
