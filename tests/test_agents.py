@@ -1,10 +1,9 @@
-"""Tests for the company_researcher agent node.
+"""Tests for agent nodes: company_researcher and contact_finder.
 
 Strategy:
 - _extract_json is a pure function — tested directly with no mocking.
-- company_researcher is an async node — _get_researcher_agent is patched to
-  return a MagicMock whose ainvoke is an AsyncMock, so no real LLM or network
-  calls occur.
+- Async nodes patch their _get_*_agent singleton with an AsyncMock so no
+  real LLM or network calls occur.
 """
 
 import json
@@ -13,8 +12,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from saas_lead_agent.agents.company_researcher import _extract_json, company_researcher
+from saas_lead_agent.agents.company_researcher import company_researcher
+from saas_lead_agent.agents.contact_finder import contact_finder
 from saas_lead_agent.state import LeadState
+from saas_lead_agent.utils import _extract_json
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -35,7 +36,27 @@ _BASE_STATE: LeadState = {
     "domain": "acme.example.com",
     "messages": [],
     "company_profile": None,
+    "contact": None,
+    "signals": None,
     "errors": [],
+}
+
+_CONTACT: dict[str, Any] = {
+    "name": "Alice Smith",
+    "title": "CEO",
+    "email": "alice@acme.example.com",
+    "linkedin": "https://linkedin.com/in/alice-smith",
+    "confidence": 92,
+    "source": "hunter",
+}
+
+_NULL_CONTACT: dict[str, Any] = {
+    "name": None,
+    "title": None,
+    "email": None,
+    "linkedin": None,
+    "confidence": None,
+    "source": "hunter",
 }
 
 
@@ -186,3 +207,116 @@ async def test_company_researcher_passes_url_in_prompt() -> None:
     call_args = mock_agent.ainvoke.call_args
     messages = call_args[0][0]["messages"]
     assert any("https://acme.example.com" in m.content for m in messages)
+
+
+# ---------------------------------------------------------------------------
+# contact_finder node
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_contact_finder_happy_path() -> None:
+    mock_agent = _make_agent_mock(json.dumps(_CONTACT))
+
+    with patch(
+        "saas_lead_agent.agents.contact_finder._get_contact_finder_agent",
+        return_value=mock_agent,
+    ):
+        result = await contact_finder(_BASE_STATE)
+
+    assert "contact" in result
+    assert result["contact"]["name"] == "Alice Smith"
+    assert result["contact"]["email"] == "alice@acme.example.com"
+    assert result["contact"]["source"] == "hunter"
+    assert "errors" not in result
+
+
+@pytest.mark.asyncio
+async def test_contact_finder_null_fields() -> None:
+    mock_agent = _make_agent_mock(json.dumps(_NULL_CONTACT))
+
+    with patch(
+        "saas_lead_agent.agents.contact_finder._get_contact_finder_agent",
+        return_value=mock_agent,
+    ):
+        result = await contact_finder(_BASE_STATE)
+
+    assert "contact" in result
+    assert result["contact"]["name"] is None
+    assert result["contact"]["source"] == "hunter"
+    assert "errors" not in result
+
+
+@pytest.mark.asyncio
+async def test_contact_finder_markdown_response() -> None:
+    content = f"```json\n{json.dumps(_CONTACT)}\n```"
+    mock_agent = _make_agent_mock(content)
+
+    with patch(
+        "saas_lead_agent.agents.contact_finder._get_contact_finder_agent",
+        return_value=mock_agent,
+    ):
+        result = await contact_finder(_BASE_STATE)
+
+    assert result.get("contact", {}).get("name") == "Alice Smith"
+
+
+@pytest.mark.asyncio
+async def test_contact_finder_json_parse_error() -> None:
+    mock_agent = _make_agent_mock("Sorry, I could not find a contact.")
+
+    with patch(
+        "saas_lead_agent.agents.contact_finder._get_contact_finder_agent",
+        return_value=mock_agent,
+    ):
+        result = await contact_finder(_BASE_STATE)
+
+    assert "errors" in result
+    assert "JSON parse error" in result["errors"][0]
+    assert "contact" not in result
+
+
+@pytest.mark.asyncio
+async def test_contact_finder_agent_exception() -> None:
+    mock_agent = MagicMock()
+    mock_agent.ainvoke = AsyncMock(side_effect=RuntimeError("LLM quota exceeded"))
+
+    with patch(
+        "saas_lead_agent.agents.contact_finder._get_contact_finder_agent",
+        return_value=mock_agent,
+    ):
+        result = await contact_finder(_BASE_STATE)
+
+    assert "errors" in result
+    assert "agent invocation failed" in result["errors"][0]
+    assert "LLM quota exceeded" in result["errors"][0]
+
+
+@pytest.mark.asyncio
+async def test_contact_finder_empty_messages() -> None:
+    mock_agent = MagicMock()
+    mock_agent.ainvoke = AsyncMock(return_value={"messages": []})
+
+    with patch(
+        "saas_lead_agent.agents.contact_finder._get_contact_finder_agent",
+        return_value=mock_agent,
+    ):
+        result = await contact_finder(_BASE_STATE)
+
+    assert "errors" in result
+    assert "no messages" in result["errors"][0]
+
+
+@pytest.mark.asyncio
+async def test_contact_finder_passes_domain_in_prompt() -> None:
+    mock_agent = _make_agent_mock(json.dumps(_CONTACT))
+
+    with patch(
+        "saas_lead_agent.agents.contact_finder._get_contact_finder_agent",
+        return_value=mock_agent,
+    ):
+        await contact_finder(_BASE_STATE)
+
+    call_args = mock_agent.ainvoke.call_args
+    messages = call_args[0][0]["messages"]
+    assert any("acme.example.com" in m.content for m in messages)
