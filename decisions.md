@@ -22,3 +22,11 @@ Per CLAUDE.md, Chainlit must be mounted last in FastAPI or routes 404.
 LangGraph 1.1 supervisor and `create_agent` API shapes will be verified via
 Context7 MCP before any agent code is written (Steps 4 and 5). `langgraph-prebuilt`
 has shipped breaking changes on patch versions; guessing the API is not acceptable.
+
+## ADR-005 — `_extract_json` factored into `utils.py`
+**Date:** 2026-04-23
+
+The fence-stripping + JSON-parse primitive was duplicated in `company_researcher`
+and `orchestrator`. Moved to `saas_lead_agent/utils.py` as the canonical
+location. `contact_finder` and all future agents import from there.
+`_parse_orchestrator_output` retains its orchestrator-specific merge logic locally.

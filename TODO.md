@@ -13,15 +13,19 @@
 
 Spec: specs/done/phase-1-skeleton.md
 
-## Phase 2 — Full Pipeline [TODO]
+## Phase 2 — Full Pipeline [IN PROGRESS]
 
-- [ ] contact_finder: replace Phase 1 stub with Hunter.io lookup + LLM enrichment
+### Done
+- [x] Hunter.io tool in tools/hunter.py (feat/hunter-tool, c4b7235)
+- [x] contact_finder: real Hunter.io + Gemini agent (feat/hunter-tool, 240313a)
+- [x] refactor: _extract_json → shared utils.py (feat/hunter-tool, 357871e)
+
+### Next
 - [ ] signal_detector: replace Phase 1 stub with web_search buying-signal detection
+- [ ] LeadState: add fit_score (int), email_draft (str) fields
 - [ ] dossier_writer: GPT-4o-mini email composer node
 - [ ] Human-in-the-loop: interrupt() before email send, Command(resume=...) to continue
 - [ ] AsyncPostgresSaver: swap InMemorySaver for Supabase Postgres (ADR-001)
 - [ ] Langfuse v3 observability: CallbackHandler on graph runs
 - [ ] Chainlit v2 UI: mount at /chainlit in api/main.py (AFTER all other routes)
-- [ ] Hunter.io tool in tools/hunter.py
-- [ ] LeadState: add fit_score (int), email_draft (str) fields
 - [ ] End-to-end smoke test on a real company URL
