@@ -25,6 +25,7 @@ from saas_lead_agent.agents.company_researcher import company_researcher
 from saas_lead_agent.agents.contact_finder import contact_finder
 from saas_lead_agent.agents.signal_detector import signal_detector
 from saas_lead_agent.state import LeadState
+from saas_lead_agent.utils import _extract_json
 
 _GEMINI_MODEL = "gemini-2.5-flash-lite"
 
@@ -134,18 +135,7 @@ def _parse_orchestrator_output(raw: str) -> dict[str, Any]:
         json.JSONDecodeError: If ``raw`` cannot be parsed.
         ValueError: If the parsed value is not a dict.
     """
-    text = raw.strip()
-    if "```" in text:
-        parts = text.split("```")
-        if len(parts) >= 3:
-            inner = parts[1]
-            if "\n" in inner:
-                inner = inner[inner.index("\n"):].strip()
-            text = inner.strip()
-
-    parsed: Any = json.loads(text)
-    if not isinstance(parsed, dict):
-        raise ValueError(f"Expected JSON object, got {type(parsed).__name__}")
+    parsed = _extract_json(raw)
 
     update: dict[str, Any] = {}
     for key in ("company_profile", "contact", "signals"):

@@ -18,6 +18,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.tools.scraper import scrape
 from saas_lead_agent.tools.web_search import web_search
+from saas_lead_agent.utils import _extract_json
 
 _GEMINI_MODEL = "gemini-2.5-flash-lite"
 
@@ -69,40 +70,6 @@ def _get_researcher_agent() -> Any:
         _researcher_agent = build_researcher_agent()
     return _researcher_agent
 
-
-def _extract_json(content: str) -> dict[str, Any]:
-    """Extract a JSON dict from an LLM response string.
-
-    Handles two common formats:
-    - Plain JSON: ``{"name": "Acme", ...}``
-    - Markdown-fenced JSON: `` ```json\\n{...}\\n``` ``
-
-    Args:
-        content: Raw text from the final ``AIMessage``.
-
-    Returns:
-        Parsed dict.
-
-    Raises:
-        json.JSONDecodeError: If the text cannot be parsed as JSON.
-        ValueError: If the parsed value is not a ``dict``.
-    """
-    text = content.strip()
-
-    if "```" in text:
-        # Split on fences; the block content is between the first and second fence.
-        parts = text.split("```")
-        if len(parts) >= 3:
-            inner = parts[1]
-            # Drop optional language tag ("json\n{...}" → "{...}")
-            if "\n" in inner:
-                inner = inner[inner.index("\n"):].strip()
-            text = inner.strip()
-
-    parsed: Any = json.loads(text)
-    if not isinstance(parsed, dict):
-        raise ValueError(f"Expected JSON object, got {type(parsed).__name__}")
-    return parsed
 
 
 async def company_researcher(state: LeadState) -> dict[str, Any]:
