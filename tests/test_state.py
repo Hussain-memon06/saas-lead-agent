@@ -20,53 +20,58 @@ def _merge(a: LeadState, b: dict) -> LeadState:  # type: ignore[return]
     return result  # type: ignore[return-value]
 
 
+_BASE: LeadState = {
+    "company_url": "https://example.com",
+    "domain": "example.com",
+    "messages": [],
+    "company_profile": None,
+    "contact": None,
+    "signals": None,
+    "fit_score": None,
+    "email_subject": None,
+    "email_body": None,
+    "errors": [],
+}
+
+
 def test_messages_reducer_appends() -> None:
-    state: LeadState = {
-        "company_url": "https://example.com",
-        "domain": "example.com",
-        "messages": [HumanMessage(content="first")],
-        "company_profile": None,
-        "errors": [],
-    }
+    state: LeadState = {**_BASE, "messages": [HumanMessage(content="first")]}
     updated = _merge(state, {"messages": [HumanMessage(content="second")]})
     assert len(updated["messages"]) == 2
     assert updated["messages"][1].content == "second"
 
 
 def test_errors_reducer_concatenates() -> None:
-    state: LeadState = {
-        "company_url": "https://example.com",
-        "domain": "example.com",
-        "messages": [],
-        "company_profile": None,
-        "errors": ["err1"],
-    }
+    state: LeadState = {**_BASE, "errors": ["err1"]}
     updated = _merge(state, {"errors": ["err2", "err3"]})
     assert updated["errors"] == ["err1", "err2", "err3"]
 
 
 def test_scalar_fields_overwrite() -> None:
-    state: LeadState = {
-        "company_url": "https://old.com",
-        "domain": "old.com",
-        "messages": [],
-        "company_profile": None,
-        "errors": [],
-    }
-    updated = _merge(state, {"domain": "new.com", "company_profile": {"name": "Acme"}})
+    updated = _merge(
+        _BASE,
+        {"domain": "new.com", "company_profile": {"name": "Acme"}},
+    )
     assert updated["domain"] == "new.com"
     assert updated["company_profile"] == {"name": "Acme"}
-    assert updated["company_url"] == "https://old.com"  # untouched
+    assert updated["company_url"] == "https://example.com"  # untouched
 
 
 def test_initial_state_is_valid() -> None:
-    state: LeadState = {
-        "company_url": "https://example.com",
-        "domain": "example.com",
-        "messages": [],
-        "company_profile": None,
-        "errors": [],
-    }
-    assert state["company_url"] == "https://example.com"
-    assert state["company_profile"] is None
-    assert state["errors"] == []
+    assert _BASE["company_url"] == "https://example.com"
+    assert _BASE["company_profile"] is None
+    assert _BASE["fit_score"] is None
+    assert _BASE["email_subject"] is None
+    assert _BASE["email_body"] is None
+    assert _BASE["errors"] == []
+
+
+def test_dossier_fields_overwrite() -> None:
+    updated = _merge(
+        _BASE,
+        {"fit_score": 7, "email_subject": "Quick question", "email_body": "Hi Alice,"},
+    )
+    assert updated["fit_score"] == 7
+    assert updated["email_subject"] == "Quick question"
+    assert updated["email_body"] == "Hi Alice,"
+    assert updated["company_url"] == "https://example.com"  # untouched

@@ -13,4 +13,7 @@ class LeadState(TypedDict):
     company_profile: dict[str, Any] | None
     contact: dict[str, Any] | None
     signals: list[dict[str, Any]] | None
+    fit_score: int | None
+    email_subject: str | None
+    email_body: str | None
     errors: Annotated[list[str], operator.add]
