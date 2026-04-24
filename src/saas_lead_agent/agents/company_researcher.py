@@ -35,7 +35,8 @@ these exact fields:
   "employees_estimate": string | null,
   "funding_stage":      "Seed"|"Series A"|"Series B"|"Series C+"|"Public"|"Bootstrapped"|"Unknown",
   "products":           [string, ...],
-  "notable_customers":  [string, ...]
+  "notable_customers":  [string, ...],
+  "sources":            [string, ...]
 }
 
 CRITICAL — precision over recall:
@@ -46,6 +47,11 @@ CRITICAL — precision over recall:
     Many startups share names across industries; name collision is common.
   - If a field cannot be verified from a source that references the given URL,
     use null. An empty/null field is correct when information is unverifiable.
+
+The `sources` array MUST list every URL you pulled information from. At least
+one URL in `sources` MUST contain the company's domain. If you cannot find
+sources that reference the given URL, return an empty `sources` array and set
+all other fields to null.
 
 Use null for unknown fields. Return ONLY the JSON object."""
 
@@ -78,6 +84,35 @@ def _get_researcher_agent() -> Any:
         _researcher_agent = build_researcher_agent()
     return _researcher_agent
 
+
+def _verify_sources(profile: dict[str, Any], domain: str) -> dict[str, Any]:
+    """Reset unverifiable profile fields to null if no source URL covers the domain.
+
+    Precision guard: a profile is only trusted if at least one URL in
+    ``profile["sources"]`` contains the company domain (case-insensitive
+    substring).  Otherwise the model likely pulled info from a different
+    company with a similar name — wipe everything except ``name`` (which
+    the caller supplied via the URL) and ``sources`` (kept for debugging).
+    """
+    sources_val = profile.get("sources")
+    sources: list[str] = [s for s in (sources_val or []) if isinstance(s, str)]
+
+    domain_lower = (domain or "").lower()
+    has_domain_source = any(domain_lower in s.lower() for s in sources) if domain_lower else False
+
+    if has_domain_source:
+        return profile
+
+    return {
+        "name": profile.get("name"),
+        "tagline": None,
+        "hq": None,
+        "employees_estimate": None,
+        "funding_stage": None,
+        "products": [],
+        "notable_customers": [],
+        "sources": sources,
+    }
 
 
 async def company_researcher(state: LeadState) -> dict[str, Any]:
@@ -124,4 +159,7 @@ async def company_researcher(state: LeadState) -> dict[str, Any]:
     except ValueError as exc:
         return {"errors": [f"company_researcher: unexpected response shape — {exc}"]}
 
-    return {"company_profile": profile}
+    # Precision over recall: if no source URL contains the company domain,
+    # the model likely pulled info from a different company. Wipe fields.
+    verified = _verify_sources(profile, state["domain"])
+    return {"company_profile": verified}

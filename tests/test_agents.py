@@ -32,6 +32,7 @@ _PROFILE: dict[str, Any] = {
     "funding_stage": "Series A",
     "products": ["Heavy Anvil", "Rocket Skates"],
     "notable_customers": ["Wile E. Coyote"],
+    "sources": ["https://acme.example.com/about", "https://blog.acme.example.com/team"],
 }
 
 _BASE_STATE: LeadState = {
@@ -258,6 +259,61 @@ async def test_company_researcher_passes_url_in_prompt() -> None:
     call_args = mock_agent.ainvoke.call_args
     messages = call_args[0][0]["messages"]
     assert any("https://acme.example.com" in m.content for m in messages)
+
+
+@pytest.mark.asyncio
+async def test_company_researcher_keeps_profile_when_sources_contain_domain() -> None:
+    """When at least one source URL contains the domain, profile is preserved."""
+    mock_agent = _make_agent_mock(json.dumps(_PROFILE))
+
+    with patch(
+        "saas_lead_agent.agents.company_researcher._get_researcher_agent",
+        return_value=mock_agent,
+    ):
+        result = await company_researcher(_BASE_STATE)
+
+    profile = result["company_profile"]
+    assert profile["name"] == "Acme Corp"
+    assert profile["tagline"] == "Anvils for every occasion"
+    assert profile["funding_stage"] == "Series A"
+    assert profile["products"] == ["Heavy Anvil", "Rocket Skates"]
+    assert len(profile["sources"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_company_researcher_resets_fields_when_no_sources_match_domain() -> None:
+    """When no source URL contains the domain, fields reset to null; name kept."""
+    wrong_company_profile: dict[str, Any] = {
+        "name": "Acme Corp",  # from the URL, kept
+        "tagline": "From a different company",
+        "hq": "Wrong City",
+        "employees_estimate": "1000+",
+        "funding_stage": "Public",
+        "products": ["Wrong Product"],
+        "notable_customers": ["Wrong Customer"],
+        "sources": [
+            "https://techcrunch.com/some-other-acme",
+            "https://different-company.com/about",
+        ],
+    }
+    mock_agent = _make_agent_mock(json.dumps(wrong_company_profile))
+
+    with patch(
+        "saas_lead_agent.agents.company_researcher._get_researcher_agent",
+        return_value=mock_agent,
+    ):
+        result = await company_researcher(_BASE_STATE)
+
+    profile = result["company_profile"]
+    assert profile["name"] == "Acme Corp"  # preserved (from URL)
+    assert profile["tagline"] is None
+    assert profile["hq"] is None
+    assert profile["employees_estimate"] is None
+    assert profile["funding_stage"] is None
+    assert profile["products"] == []
+    assert profile["notable_customers"] == []
+    # sources kept for debugging
+    assert len(profile["sources"]) == 2
 
 
 # ---------------------------------------------------------------------------
