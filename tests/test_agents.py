@@ -122,13 +122,13 @@ _SIGNALS: list[dict[str, Any]] = [
     {
         "signal_type": "funding",
         "date": "2024-03",
-        "source": "https://techcrunch.com/acme-series-a",
+        "source": "https://blog.acme.example.com/series-a-announcement",
         "details": "Acme Corp raised $10M Series A",
     },
     {
         "signal_type": "hiring",
         "date": None,
-        "source": "https://linkedin.com/jobs/acme",
+        "source": "https://careers.acme.example.com/engineering",
         "details": "20+ open engineering roles posted",
     },
 ]
@@ -488,6 +488,64 @@ async def test_signal_detector_uses_company_name_when_available() -> None:
     call_args = mock_agent.ainvoke.call_args
     messages = call_args[0][0]["messages"]
     assert any("Acme Corp" in m.content for m in messages)
+
+
+@pytest.mark.asyncio
+async def test_signal_detector_drops_off_domain_signals() -> None:
+    """Signals whose source URL does not contain the company domain are dropped."""
+    mixed_signals: list[dict[str, Any]] = [
+        {
+            "signal_type": "funding",
+            "date": "2024-03",
+            "source": "https://blog.acme.example.com/news",
+            "details": "Genuine Acme signal",
+        },
+        {
+            "signal_type": "funding",
+            "date": "2024-03",
+            "source": "https://different-company.com/news",
+            "details": "Signal from a different company with similar name",
+        },
+        {
+            "signal_type": "hiring",
+            "date": None,
+            "source": None,
+            "details": "No source — cannot verify",
+        },
+    ]
+    mock_agent = _make_agent_mock(json.dumps(mixed_signals))
+
+    with patch(
+        "saas_lead_agent.agents.signal_detector._get_signal_detector_agent",
+        return_value=mock_agent,
+    ):
+        result = await signal_detector(_BASE_STATE)
+
+    assert len(result["signals"]) == 1
+    assert result["signals"][0]["details"] == "Genuine Acme signal"
+
+
+@pytest.mark.asyncio
+async def test_signal_detector_returns_empty_when_all_off_domain() -> None:
+    """When every signal source is off-domain, result is empty list (not error)."""
+    off_domain: list[dict[str, Any]] = [
+        {
+            "signal_type": "funding",
+            "date": "2024-03",
+            "source": "https://techcrunch.com/acme-corp-series-a",
+            "details": "Wrong-company signal",
+        },
+    ]
+    mock_agent = _make_agent_mock(json.dumps(off_domain))
+
+    with patch(
+        "saas_lead_agent.agents.signal_detector._get_signal_detector_agent",
+        return_value=mock_agent,
+    ):
+        result = await signal_detector(_BASE_STATE)
+
+    assert result["signals"] == []
+    assert "errors" not in result
 
 
 # ---------------------------------------------------------------------------

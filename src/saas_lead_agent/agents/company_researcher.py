@@ -38,6 +38,15 @@ these exact fields:
   "notable_customers":  [string, ...]
 }
 
+CRITICAL — precision over recall:
+  - Scrape the given company URL first. Only use information found directly
+    on the company's own website, OR on sources (news articles, press releases,
+    directories) that explicitly reference the exact URL you were given.
+  - Do NOT include information about different companies with similar names.
+    Many startups share names across industries; name collision is common.
+  - If a field cannot be verified from a source that references the given URL,
+    use null. An empty/null field is correct when information is unverifiable.
+
 Use null for unknown fields. Return ONLY the JSON object."""
 
 # Lazy singleton — avoids requiring GOOGLE_API_KEY at import time.

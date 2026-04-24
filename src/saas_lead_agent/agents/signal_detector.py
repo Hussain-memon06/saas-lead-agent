@@ -31,15 +31,23 @@ these exact fields:
   {
     "signal_type": "funding"|"hiring"|"product"|"leadership"|"partnership"|"other",
     "date":        string | null,
-    "source":      string | null,
+    "source":      string,
     "details":     string
   },
   ...
 ]
 
+CRITICAL — precision over recall:
+  - The `source` field MUST be a URL whose host contains the exact company
+    domain you were given. Signals from other companies with similar names
+    MUST NOT be included, even if they appear in search results.
+  - If you cannot find a signal whose source URL contains the company domain,
+    do not include it. Guessing or substituting a similar company is wrong.
+  - If no domain-verified signals are found at all, return an empty array [].
+    An empty array is the correct answer when nothing qualifies.
+
 Include only signals that are clearly relevant and recent (prefer last 12 months).
 If no signals are found for a type, omit it — do not include placeholder entries.
-If no signals are found at all, return an empty array [].
 Return ONLY the JSON array."""
 
 _signal_detector_agent: Any = None
@@ -69,6 +77,26 @@ def _get_signal_detector_agent() -> Any:
     if _signal_detector_agent is None:
         _signal_detector_agent = build_signal_detector_agent()
     return _signal_detector_agent
+
+
+def _filter_by_domain(signals: list[dict[str, Any]], domain: str) -> list[dict[str, Any]]:
+    """Drop signals whose ``source`` URL does not contain the company domain.
+
+    The LLM may hallucinate signals from different companies with similar names
+    despite the system prompt.  This post-parse filter enforces the same rule
+    mechanically: if the domain substring is not in ``source``, drop the entry.
+    A missing/empty ``source`` is treated as unverifiable and dropped.
+    """
+    if not domain:
+        return signals
+    filtered: list[dict[str, Any]] = []
+    for s in signals:
+        source = s.get("source") or ""
+        if not isinstance(source, str):
+            continue
+        if domain.lower() in source.lower():
+            filtered.append(s)
+    return filtered
 
 
 async def signal_detector(state: LeadState) -> dict[str, Any]:
@@ -121,4 +149,6 @@ async def signal_detector(state: LeadState) -> dict[str, Any]:
     except ValueError as exc:
         return {"errors": [f"signal_detector: unexpected response shape — {exc}"]}
 
-    return {"signals": signals}
+    # Precision over recall: drop signals whose source URL does not contain the
+    # company domain. LLM may hallucinate entries from similarly-named companies.
+    return {"signals": _filter_by_domain(signals, domain)}
