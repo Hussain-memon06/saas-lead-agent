@@ -26,4 +26,7 @@ class QualifyResponse(BaseModel):
     company_profile: dict[str, Any] | None = None
     contact: dict[str, Any] | None = None
     signals: list[dict[str, Any]] | None = None
+    fit_score: int | None = None
+    email_subject: str | None = None
+    email_body: str | None = None
     errors: list[str] = []

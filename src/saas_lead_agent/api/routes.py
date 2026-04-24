@@ -46,6 +46,9 @@ async def qualify(body: QualifyRequest) -> QualifyResponse:
         "company_profile": None,
         "contact": None,
         "signals": None,
+        "fit_score": None,
+        "email_subject": None,
+        "email_body": None,
         "errors": [],
     }
     config: RunnableConfig = cast(RunnableConfig, {"configurable": {"thread_id": thread_id}})
@@ -63,5 +66,8 @@ async def qualify(body: QualifyRequest) -> QualifyResponse:
         company_profile=result.get("company_profile"),
         contact=result.get("contact"),
         signals=result.get("signals"),
+        fit_score=result.get("fit_score"),
+        email_subject=result.get("email_subject"),
+        email_body=result.get("email_body"),
         errors=result.get("errors", []),
     )
