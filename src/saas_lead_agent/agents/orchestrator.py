@@ -19,7 +19,7 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
 from saas_lead_agent.agents.company_researcher import company_researcher
 from saas_lead_agent.agents.contact_finder import contact_finder
@@ -27,7 +27,7 @@ from saas_lead_agent.agents.signal_detector import signal_detector
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.utils import _extract_json
 
-_GEMINI_MODEL = "gemini-2.5-flash-lite"
+_GPT_MODEL = "gpt-4o-mini"
 
 _SYSTEM_PROMPT = """You are a lead-research orchestrator.
 
@@ -93,14 +93,14 @@ def build_orchestrator_agent() -> Any:
     """Build the orchestrator agent graph.
 
     Creates a ``create_agent`` ReAct graph with the three subagent tools
-    bound to Gemini 2.5 Flash-Lite.
+    bound to GPT-4o-mini.
 
     Returns:
         A compiled LangGraph ``CompiledStateGraph`` ready for ``.ainvoke()``.
     """
     from langchain.agents import create_agent
 
-    model = ChatGoogleGenerativeAI(model=_GEMINI_MODEL)
+    model = ChatOpenAI(model=_GPT_MODEL)
     return create_agent(
         model=model,
         tools=[run_company_researcher, run_contact_finder, run_signal_detector],

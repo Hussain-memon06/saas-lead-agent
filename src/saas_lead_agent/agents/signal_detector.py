@@ -5,13 +5,13 @@ from typing import Any
 
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.tools.web_search import web_search
 from saas_lead_agent.utils import _extract_json_list
 
-_GEMINI_MODEL = "gemini-2.5-flash-lite"
+_GPT_MODEL = "gpt-4o-mini"
 
 _SYSTEM_PROMPT = """You are a B2B sales intelligence analyst.
 
@@ -49,12 +49,12 @@ def build_signal_detector_agent() -> Any:
     """Build the signal detector agent graph.
 
     Creates a ``create_agent`` ReAct graph with ``web_search`` bound to
-    Gemini 2.5 Flash-Lite. Reads ``GOOGLE_API_KEY`` from the environment.
+    GPT-4o-mini.
 
     Returns:
         A compiled LangGraph ``CompiledStateGraph`` ready for ``.ainvoke()``.
     """
-    model = ChatGoogleGenerativeAI(model=_GEMINI_MODEL)
+    model = ChatOpenAI(model=_GPT_MODEL)
     return create_agent(
         model=model,
         tools=[web_search],

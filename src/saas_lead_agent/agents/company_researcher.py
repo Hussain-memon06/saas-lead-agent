@@ -13,14 +13,14 @@ from typing import Any
 
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.tools.scraper import scrape
 from saas_lead_agent.tools.web_search import web_search
 from saas_lead_agent.utils import _extract_json
 
-_GEMINI_MODEL = "gemini-2.5-flash-lite"
+_GPT_MODEL = "gpt-4o-mini"
 
 _SYSTEM_PROMPT = """You are a B2B SaaS research analyst.
 
@@ -48,13 +48,12 @@ def build_researcher_agent() -> Any:
     """Build the company researcher agent graph.
 
     Creates a ``create_agent`` ReAct graph with ``web_search`` and ``scrape``
-    tools bound to Gemini 2.5 Flash-Lite. Reads ``GOOGLE_API_KEY`` from the
-    environment via ``ChatGoogleGenerativeAI``.
+    tools bound to GPT-4o-mini.
 
     Returns:
         A compiled LangGraph ``CompiledStateGraph`` ready for ``.ainvoke()``.
     """
-    model = ChatGoogleGenerativeAI(model=_GEMINI_MODEL)
+    model = ChatOpenAI(model=_GPT_MODEL)
     return create_agent(
         model=model,
         tools=[web_search, scrape],
