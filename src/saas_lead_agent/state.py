@@ -16,4 +16,6 @@ class LeadState(TypedDict):
     fit_score: int | None
     email_subject: str | None
     email_body: str | None
+    email_approved: bool | None
+    send_result: str | None
     errors: Annotated[list[str], operator.add]

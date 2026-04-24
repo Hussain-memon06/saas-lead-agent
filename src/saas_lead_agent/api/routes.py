@@ -49,6 +49,8 @@ async def qualify(body: QualifyRequest) -> QualifyResponse:
         "fit_score": None,
         "email_subject": None,
         "email_body": None,
+        "email_approved": None,
+        "send_result": None,
         "errors": [],
     }
     config: RunnableConfig = cast(RunnableConfig, {"configurable": {"thread_id": thread_id}})

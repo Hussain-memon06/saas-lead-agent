@@ -30,6 +30,8 @@ _BASE: LeadState = {
     "fit_score": None,
     "email_subject": None,
     "email_body": None,
+    "email_approved": None,
+    "send_result": None,
     "errors": [],
 }
 
@@ -63,6 +65,8 @@ def test_initial_state_is_valid() -> None:
     assert _BASE["fit_score"] is None
     assert _BASE["email_subject"] is None
     assert _BASE["email_body"] is None
+    assert _BASE["email_approved"] is None
+    assert _BASE["send_result"] is None
     assert _BASE["errors"] == []
 
 
@@ -75,3 +79,12 @@ def test_dossier_fields_overwrite() -> None:
     assert updated["email_subject"] == "Quick question"
     assert updated["email_body"] == "Hi Alice,"
     assert updated["company_url"] == "https://example.com"  # untouched
+
+
+def test_hitl_fields_overwrite() -> None:
+    updated = _merge(
+        _BASE,
+        {"email_approved": True, "send_result": "sent"},
+    )
+    assert updated["email_approved"] is True
+    assert updated["send_result"] == "sent"
