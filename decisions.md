@@ -23,6 +23,15 @@ LangGraph 1.1 supervisor and `create_agent` API shapes will be verified via
 Context7 MCP before any agent code is written (Steps 4 and 5). `langgraph-prebuilt`
 has shipped breaking changes on patch versions; guessing the API is not acceptable.
 
+## ADR-004 — GPT-4o-mini for dossier_writer; Gemini 2.5 Flash-Lite for all other agents
+**Date:** 2026-04-24
+
+`dossier_writer` uses `ChatOpenAI(model="gpt-4o-mini")` via direct `model.ainvoke()` (no
+tools, no ReAct loop). All other agents (company_researcher, contact_finder,
+signal_detector, orchestrator) use `ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite")`.
+Rationale: GPT-4o-mini produces higher-quality prose for email drafting; Gemini
+Flash-Lite is faster and cheaper for the tool-calling research nodes.
+
 ## ADR-005 — `_extract_json` factored into `utils.py`
 **Date:** 2026-04-23
 

@@ -19,11 +19,12 @@ Spec: specs/done/phase-1-skeleton.md
 - [x] Hunter.io tool in tools/hunter.py (feat/hunter-tool, c4b7235)
 - [x] contact_finder: real Hunter.io + Gemini agent (feat/hunter-tool, 240313a)
 - [x] refactor: _extract_json → shared utils.py (feat/hunter-tool, 357871e)
+- [x] signal_detector: web_search buying-signal detection (feat/hunter-tool, 0890bbb)
+- [x] LeadState: add fit_score, email_subject, email_body fields (feat/hunter-tool, 77ce670)
+- [x] dossier_writer: GPT-4o-mini direct ainvoke (feat/hunter-tool, 4c963fa)
 
 ### Next
-- [ ] signal_detector: replace Phase 1 stub with web_search buying-signal detection
-- [ ] LeadState: add fit_score (int), email_draft (str) fields
-- [ ] dossier_writer: GPT-4o-mini email composer node
+- [ ] Human-in-the-loop: interrupt() before email send, Command(resume=...) to continue
 - [ ] Human-in-the-loop: interrupt() before email send, Command(resume=...) to continue
 - [ ] AsyncPostgresSaver: swap InMemorySaver for Supabase Postgres (ADR-001)
 - [ ] Langfuse v3 observability: CallbackHandler on graph runs
