@@ -105,6 +105,8 @@ def test_graph_has_expected_nodes() -> None:
         "contact_finder",
         "signal_detector",
         "dossier_writer",
+        "await_approval",
+        "send_email",
     ):
         assert expected in node_names, f"Missing node: {expected}"
 
@@ -129,13 +131,27 @@ def test_graph_subagents_fan_in_to_dossier_writer() -> None:
     assert {"company_researcher", "contact_finder", "signal_detector"}.issubset(dossier_sources)
 
 
-def test_graph_dossier_writer_goes_to_end() -> None:
-    """dossier_writer must connect to END."""
+def test_graph_dossier_writer_goes_to_await_approval() -> None:
+    """dossier_writer must feed into await_approval (HITL gate)."""
+    graph = build_graph()
+    targets = {dst for src, dst in graph.builder.edges if src == "dossier_writer"}
+    assert "await_approval" in targets
+
+
+def test_graph_await_approval_goes_to_send_email() -> None:
+    """After the HITL resume, the graph proceeds to send_email."""
+    graph = build_graph()
+    targets = {dst for src, dst in graph.builder.edges if src == "await_approval"}
+    assert "send_email" in targets
+
+
+def test_graph_send_email_goes_to_end() -> None:
+    """send_email is the terminal node."""
     graph = build_graph()
     end_sources = {src for src, dst in graph.builder._all_edges if dst == "__end__"}
-    assert "dossier_writer" in end_sources
-    # subagents must NOT connect directly to END any more
-    for node in ("company_researcher", "contact_finder", "signal_detector"):
+    assert "send_email" in end_sources
+    # Neither subagents nor dossier_writer connect directly to END any more
+    for node in ("company_researcher", "contact_finder", "signal_detector", "dossier_writer"):
         assert node not in end_sources, f"{node} should not go directly to END"
 
 

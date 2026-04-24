@@ -1,11 +1,13 @@
 """StateGraph assembly for the lead-research pipeline.
 
-Topology (Phase 2):
+Topology (Phase 2, with HITL):
   START → orchestrator → [company_researcher, contact_finder, signal_detector]
-  [company_researcher, contact_finder, signal_detector] → dossier_writer → END
+  [researcher, contact, signal] → dossier_writer → await_approval → send_email → END
 
 The three subagent nodes run in parallel (one super-step after orchestrator).
-dossier_writer runs after the fan-in, with all three results available in state.
+dossier_writer runs after the fan-in. await_approval calls ``interrupt()``,
+pausing the graph until a human resumes via ``Command(resume=<bool>)``.
+send_email is a Phase 2 stub that records the outcome.
 """
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -13,10 +15,12 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from saas_lead_agent.agents.await_approval import await_approval
 from saas_lead_agent.agents.company_researcher import company_researcher
 from saas_lead_agent.agents.contact_finder import contact_finder
 from saas_lead_agent.agents.dossier_writer import dossier_writer
 from saas_lead_agent.agents.orchestrator import orchestrator
+from saas_lead_agent.agents.send_email import send_email
 from saas_lead_agent.agents.signal_detector import signal_detector
 from saas_lead_agent.state import LeadState
 
@@ -44,12 +48,16 @@ def build_graph(
     graph.add_node("contact_finder", contact_finder)
     graph.add_node("signal_detector", signal_detector)
     graph.add_node("dossier_writer", dossier_writer)
+    graph.add_node("await_approval", await_approval)
+    graph.add_node("send_email", send_email)
 
     graph.add_edge(START, "orchestrator")
     for node in _SUBAGENT_NODES:
         graph.add_edge("orchestrator", node)
     graph.add_edge(_SUBAGENT_NODES, "dossier_writer")
-    graph.add_edge("dossier_writer", END)
+    graph.add_edge("dossier_writer", "await_approval")
+    graph.add_edge("await_approval", "send_email")
+    graph.add_edge("send_email", END)
 
     return graph.compile(checkpointer=checkpointer)
 
