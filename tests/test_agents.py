@@ -11,9 +11,11 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from langchain_core.messages import AIMessage
 
 from saas_lead_agent.agents.company_researcher import company_researcher
 from saas_lead_agent.agents.contact_finder import contact_finder
+from saas_lead_agent.agents.dossier_writer import dossier_writer
 from saas_lead_agent.agents.signal_detector import signal_detector
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.utils import _extract_json, _extract_json_list
@@ -486,3 +488,99 @@ async def test_signal_detector_uses_company_name_when_available() -> None:
     call_args = mock_agent.ainvoke.call_args
     messages = call_args[0][0]["messages"]
     assert any("Acme Corp" in m.content for m in messages)
+
+
+# ---------------------------------------------------------------------------
+# dossier_writer node
+# ---------------------------------------------------------------------------
+
+_DOSSIER_RESPONSE: dict[str, Any] = {
+    "fit_score": 8,
+    "fit_rationale": "Series A SaaS company in target segment",
+    "email_subject": "Quick question about Acme Corp",
+    "email_body": "Hi Alice, saw your recent funding round — congrats!",
+}
+
+
+def _make_model_mock(content: str) -> MagicMock:
+    """Return a mock model whose ainvoke resolves to an AIMessage."""
+    model = MagicMock()
+    model.ainvoke = AsyncMock(return_value=AIMessage(content=content))
+    return model
+
+
+@pytest.mark.asyncio
+async def test_dossier_writer_happy_path() -> None:
+    mock_model = _make_model_mock(json.dumps(_DOSSIER_RESPONSE))
+
+    with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
+        result = await dossier_writer(_BASE_STATE)
+
+    assert result["fit_score"] == 8
+    assert result["email_subject"] == "Quick question about Acme Corp"
+    assert result["email_body"] == "Hi Alice, saw your recent funding round — congrats!"
+    assert "errors" not in result
+
+
+@pytest.mark.asyncio
+async def test_dossier_writer_separate_subject_and_body() -> None:
+    """email_subject and email_body must be distinct keys — not concatenated."""
+    mock_model = _make_model_mock(json.dumps(_DOSSIER_RESPONSE))
+
+    with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
+        result = await dossier_writer(_BASE_STATE)
+
+    assert "email_subject" in result
+    assert "email_body" in result
+    assert result["email_subject"] != result["email_body"]
+    assert "\n\n" not in result["email_subject"]
+
+
+@pytest.mark.asyncio
+async def test_dossier_writer_handles_none_upstream_fields() -> None:
+    """Node must not crash when company_profile, contact, signals are all None."""
+    mock_model = _make_model_mock(json.dumps(_DOSSIER_RESPONSE))
+
+    with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
+        result = await dossier_writer(_BASE_STATE)  # _BASE_STATE has all None
+
+    assert result["fit_score"] == 8
+    assert "errors" not in result
+
+
+@pytest.mark.asyncio
+async def test_dossier_writer_json_parse_error() -> None:
+    mock_model = _make_model_mock("Sorry, I cannot score this company.")
+
+    with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
+        result = await dossier_writer(_BASE_STATE)
+
+    assert "errors" in result
+    assert "JSON parse error" in result["errors"][0]
+    assert "fit_score" not in result
+
+
+@pytest.mark.asyncio
+async def test_dossier_writer_model_exception() -> None:
+    mock_model = MagicMock()
+    mock_model.ainvoke = AsyncMock(side_effect=RuntimeError("OpenAI quota exceeded"))
+
+    with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
+        result = await dossier_writer(_BASE_STATE)
+
+    assert "errors" in result
+    assert "model invocation failed" in result["errors"][0]
+    assert "OpenAI quota exceeded" in result["errors"][0]
+
+
+@pytest.mark.asyncio
+async def test_dossier_writer_clamps_fit_score() -> None:
+    for raw_score, expected in [(0, 1), (11, 10), (-5, 1), (100, 10)]:
+        resp = {**_DOSSIER_RESPONSE, "fit_score": raw_score}
+        mock_model = _make_model_mock(json.dumps(resp))
+
+        with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
+            result = await dossier_writer(_BASE_STATE)
+
+        got = result["fit_score"]
+        assert got == expected, f"score {raw_score} → expected {expected}, got {got}"

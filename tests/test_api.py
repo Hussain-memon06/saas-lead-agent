@@ -47,6 +47,9 @@ _GRAPH_RESULT: dict[str, Any] = {
     "company_profile": _PROFILE,
     "contact": _CONTACT,
     "signals": [],
+    "fit_score": 8,
+    "email_subject": "Quick question about Acme Corp",
+    "email_body": "Hi Alice, saw your recent Series A — congrats!",
     "errors": [],
 }
 
@@ -100,6 +103,9 @@ def test_qualify_response_defaults() -> None:
     assert resp.company_profile is None
     assert resp.contact is None
     assert resp.signals is None
+    assert resp.fit_score is None
+    assert resp.email_subject is None
+    assert resp.email_body is None
     assert resp.errors == []
 
 
@@ -123,6 +129,9 @@ async def test_qualify_happy_path() -> None:
     assert body["company_profile"]["name"] == "Acme Corp"
     assert body["contact"]["source"] == "stub"
     assert body["signals"] == []
+    assert body["fit_score"] == 8
+    assert body["email_subject"] == "Quick question about Acme Corp"
+    assert body["email_body"] == "Hi Alice, saw your recent Series A — congrats!"
     assert body["errors"] == []
 
 
