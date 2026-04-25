@@ -40,6 +40,12 @@ Multi-agent AI system for researching B2B SaaS companies (seed–Series B). Inpu
 - Langfuse: `from langfuse.langchain import CallbackHandler`
 - `langgraph-prebuilt` has shipped breaking changes on patch versions — pin every sub-package explicitly
 - Scraper needs realistic User-Agent headers or sites block requests
+- Postgres (AsyncPostgresSaver): import from `langgraph.checkpoint.postgres.aio`; driver is `psycopg[binary]` (psycopg3), NOT asyncpg
+- Postgres connection string format: `postgresql://user:pass@host:5432/dbname` (no `+asyncpg` suffix)
+- `AsyncPostgresSaver.from_conn_string(url)` is an async context manager — always use `async with`
+- `await checkpointer.setup()` runs idempotent DDL; call once on startup inside the context
+- `POSTGRES_URL` absent at runtime → lifespan falls back to InMemorySaver (dev/test mode)
+- Persistence tests (`tests/test_persistence.py`) skip automatically when `POSTGRES_URL` is unset
 
 ## Folder Structure
 src/saas_lead_agent/

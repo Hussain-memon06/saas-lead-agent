@@ -10,6 +10,9 @@ pausing the graph until a human resumes via ``Command(resume=<bool>)``.
 send_email is a Phase 2 stub that records the outcome.
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
@@ -65,7 +68,28 @@ def build_graph(
 def build_graph_with_memory() -> "CompiledStateGraph[LeadState, None, LeadState, LeadState]":
     """Convenience factory that attaches an ``InMemorySaver`` checkpointer.
 
-    Used by the FastAPI routes and manual testing.  Phase 2 will swap this
-    for ``AsyncPostgresSaver`` per ADR-001.
+    Used by tests and local dev without Postgres.
     """
     return build_graph(checkpointer=MemorySaver())
+
+
+@asynccontextmanager
+async def build_graph_with_postgres(
+    url: str | None = None,
+) -> AsyncIterator["CompiledStateGraph[LeadState, None, LeadState, LeadState]"]:
+    """Async context manager that yields a Postgres-backed compiled graph.
+
+    Opens a connection pool, runs idempotent DDL, yields the graph, then
+    closes the pool on exit.  Use inside a FastAPI lifespan or an async
+    ``with`` block:
+
+        async with build_graph_with_postgres(url) as graph:
+            result = await graph.ainvoke(...)
+
+    Args:
+        url: PostgreSQL DSN.  Defaults to the ``POSTGRES_URL`` env var.
+    """
+    from saas_lead_agent.memory.checkpointer import postgres_checkpointer
+
+    async with postgres_checkpointer(url) as checkpointer:
+        yield build_graph(checkpointer)

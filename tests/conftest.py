@@ -13,3 +13,5 @@ def pytest_configure() -> None:
     os.environ.setdefault("GOOGLE_API_KEY", "test-stub")
     os.environ.setdefault("OPENAI_API_KEY", "test-stub")
     os.environ.setdefault("HUNTER_API_KEY", "test-stub")
+    # Do NOT set POSTGRES_URL — absence causes persistence tests to skip and
+    # the lifespan to stay on InMemorySaver, so all existing tests run unchanged.
