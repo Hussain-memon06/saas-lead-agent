@@ -8,7 +8,7 @@ Strategy:
 """
 
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -106,6 +106,9 @@ def test_qualify_response_defaults() -> None:
     assert resp.fit_score is None
     assert resp.email_subject is None
     assert resp.email_body is None
+    assert resp.email_approved is None
+    assert resp.send_result is None
+    assert resp.interrupted is False
     assert resp.errors == []
 
 
@@ -247,3 +250,120 @@ async def test_qualify_ftp_url_returns_422() -> None:
         resp = await client.post("/api/qualify", json={"url": "ftp://acme.example.com"})
 
     assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# HITL — interrupted flag, /approve, /reject
+# ---------------------------------------------------------------------------
+
+
+def _make_graph_mock(
+    ainvoke_result: dict[str, Any],
+    next_nodes: tuple[str, ...] = (),
+) -> AsyncMock:
+    """Return an AsyncMock graph with controllable ainvoke + aget_state.
+
+    ``next_nodes`` populates ``snapshot.next`` — non-empty means the graph
+    is paused at an interrupt.
+    """
+    snapshot = MagicMock()
+    snapshot.next = next_nodes
+
+    mock = AsyncMock()
+    mock.ainvoke = AsyncMock(return_value=ainvoke_result)
+    mock.aget_state = AsyncMock(return_value=snapshot)
+    return mock
+
+
+@pytest.mark.asyncio
+async def test_qualify_returns_interrupted_true_when_paused() -> None:
+    """/qualify reports interrupted=True when the graph paused at await_approval."""
+    paused_result = {**_GRAPH_RESULT, "send_result": None}
+    mock_graph = _make_graph_mock(paused_result, next_nodes=("await_approval",))
+
+    with patch("saas_lead_agent.api.routes._graph", mock_graph):
+        async with await _client() as client:
+            resp = await client.post("/api/qualify", json={"url": "https://acme.example.com"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["interrupted"] is True
+    assert body["send_result"] is None
+
+
+@pytest.mark.asyncio
+async def test_qualify_returns_interrupted_false_when_complete() -> None:
+    """/qualify reports interrupted=False when the graph ran to END."""
+    complete_result = {**_GRAPH_RESULT, "send_result": "sent", "email_approved": True}
+    mock_graph = _make_graph_mock(complete_result, next_nodes=())
+
+    with patch("saas_lead_agent.api.routes._graph", mock_graph):
+        async with await _client() as client:
+            resp = await client.post("/api/qualify", json={"url": "https://acme.example.com"})
+
+    assert resp.status_code == 200
+    assert resp.json()["interrupted"] is False
+
+
+@pytest.mark.asyncio
+async def test_approve_resumes_graph_with_true() -> None:
+    """POST /api/leads/{thread_id}/approve calls ainvoke(Command(resume=True))."""
+    from langgraph.types import Command
+
+    resumed_result = {**_GRAPH_RESULT, "email_approved": True, "send_result": "sent"}
+    mock_graph = _make_graph_mock(resumed_result, next_nodes=())
+
+    with patch("saas_lead_agent.api.routes._graph", mock_graph):
+        async with await _client() as client:
+            resp = await client.post("/api/leads/lead:acme.example.com/approve")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["thread_id"] == "lead:acme.example.com"
+    assert body["email_approved"] is True
+    assert body["send_result"] == "sent"
+    assert body["interrupted"] is False
+
+    # Verify Command(resume=True) was passed
+    call_args = mock_graph.ainvoke.call_args
+    cmd = call_args.args[0]
+    assert isinstance(cmd, Command)
+    assert cmd.resume is True
+    # durability="sync" required for HITL per CLAUDE.md
+    assert call_args.kwargs.get("durability") == "sync"
+
+
+@pytest.mark.asyncio
+async def test_reject_resumes_graph_with_false() -> None:
+    """POST /api/leads/{thread_id}/reject calls ainvoke(Command(resume=False))."""
+    from langgraph.types import Command
+
+    rejected_result = {**_GRAPH_RESULT, "email_approved": False, "send_result": "rejected"}
+    mock_graph = _make_graph_mock(rejected_result, next_nodes=())
+
+    with patch("saas_lead_agent.api.routes._graph", mock_graph):
+        async with await _client() as client:
+            resp = await client.post("/api/leads/lead:acme.example.com/reject")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["email_approved"] is False
+    assert body["send_result"] == "rejected"
+
+    call_args = mock_graph.ainvoke.call_args
+    cmd = call_args.args[0]
+    assert isinstance(cmd, Command)
+    assert cmd.resume is False
+
+
+@pytest.mark.asyncio
+async def test_approve_returns_500_on_graph_failure() -> None:
+    mock_graph = AsyncMock()
+    mock_graph.ainvoke = AsyncMock(side_effect=RuntimeError("checkpointer down"))
+
+    with patch("saas_lead_agent.api.routes._graph", mock_graph):
+        async with await _client() as client:
+            resp = await client.post("/api/leads/lead:acme.example.com/approve")
+
+    assert resp.status_code == 500
+    assert "checkpointer down" in resp.json()["detail"]

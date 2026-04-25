@@ -29,4 +29,15 @@ class QualifyResponse(BaseModel):
     fit_score: int | None = None
     email_subject: str | None = None
     email_body: str | None = None
+    email_approved: bool | None = None
+    send_result: str | None = None
+    interrupted: bool = False
+    errors: list[str] = []
+
+
+class ApproveResponse(BaseModel):
+    thread_id: str
+    email_approved: bool | None = None
+    send_result: str | None = None
+    interrupted: bool = False
     errors: list[str] = []
