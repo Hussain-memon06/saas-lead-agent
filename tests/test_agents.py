@@ -16,6 +16,7 @@ from langchain_core.messages import AIMessage
 from saas_lead_agent.agents.company_researcher import company_researcher
 from saas_lead_agent.agents.contact_finder import contact_finder
 from saas_lead_agent.agents.dossier_writer import dossier_writer
+from saas_lead_agent.agents.send_email import send_email
 from saas_lead_agent.agents.signal_detector import signal_detector
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.utils import _extract_json, _extract_json_list
@@ -698,3 +699,92 @@ async def test_dossier_writer_clamps_fit_score() -> None:
 
         got = result["fit_score"]
         assert got == expected, f"score {raw_score} → expected {expected}, got {got}"
+
+
+# ===========================================================================
+# send_email node — delivery branches
+# ===========================================================================
+
+_APPROVED_STATE: LeadState = {
+    **_BASE_STATE,
+    "contact": {"email": "alice@acme.example.com", "name": "Alice"},
+    "email_subject": "Quick question",
+    "email_body": "Hi Alice,",
+    "email_approved": True,
+}
+
+
+@pytest.mark.asyncio
+async def test_send_email_rejected_when_not_approved() -> None:
+    """email_approved is None or False → send_result='rejected', no delivery."""
+    for approved in (None, False):
+        state = {**_APPROVED_STATE, "email_approved": approved}
+        result = await send_email(state)  # type: ignore[arg-type]
+        assert result == {"send_result": "rejected"}
+
+
+@pytest.mark.asyncio
+async def test_send_email_no_contact_when_email_missing() -> None:
+    """Approved but contact has no email → send_result='no_contact'."""
+    state = {**_APPROVED_STATE, "contact": {"name": "Alice", "email": None}}
+    result = await send_email(state)  # type: ignore[arg-type]
+    assert result == {"send_result": "no_contact"}
+
+
+@pytest.mark.asyncio
+async def test_send_email_no_contact_when_contact_dict_missing() -> None:
+    """Approved but contact dict is None → send_result='no_contact'."""
+    state = {**_APPROVED_STATE, "contact": None}
+    result = await send_email(state)  # type: ignore[arg-type]
+    assert result == {"send_result": "no_contact"}
+
+
+@pytest.mark.asyncio
+async def test_send_email_stub_mode_when_no_api_key() -> None:
+    """Approved + contact email but no SENDGRID_API_KEY → stub 'sent', no delivery."""
+    import os as _os
+    with patch.dict(_os.environ, {}, clear=False):
+        _os.environ.pop("SENDGRID_API_KEY", None)
+        result = await send_email(_APPROVED_STATE)  # type: ignore[arg-type]
+    assert result == {"send_result": "sent"}
+
+
+@pytest.mark.asyncio
+async def test_send_email_calls_sendgrid_on_success() -> None:
+    """Approved + key set → calls send_email_via_sendgrid, returns delivery metadata."""
+    import os as _os
+    fake_result = {
+        "status_code": 202,
+        "message_id": "msg-real-123",
+        "sent_at": "2026-04-25T12:00:00+00:00",
+    }
+    with patch.dict(_os.environ, {"SENDGRID_API_KEY": "SG.test"}, clear=False):
+        with patch(
+            "saas_lead_agent.agents.send_email.send_email_via_sendgrid",
+            new=AsyncMock(return_value=fake_result),
+        ) as mock_send:
+            result = await send_email(_APPROVED_STATE)  # type: ignore[arg-type]
+
+    mock_send.assert_awaited_once_with(
+        to="alice@acme.example.com",
+        subject="Quick question",
+        body="Hi Alice,",
+    )
+    assert result["send_result"] == "sent"
+    assert result["message_id"] == "msg-real-123"
+    assert result["sent_at"] == "2026-04-25T12:00:00+00:00"
+
+
+@pytest.mark.asyncio
+async def test_send_email_records_failure_on_sendgrid_error() -> None:
+    """SendGrid raises → send_result='failed' + error appended; node does not raise."""
+    import os as _os
+    with patch.dict(_os.environ, {"SENDGRID_API_KEY": "SG.test"}, clear=False):
+        with patch(
+            "saas_lead_agent.agents.send_email.send_email_via_sendgrid",
+            new=AsyncMock(side_effect=RuntimeError("non-2xx status 500")),
+        ):
+            result = await send_email(_APPROVED_STATE)  # type: ignore[arg-type]
+
+    assert result["send_result"] == "failed"
+    assert any("non-2xx status 500" in err for err in result["errors"])

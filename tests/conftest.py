@@ -15,3 +15,5 @@ def pytest_configure() -> None:
     os.environ.setdefault("HUNTER_API_KEY", "test-stub")
     # Do NOT set POSTGRES_URL — absence causes persistence tests to skip and
     # the lifespan to stay on InMemorySaver, so all existing tests run unchanged.
+    # Do NOT set SENDGRID_API_KEY — absence keeps send_email in stub mode so
+    # tests don't accidentally hit the real SendGrid API.

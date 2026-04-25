@@ -108,6 +108,8 @@ def test_qualify_response_defaults() -> None:
     assert resp.email_body is None
     assert resp.email_approved is None
     assert resp.send_result is None
+    assert resp.message_id is None
+    assert resp.sent_at is None
     assert resp.interrupted is False
     assert resp.errors == []
 

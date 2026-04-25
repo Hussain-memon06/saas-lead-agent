@@ -31,6 +31,8 @@ class QualifyResponse(BaseModel):
     email_body: str | None = None
     email_approved: bool | None = None
     send_result: str | None = None
+    message_id: str | None = None
+    sent_at: str | None = None
     interrupted: bool = False
     errors: list[str] = []
 
@@ -39,5 +41,7 @@ class ApproveResponse(BaseModel):
     thread_id: str
     email_approved: bool | None = None
     send_result: str | None = None
+    message_id: str | None = None
+    sent_at: str | None = None
     interrupted: bool = False
     errors: list[str] = []

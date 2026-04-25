@@ -67,6 +67,8 @@ async def qualify(body: QualifyRequest) -> QualifyResponse:
         "email_body": None,
         "email_approved": None,
         "send_result": None,
+        "message_id": None,
+        "sent_at": None,
         "errors": [],
     }
 
@@ -91,6 +93,8 @@ async def qualify(body: QualifyRequest) -> QualifyResponse:
         email_body=result.get("email_body"),
         email_approved=result.get("email_approved"),
         send_result=result.get("send_result"),
+        message_id=result.get("message_id"),
+        sent_at=result.get("sent_at"),
         interrupted=interrupted,
         errors=result.get("errors", []),
     )
@@ -116,6 +120,8 @@ async def _resume(thread_id: str, decision: bool) -> ApproveResponse:
         thread_id=thread_id,
         email_approved=result.get("email_approved"),
         send_result=result.get("send_result"),
+        message_id=result.get("message_id"),
+        sent_at=result.get("sent_at"),
         interrupted=interrupted,
         errors=result.get("errors", []),
     )

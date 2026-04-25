@@ -32,6 +32,8 @@ _BASE: LeadState = {
     "email_body": None,
     "email_approved": None,
     "send_result": None,
+    "message_id": None,
+    "sent_at": None,
     "errors": [],
 }
 
@@ -88,3 +90,12 @@ def test_hitl_fields_overwrite() -> None:
     )
     assert updated["email_approved"] is True
     assert updated["send_result"] == "sent"
+
+
+def test_delivery_fields_overwrite() -> None:
+    updated = _merge(
+        _BASE,
+        {"message_id": "msg-abc-123", "sent_at": "2026-04-25T12:00:00+00:00"},
+    )
+    assert updated["message_id"] == "msg-abc-123"
+    assert updated["sent_at"] == "2026-04-25T12:00:00+00:00"
