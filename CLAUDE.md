@@ -51,6 +51,11 @@ Multi-agent AI system for researching B2B SaaS companies (seed–Series B). Inpu
 - Wire callbacks at one place: `_config()` in `api/routes.py` adds `{"callbacks": [handler]}` so LangChain propagates traces through the whole graph
 - `LANGFUSE_PUBLIC_KEY` absent at runtime → handler is `None`, no callbacks attached, graph runs unchanged
 - Always call `flush_langfuse()` on shutdown (wired into the FastAPI lifespan) so buffered traces reach Langfuse before the worker exits
+- Chainlit v2: import `from chainlit.utils import mount_chainlit`; signature is `mount_chainlit(app, target, path='/chainlit')` where `target` is a filesystem path (not a Python import string)
+- Chainlit `cl.Action(name=..., payload={...}, label=...)` — `payload` is a required dict, NOT the legacy v1 `value: str` field
+- Chainlit must be mounted in `create_app()` AFTER `app.include_router(router)`; mounting earlier or replacing the API mount order breaks `/api/*` routes
+- Tests set `DISABLE_CHAINLIT=1` (in `tests/conftest.py`) so `create_app()` skips the Chainlit mount — keeps the FastAPI fixture free of socket.io / static-file side-effects
+- The Chainlit app shares the module-level `_routes._graph` via `from saas_lead_agent.api import routes as _routes`; this ensures HITL state lives in one place across REST and chat clients
 
 ## Folder Structure
 src/saas_lead_agent/

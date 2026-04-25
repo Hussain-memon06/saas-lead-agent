@@ -3,6 +3,7 @@
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 
@@ -37,13 +38,22 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         flush_langfuse()
 
 
+def _should_mount_chainlit() -> bool:
+    """Disable Chainlit mounting when DISABLE_CHAINLIT is truthy.
+
+    Tests set this in conftest so the FastAPI fixture stays cheap and free
+    of Chainlit's global socketio / file-server side-effects.
+    """
+    flag = os.environ.get("DISABLE_CHAINLIT", "").lower()
+    return flag not in ("1", "true", "yes")
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application.
 
-    Mounts the qualify router.  Chainlit UI will be mounted here in Phase 3
-    (after this router) per CLAUDE.md — do not mount it until then.
-
-    # TODO(phase-3): mount Chainlit at /chainlit AFTER all other routes
+    Mounts the qualify router first, then the Chainlit UI at ``/chainlit``.
+    The order is mandatory — mounting Chainlit before the router would
+    cause every ``/api/*`` route to 404 (CLAUDE.md).
     """
     app = FastAPI(
         title="SaaS Lead Research Agent",
@@ -51,7 +61,16 @@ def create_app() -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
     )
+    # 1. API router FIRST.
     app.include_router(router)
+
+    # 2. Chainlit UI LAST. Mounting before the router 404s every /api/* route.
+    if _should_mount_chainlit():
+        from chainlit.utils import mount_chainlit
+
+        target = str(Path(__file__).parent.parent / "ui" / "chainlit_app.py")
+        mount_chainlit(app=app, target=target, path="/chainlit")
+
     return app
 
 

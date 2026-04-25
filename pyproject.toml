@@ -29,6 +29,8 @@ dependencies = [
     "sendgrid>=6.11,<7.0",
     # Observability
     "langfuse>=3.0,<4.0",
+    # UI
+    "chainlit>=2.0,<3.0",
     # Env
     "python-dotenv>=1.0,<2.0",
 ]
@@ -60,6 +62,13 @@ select = ["E", "F", "I", "UP"]
 python_version = "3.11"
 strict = true
 ignore_missing_imports = true
+
+# Chainlit ships without type stubs; its decorators and Message/Action helpers
+# are untyped, which trips strict mode at every call site.  Relax the
+# untyped-call check for the UI module only.
+[[tool.mypy.overrides]]
+module = "saas_lead_agent.ui.chainlit_app"
+disallow_untyped_calls = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

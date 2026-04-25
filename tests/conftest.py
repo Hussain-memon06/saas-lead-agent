@@ -3,6 +3,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+# Set BEFORE any test module imports saas_lead_agent.api.main — the app
+# factory checks this flag at create_app() time.  Without it Chainlit would
+# load its global socket.io / static-file routes for every test session.
+os.environ.setdefault("DISABLE_CHAINLIT", "1")
+
 
 def pytest_configure() -> None:
     env_file = Path(__file__).parent.parent / ".env"

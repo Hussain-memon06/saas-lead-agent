@@ -28,6 +28,10 @@ venv/
 # Ruff
 .ruff_cache/
 
+# Chainlit auto-generated config + translations (regenerated on first run)
+.chainlit/
+.files/
+
 # IDE
 .vscode/
 .idea/
