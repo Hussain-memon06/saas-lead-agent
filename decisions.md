@@ -39,3 +39,17 @@ The fence-stripping + JSON-parse primitive was duplicated in `company_researcher
 and `orchestrator`. Moved to `saas_lead_agent/utils.py` as the canonical
 location. `contact_finder` and all future agents import from there.
 `_parse_orchestrator_output` retains its orchestrator-specific merge logic locally.
+
+## ADR-006 — `send_email` is a Phase 2 stub; real delivery deferred to Phase 3
+**Date:** 2026-04-25
+
+The `send_email` node in Phase 2 only records an outcome (`send_result =
+"sent" | "rejected"`) based on the HITL approval decision. Actual email
+delivery — SMTP, AWS SES, SendGrid, or similar — is intentionally deferred
+to Phase 3.
+
+Rationale: Phase 2 focuses on the agentic pipeline and HITL plumbing. Real
+delivery introduces transactional concerns (retries, bounces, suppression
+lists, DKIM/SPF) that warrant a dedicated phase rather than being bolted on.
+Default-deny semantics in the stub (`email_approved=None` → `"rejected"`) are
+preserved so Phase 3 can drop in real delivery without changing the contract.
