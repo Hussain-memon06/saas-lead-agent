@@ -1,0 +1,52 @@
+# Source control
+.git
+.gitignore
+.github
+
+# Python build artefacts
+__pycache__
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info
+dist
+build
+.eggs
+
+# Virtual envs (rebuilt inside the container)
+.venv
+venv
+.uv
+
+# Tooling caches
+.mypy_cache
+.pytest_cache
+.ruff_cache
+
+# IDE / OS
+.vscode
+.idea
+*.swp
+.DS_Store
+Thumbs.db
+
+# Secrets — never bake into the image
+.env
+.env.*
+!.env.example
+
+# Project-internal artefacts
+.chainlit
+.files
+.claude
+
+# Tests + specs not needed at runtime
+tests
+specs
+DEPLOYMENT.md
+
+# Editor / Docker meta
+Dockerfile
+docker-compose.yml
+.dockerignore

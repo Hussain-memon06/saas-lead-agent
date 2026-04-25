@@ -56,6 +56,12 @@ Multi-agent AI system for researching B2B SaaS companies (seed–Series B). Inpu
 - Chainlit must be mounted in `create_app()` AFTER `app.include_router(router)`; mounting earlier or replacing the API mount order breaks `/api/*` routes
 - Tests set `DISABLE_CHAINLIT=1` (in `tests/conftest.py`) so `create_app()` skips the Chainlit mount — keeps the FastAPI fixture free of socket.io / static-file side-effects
 - The Chainlit app shares the module-level `_routes._graph` via `from saas_lead_agent.api import routes as _routes`; this ensures HITL state lives in one place across REST and chat clients
+- Dockerfile is multi-stage (`builder` → `runtime`); only `libpq5` ships in the final image, no compilers
+- Cloud Run injects `$PORT`; the Dockerfile CMD uses `${PORT:-8080}` so the same image runs locally on 8080 and on Cloud Run on whatever port it assigns
+- Cloud Run requires non-root containers — Dockerfile runs as `app` (uid 1000)
+- Never bake secrets into the image; `.dockerignore` excludes `.env*`. In Cloud Run, inject via `--set-secrets=NAME=SECRET:latest` (Secret Manager) — see `DEPLOYMENT.md`
+- `docker-compose.yml` includes a one-shot `migrate` service that runs `AsyncPostgresSaver.setup()` before the app starts; the lifespan also calls `setup()` so it's belt-and-suspenders
+- `tests/test_docker.py` real-build test auto-skips when `docker` is not on PATH; CI / pre-release should run it where docker is available
 
 ## Folder Structure
 src/saas_lead_agent/

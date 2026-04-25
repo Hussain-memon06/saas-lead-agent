@@ -1,0 +1,67 @@
+# Local dev stack: Postgres + one-shot migrate + app.
+#
+# Usage:
+#   docker compose up --build
+#   curl -X POST http://localhost:8080/api/qualify \
+#       -H 'Content-Type: application/json' -d '{"url":"https://stripe.com"}'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: saas_lead
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: saas_lead
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saas_lead -d saas_lead"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: runs AsyncPostgresSaver.setup() (idempotent DDL) so the app
+  # comes up clean even on the first ever boot.  Same setup() also fires
+  # in the app's lifespan, so this service is belt-and-suspenders.
+  migrate:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_URL: postgresql://saas_lead:password@postgres:5432/saas_lead
+    command:
+      - python
+      - -c
+      - |
+        import asyncio
+        from saas_lead_agent.memory.checkpointer import postgres_checkpointer
+        async def _migrate():
+            async with postgres_checkpointer() as _cp:
+                pass  # setup() already ran inside the context manager
+        asyncio.run(_migrate())
+        print("Postgres migrations complete")
+    restart: "no"
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      POSTGRES_URL: postgresql://saas_lead:password@postgres:5432/saas_lead
+      # Override env_file entries that are wrong for in-cluster networking.
+      # User can still set OPENAI_API_KEY etc. in .env.
+    restart: unless-stopped
+
+volumes:
+  pgdata:
