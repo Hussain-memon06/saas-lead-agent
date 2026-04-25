@@ -13,23 +13,28 @@ from saas_lead_agent.graph import build_graph
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Manage Postgres connection pool for the application lifetime.
+    """Manage Postgres + Langfuse lifecycles for the application.
 
-    If ``POSTGRES_URL`` is set, swaps the module-level ``_graph`` in
-    routes.py from InMemorySaver to AsyncPostgresSaver.  If not set,
-    InMemorySaver stays (dev / test mode — no Postgres required).
+    - ``POSTGRES_URL`` set → swap ``_routes._graph`` from InMemorySaver to
+      AsyncPostgresSaver.  Connection pool is closed on shutdown.
+    - ``LANGFUSE_PUBLIC_KEY`` set → flush buffered traces on shutdown so no
+      events are lost when the worker exits.
+    - Either / both unset → no-op fallback (dev / test mode).
     """
-    postgres_url = os.environ.get("POSTGRES_URL")
-    if postgres_url:
-        from saas_lead_agent.memory.checkpointer import postgres_checkpointer
+    from saas_lead_agent.memory.langfuse_handler import flush_langfuse
 
-        async with postgres_checkpointer(postgres_url) as checkpointer:
-            _routes._graph = build_graph(checkpointer)
+    postgres_url = os.environ.get("POSTGRES_URL")
+    try:
+        if postgres_url:
+            from saas_lead_agent.memory.checkpointer import postgres_checkpointer
+
+            async with postgres_checkpointer(postgres_url) as checkpointer:
+                _routes._graph = build_graph(checkpointer)
+                yield
+        else:
             yield
-        # Pool closes here; _graph is now pointing at a closed connection.
-        # In production the process exits after yield anyway.
-    else:
-        yield
+    finally:
+        flush_langfuse()
 
 
 def create_app() -> FastAPI:

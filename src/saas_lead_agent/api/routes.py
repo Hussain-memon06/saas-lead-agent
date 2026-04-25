@@ -1,6 +1,6 @@
 """Lead-research API endpoints — qualify, approve, reject."""
 
-from typing import cast
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException, status
@@ -9,6 +9,7 @@ from langgraph.types import Command
 
 from saas_lead_agent.api.schemas import ApproveResponse, QualifyRequest, QualifyResponse
 from saas_lead_agent.graph import build_graph_with_memory
+from saas_lead_agent.memory.langfuse_handler import get_langfuse_handler
 from saas_lead_agent.state import LeadState
 
 router = APIRouter()
@@ -24,7 +25,18 @@ def _domain_from_url(url: str) -> str:
 
 
 def _config(thread_id: str) -> RunnableConfig:
-    return cast(RunnableConfig, {"configurable": {"thread_id": thread_id}})
+    """Build a RunnableConfig with Langfuse callback attached when configured.
+
+    LangChain propagates ``callbacks`` through every nested Runnable, so
+    threading the handler in here is enough to trace the whole graph.  When
+    ``LANGFUSE_PUBLIC_KEY`` is unset, ``get_langfuse_handler()`` returns
+    ``None`` and the key is omitted entirely.
+    """
+    cfg: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
+    handler = get_langfuse_handler()
+    if handler is not None:
+        cfg["callbacks"] = [handler]
+    return cast(RunnableConfig, cfg)
 
 
 async def _is_interrupted(thread_id: str) -> bool:

@@ -17,3 +17,5 @@ def pytest_configure() -> None:
     # the lifespan to stay on InMemorySaver, so all existing tests run unchanged.
     # Do NOT set SENDGRID_API_KEY — absence keeps send_email in stub mode so
     # tests don't accidentally hit the real SendGrid API.
+    # Do NOT set LANGFUSE_PUBLIC_KEY — absence keeps the callback handler at
+    # None so no traces are emitted from test runs.

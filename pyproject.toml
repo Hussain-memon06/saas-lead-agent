@@ -27,6 +27,8 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0,<3.0",
     # Email delivery
     "sendgrid>=6.11,<7.0",
+    # Observability
+    "langfuse>=3.0,<4.0",
     # Env
     "python-dotenv>=1.0,<2.0",
 ]

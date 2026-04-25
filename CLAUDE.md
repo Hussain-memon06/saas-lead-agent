@@ -46,6 +46,11 @@ Multi-agent AI system for researching B2B SaaS companies (seed–Series B). Inpu
 - `await checkpointer.setup()` runs idempotent DDL; call once on startup inside the context
 - `POSTGRES_URL` absent at runtime → lifespan falls back to InMemorySaver (dev/test mode)
 - Persistence tests (`tests/test_persistence.py`) skip automatically when `POSTGRES_URL` is unset
+- Langfuse v3: `Langfuse(public_key=..., secret_key=..., host=...)` initialises the global client; `CallbackHandler()` then uses it
+- Langfuse handler is a *singleton* in `memory/langfuse_handler.py` — get via `get_langfuse_handler()`, reset only in tests
+- Wire callbacks at one place: `_config()` in `api/routes.py` adds `{"callbacks": [handler]}` so LangChain propagates traces through the whole graph
+- `LANGFUSE_PUBLIC_KEY` absent at runtime → handler is `None`, no callbacks attached, graph runs unchanged
+- Always call `flush_langfuse()` on shutdown (wired into the FastAPI lifespan) so buffered traces reach Langfuse before the worker exits
 
 ## Folder Structure
 src/saas_lead_agent/
