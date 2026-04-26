@@ -30,40 +30,59 @@ Spec: specs/done/phase-1-skeleton.md
 
 Specs: specs/done/phase-2-master-plan.md and step-by-step files
 
-## Phase 3 — Production Hardening [TODO]
+## Phase 3 — Production Hardening [DONE]
 
-### Real email delivery (replaces Phase 2 stub per ADR-006)
-- [ ] tools/mailer.py: SMTP or SES/SendGrid wrapper as @tool
-- [ ] send_email node: replace stub with real delivery; capture provider message_id
-- [ ] LeadState: add message_id, sent_at fields
-- [ ] Bounce/suppression handling (provider webhook → state update)
+- [x] AsyncPostgresSaver via lifespan; 5 integration tests skip without POSTGRES_URL (36251d4)
+- [x] SendGrid email delivery; 5-branch send_email node; 14 new tests (f9fbc55)
+- [x] Langfuse v3 None-safe singleton; CallbackHandler wired into _config(); 12 tests (b1e1823)
+- [x] Chainlit v2 mounted at /chainlit AFTER router; DISABLE_CHAINLIT flag for tests; 19 tests (9ab6286)
+- [x] Dockerfile (multi-stage) + docker-compose.yml + .dockerignore + DEPLOYMENT.md; 17 tests (f22094e)
+- [x] Final state: ruff + mypy (27 files) + pytest (181 tests, 6 skipped) all green
+- [x] ADRs 007–010 logged in decisions.md
+- [x] Phase 3 specs moved to specs/done/
 
-### Persistence (ADR-001 fulfillment)
-- [ ] AsyncPostgresSaver: swap InMemorySaver for Supabase Postgres
-- [ ] FastAPI lifespan context to manage DB connection lifecycle
-- [ ] Migration: `await checkpointer.setup()` (idempotent)
-- [ ] SUPABASE_DB_URL in .env.example; conftest stays on InMemorySaver
+Specs: specs/done/phase-3-master-plan.md and step-by-step files
 
-### Observability
-- [ ] Langfuse v3 CallbackHandler on every agent ainvoke
-- [ ] LANGFUSE_PUBLIC_KEY / SECRET_KEY / HOST in .env.example
-- [ ] None-safe handler: missing keys disable tracing without breaking graph
+### Manual smoke tests still owed (require infra)
 
-### UI (ADR-002 fulfillment)
-- [ ] Chainlit v2 cl_app.py: paste URL → stream dossier → AskActionMessage
-      for approve/reject → call resume endpoint
-- [ ] Mount Chainlit at /chainlit in api/main.py LAST per CLAUDE.md
-- [ ] Smoke test: full flow in browser
+- [ ] Postgres persistence: `POSTGRES_URL=... uv run pytest tests/test_persistence.py -v`
+- [ ] SendGrid delivery: full /qualify → /approve flow against a test inbox
+- [ ] Langfuse: confirm trace appears in dashboard with all spans nested
+- [ ] Chainlit UI: full flow in browser at http://localhost:8080/chainlit
+- [ ] Docker build: `docker build .` on a machine with docker installed
+- [ ] Cloud Run deploy: follow DEPLOYMENT.md end-to-end on a real GCP project
 
-### Deployment
-- [ ] Dockerfile (uv-based, Python 3.11, multi-stage)
-- [ ] docker-compose.yml with Postgres for local dev
-- [ ] CI: ruff + mypy + pytest on every PR
-- [ ] Production deployment target (Fly.io / Railway / AWS — TBD)
-- [ ] Secret management strategy (.env not shipped to prod)
+## Phase 4 — Operate & Iterate [TODO]
 
-### Quality / safety
-- [ ] Rate limiting on /api/qualify (Tavily + Hunter quotas)
-- [ ] End-to-end smoke test on a real company URL (Stripe, Vercel, etc.)
-- [ ] Fit-score calibration: review 20+ real runs, tune prompt
-- [ ] PII handling: never send real client emails through Gemini free tier (CLAUDE.md gotcha)
+### Monitoring & alerting
+- [ ] Cloud Run uptime check + alert on 5xx rate > 1% / 5 min
+- [ ] Langfuse dashboard: per-agent latency p95, token cost per qualify
+- [ ] SendGrid bounce/complaint webhook → state update + alert on >2% rate
+- [ ] Postgres slow-query log review (any qualify > 30s gets a span dump)
+
+### Scaling & cost
+- [ ] Cold-start measurement at min-instances=0 vs 1 (decide tradeoff)
+- [ ] Per-domain rate limiting on /api/qualify (Tavily + Hunter quotas)
+- [ ] Concurrency tuning — measure single-instance throughput before raising max-instances
+- [ ] Image size diet: drop unused LangChain/OTel sub-packages if cold-start hurts
+- [ ] Cache hit-rate review: company profile cache for repeat-domain qualifies?
+
+### Quality & safety
+- [ ] Fit-score calibration: review 20+ real runs, tune the dossier_writer prompt
+- [ ] Hallucination audit: spot-check 50 signals for off-domain leakage
+- [ ] PII review: confirm no real client emails leak into Langfuse traces unredacted
+- [ ] Email-domain reputation monitoring (SPF / DKIM / DMARC compliance check)
+- [ ] Suppression list ingest: anyone who replies "stop" added automatically
+
+### Features
+- [ ] Bulk qualify: POST /api/qualify accepts a CSV of URLs
+- [ ] Slack notification on each approve/reject decision
+- [ ] HubSpot/Salesforce integration: write the dossier as a CRM record
+- [ ] Reply detection: SendGrid inbound parse → mark thread "replied"
+- [ ] Custom email templates per ICP segment
+
+### CI/CD
+- [ ] GitHub Actions: ruff + mypy + pytest on every PR
+- [ ] Block merge to main on red CI
+- [ ] Auto-build + push image on tag push (`v0.x.y`)
+- [ ] Staging Cloud Run service for pre-production smoke tests
