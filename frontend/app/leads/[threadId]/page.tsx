@@ -13,6 +13,7 @@ import { SignalsList } from "@/components/signals-list";
 import { FitScoreBadge } from "@/components/fit-score-badge";
 import { EmailPreview } from "@/components/email-preview";
 import { ErrorBanner } from "@/components/error-banner";
+import { DecisionButtons } from "@/components/decision-buttons";
 
 export default function LeadPage() {
   const params = useParams<{ threadId: string }>();
@@ -105,12 +106,17 @@ export default function LeadPage() {
         </div>
       </div>
 
-      {/* Email draft — full width */}
-      <EmailPreview
-        subject={data.email_subject}
-        body={data.email_body}
-        recipientEmail={data.contact?.email}
-      />
+      {/* Email draft + decision gate — full width */}
+      <div className="space-y-4">
+        <EmailPreview
+          subject={data.email_subject}
+          body={data.email_body}
+          recipientEmail={data.contact?.email}
+        />
+        {(data.interrupted || data.send_result) && (
+          <DecisionButtons threadId={threadId} state={data} />
+        )}
+      </div>
 
       {data.errors.length > 0 && data.interrupted && (
         <ErrorBanner
