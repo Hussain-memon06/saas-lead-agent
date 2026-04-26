@@ -1,0 +1,125 @@
+/**
+ * Typed fetch wrappers for the FastAPI backend.
+ *
+ * Three endpoints, all POST:
+ *   /api/qualify                            { url } -> QualifyResponse
+ *   /api/leads/{thread_id}/approve          (no body) -> ApproveResponse
+ *   /api/leads/{thread_id}/reject           (no body) -> ApproveResponse
+ *
+ * thread_id format is `lead:{domain}` — the colon must be URL-encoded
+ * (handled here, callers pass it raw).
+ *
+ * Qualify can take 60-90 s; we set a 120 s AbortController timeout so a
+ * stuck backend doesn't hang the tab forever.
+ */
+
+import { apiUrl } from "./api-base";
+import type {
+  ApproveResponse,
+  QualifyRequest,
+  QualifyResponse,
+} from "./types";
+
+const QUALIFY_TIMEOUT_MS = 120_000;
+const RESUME_TIMEOUT_MS = 60_000;
+
+/** Thrown when the backend returns a non-2xx response. */
+export class ApiError extends Error {
+  status: number;
+  detail?: string;
+  errors?: string[];
+
+  constructor(status: number, message: string, detail?: string, errors?: string[]) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+    this.errors = errors;
+  }
+}
+
+async function postJson<TResponse>(
+  path: string,
+  body: unknown,
+  timeoutMs: number,
+): Promise<TResponse> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(apiUrl(path), {
+      method: "POST",
+      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new ApiError(
+        0,
+        `Request timed out after ${Math.round(timeoutMs / 1000)} s`,
+      );
+    }
+    throw new ApiError(
+      0,
+      err instanceof Error ? err.message : "Network error",
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!response.ok) {
+    // Try to parse FastAPI / Pydantic error body for a helpful message.
+    let detail: string | undefined;
+    let errors: string[] | undefined;
+    try {
+      const payload = (await response.json()) as {
+        detail?: string | { msg?: string }[];
+        errors?: string[];
+      };
+      if (typeof payload.detail === "string") {
+        detail = payload.detail;
+      } else if (Array.isArray(payload.detail)) {
+        // Pydantic validation errors
+        detail = payload.detail
+          .map((d) => d?.msg)
+          .filter(Boolean)
+          .join("; ");
+      }
+      errors = payload.errors;
+    } catch {
+      // body was not JSON — leave detail undefined
+    }
+    throw new ApiError(
+      response.status,
+      detail || `Request failed with status ${response.status}`,
+      detail,
+      errors,
+    );
+  }
+
+  return (await response.json()) as TResponse;
+}
+
+export async function qualify(req: QualifyRequest): Promise<QualifyResponse> {
+  return postJson<QualifyResponse>("/api/qualify", req, QUALIFY_TIMEOUT_MS);
+}
+
+export async function approve(threadId: string): Promise<ApproveResponse> {
+  const encoded = encodeURIComponent(threadId);
+  return postJson<ApproveResponse>(
+    `/api/leads/${encoded}/approve`,
+    undefined,
+    RESUME_TIMEOUT_MS,
+  );
+}
+
+export async function reject(threadId: string): Promise<ApproveResponse> {
+  const encoded = encodeURIComponent(threadId);
+  return postJson<ApproveResponse>(
+    `/api/leads/${encoded}/reject`,
+    undefined,
+    RESUME_TIMEOUT_MS,
+  );
+}
