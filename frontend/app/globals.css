@@ -53,4 +53,44 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Subtle dotted grid for hero backdrops (Linear-style).  The dot
+     colour is the muted-foreground HSL with reduced alpha so it sits
+     very gently behind content. */
+  .bg-grid-dots {
+    background-image: radial-gradient(
+      hsl(215 16% 47% / 0.18) 1px,
+      transparent 1px
+    );
+    background-size: 22px 22px;
+  }
+
+  /* Soft indigo halo for the hero — a wide radial fading from the
+     primary tint into the page background. Layered on top of
+     bg-grid-dots via the `before:` pseudo-element on the hero. */
+  .bg-hero-halo {
+    background-image:
+      radial-gradient(
+        80% 60% at 50% 0%,
+        hsl(239 84% 60% / 0.12) 0%,
+        hsl(239 84% 60% / 0) 70%
+      );
+  }
+
+  /* Mask that fades a background out near the bottom edge so the
+     pattern doesn't slam into the next section. */
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      black 0%,
+      black 60%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      black 0%,
+      black 60%,
+      transparent 100%
+    );
+  }
 }
