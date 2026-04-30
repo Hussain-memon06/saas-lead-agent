@@ -15,8 +15,8 @@ Multi-agent AI system for researching B2B SaaS companies (seed–Series B). Inpu
 
 ## Architecture Rules
 - State: `TypedDict` with `Annotated` reducers, never Pydantic
-- Supervisor: tool-calling pattern via `langchain.agents.create_agent`, never `create_supervisor`
-- Run company_researcher + contact_finder + signal_detector in parallel (one super-step)
+- Run company_researcher → contact_finder → signal_detector sequentially
+  (parallel fan-out trips Tier 1 OpenAI rate limits — see ADR-011)
 - Human-in-the-loop: `interrupt()` before email send; resume with `Command(resume=...)`
 - thread_id format: `lead:{domain}`
 - Durability: `"async"` default, `"sync"` around interrupts
@@ -67,7 +67,7 @@ Multi-agent AI system for researching B2B SaaS companies (seed–Series B). Inpu
 src/saas_lead_agent/
 graph.py            # StateGraph assembly
 state.py            # TypedDict LeadState
-agents/             # orchestrator, company_researcher, contact_finder, signal_detector, dossier_writer
+agents/             # company_researcher, contact_finder, signal_detector, dossier_writer, await_approval, send_email
 tools/              # web_search, scraper, hunter
 memory/             # checkpointer, store
 api/                # main (FastAPI+Chainlit mount), routes, schemas

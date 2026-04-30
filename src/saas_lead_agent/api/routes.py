@@ -57,7 +57,9 @@ async def _is_interrupted(thread_id: str) -> bool:
 async def qualify(body: QualifyRequest) -> QualifyResponse:
     """Invoke the lead-research graph for a given company URL.
 
-    Runs orchestrator → research subagents → dossier_writer → await_approval.
+    Runs company_researcher → contact_finder → signal_detector →
+    dossier_writer → await_approval (sequential to stay under Tier 1 OpenAI
+    rate limits).
     The graph pauses at ``await_approval`` (interrupt) and the response carries
     ``interrupted=True``.  The client then calls ``/api/leads/{thread_id}/approve``
     or ``/reject`` to resume.

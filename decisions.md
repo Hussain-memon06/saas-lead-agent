@@ -142,3 +142,47 @@ excludes all `.env*` files from the build context. At deploy time
 Rotation is `gcloud secrets versions add NAME --data-file=-` followed by a
 re-deploy; revisions are immutable so a rollback is one `update-traffic`
 command away.
+
+## ADR-011 — Sequential research chain replaces parallel fan-out via orchestrator
+
+Date: 2026-04-30
+
+**Decision.** The research subagents (company_researcher, contact_finder,
+signal_detector) now run sequentially as direct edges in the StateGraph:
+START → company_researcher → contact_finder → signal_detector →
+dossier_writer → await_approval → send_email → END. The orchestrator
+node (a `create_agent` ReAct loop that dispatched the three subagents
+via parallel tool calls) is removed entirely.
+
+**Why.** The fan-out topology was burst-firing the OpenAI API from a
+single LangGraph super-step. Each subagent issues 3–6 chat completions
+and 1–N tool calls; three running concurrently routinely exceeded Tier 1
+RPM limits and produced 429 errors mid-pipeline. The orchestrator itself
+added a fourth concurrent caller (an LLM whose only job was to emit
+three tool calls) for no real value — it was a dispatcher dressed up as
+an agent.
+
+**Tradeoff.** Wall-clock time goes up: each subagent now waits for the
+previous to finish instead of running concurrently, so a qualify call
+that took ~45 s in parallel now takes ~75–90 s. Acceptable because the
+human still has to review the dossier afterward; total time-to-decision
+is dominated by the human gate, not the research phase. Reliability
+matters more than 30 s of wall clock when a 429 mid-run produces a
+half-populated dossier.
+
+**Discarded alternatives.**
+- *Keep orchestrator, add retry/backoff.* Bolting tenacity onto the
+  ReAct loop is fragile — `create_agent` swallows tool exceptions into
+  the message thread, so a 429 surfaces as a confused model rather than
+  a clean retryable error.
+- *Move to Tier 2 OpenAI quota.* Buys headroom but doesn't fix the
+  underlying issue — Gemini and Tavily both have their own per-second
+  caps and parallel fan-out hammers them too.
+- *Manually rate-limit inside the orchestrator.* Equivalent to running
+  sequentially, with strictly more code.
+
+The orchestrator file (`agents/orchestrator.py`) and its tests
+(`tests/test_orchestrator.py`) are deleted. `graph.py` lost ~5 lines
+(no more `_SUBAGENT_NODES` constant or fan-in edge list); test_graph.py
+gained a `test_graph_research_nodes_called_in_order` assertion that
+locks the new contract.
