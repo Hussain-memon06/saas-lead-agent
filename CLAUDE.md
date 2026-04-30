@@ -24,7 +24,7 @@ Multi-agent AI system for researching B2B SaaS companies (seed–Series B). Inpu
 
 ## Commands
 - Install: `uv sync`
-- Run: `uv run uvicorn src.saas_lead_agent.api.main:app --reload --port 8080`
+- Run: `uv run uvicorn src.saas_lead_agent.api.main:app --reload --port 8080 --timeout-keep-alive 120`
 - Test: `uv run pytest -x --ff`
 - Lint: `uv run ruff check`
 - Type check: `uv run mypy src/`

@@ -25,7 +25,7 @@ From the repo root:
 
 ```bash
 uv sync
-uv run uvicorn src.saas_lead_agent.api.main:app --reload --port 8080
+uv run uvicorn src.saas_lead_agent.api.main:app --reload --port 8080 --timeout-keep-alive 120
 ```
 
 You'll need a `.env` at the repo root with at minimum:

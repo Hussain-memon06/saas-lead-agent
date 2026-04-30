@@ -16,6 +16,14 @@ const nextConfig = {
       },
     ];
   },
+  // /api/qualify takes 60-90 s to return (sequential research chain).
+  // Next's default upstream proxy timeout is 30 s, which surfaces as
+  // ECONNRESET in the browser long before the backend finishes. Bump
+  // it to 120 s so the proxy waits as long as our client-side
+  // AbortController does.
+  experimental: {
+    proxyTimeout: 120_000,
+  },
 };
 
 export default nextConfig;
