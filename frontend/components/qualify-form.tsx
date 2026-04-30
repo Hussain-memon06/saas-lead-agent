@@ -95,7 +95,11 @@ export function QualifyForm() {
           </Button>
         </div>
         {form.formState.errors.url && (
-          <p id="url-error" className="text-sm text-destructive">
+          <p
+            id="url-error"
+            role="alert"
+            className="text-sm text-destructive"
+          >
             {form.formState.errors.url.message}
           </p>
         )}
