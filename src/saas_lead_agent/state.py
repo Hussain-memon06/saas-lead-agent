@@ -14,6 +14,7 @@ class LeadState(TypedDict):
     contact: dict[str, Any] | None
     signals: list[dict[str, Any]] | None
     fit_score: int | None
+    score_explanation: str | None
     email_subject: str | None
     email_body: str | None
     email_approved: bool | None

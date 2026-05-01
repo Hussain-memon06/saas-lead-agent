@@ -32,6 +32,7 @@ _BASE_INPUT: LeadState = {
     "contact": None,
     "signals": None,
     "fit_score": None,
+    "score_explanation": None,
     "email_subject": None,
     "email_body": None,
     "errors": [],

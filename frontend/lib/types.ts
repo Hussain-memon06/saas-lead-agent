@@ -64,6 +64,7 @@ export type QualifyResponse = {
   contact: Contact | null;
   signals: Signal[] | null;
   fit_score: number | null; // 1-10
+  score_explanation: string | null; // e.g. "9/10 — B2B SaaS ✅, Series C ✅, …"
   email_subject: string | null;
   email_body: string | null;
   email_approved: boolean | null;

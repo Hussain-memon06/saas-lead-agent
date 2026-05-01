@@ -611,7 +611,7 @@ async def test_signal_detector_returns_empty_when_all_off_domain() -> None:
 
 _DOSSIER_RESPONSE: dict[str, Any] = {
     "fit_score": 8,
-    "fit_rationale": "Series A SaaS company in target segment",
+    "score_explanation": "8/10 — B2B SaaS ✅, Series A ✅, US ✅, hiring SDRs ✅",
     "email_subject": "Quick question about Acme Corp",
     "email_body": "Hi Alice, saw your recent funding round — congrats!",
 }
@@ -632,8 +632,23 @@ async def test_dossier_writer_happy_path() -> None:
         result = await dossier_writer(_BASE_STATE)
 
     assert result["fit_score"] == 8
+    assert result["score_explanation"] == "8/10 — B2B SaaS ✅, Series A ✅, US ✅, hiring SDRs ✅"
     assert result["email_subject"] == "Quick question about Acme Corp"
     assert result["email_body"] == "Hi Alice, saw your recent funding round — congrats!"
+    assert "errors" not in result
+
+
+@pytest.mark.asyncio
+async def test_dossier_writer_score_explanation_defaults_to_empty_when_missing() -> None:
+    """If the model omits score_explanation, fall back to '' rather than crash."""
+    payload = {k: v for k, v in _DOSSIER_RESPONSE.items() if k != "score_explanation"}
+    mock_model = _make_model_mock(json.dumps(payload))
+
+    with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
+        result = await dossier_writer(_BASE_STATE)
+
+    assert result["fit_score"] == 8
+    assert result["score_explanation"] == ""
     assert "errors" not in result
 
 
