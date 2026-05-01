@@ -113,13 +113,16 @@ function CheckboxGroup({
 
 export default function SettingsPage() {
   const [icp, setIcp] = useState<IcpContext>(EMPTY_ICP);
-  const [hydrated, setHydrated] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
+  // localStorage is only available in the browser.  Reading it lives in
+  // an effect so the SSR markup and the first client render match —
+  // we guard render until the effect has run, then swap to the real form.
   useEffect(() => {
     const stored = loadIcp();
     if (stored) setIcp(stored);
-    setHydrated(true);
+    setMounted(true);
   }, []);
 
   const update = useMemo(
@@ -143,10 +146,9 @@ export default function SettingsPage() {
   }
 
   // Hide the form briefly to avoid a flash of EMPTY_ICP before localStorage
-  // has been read on the client.
-  if (!hydrated) {
-    return <div className="mx-auto max-w-3xl px-6 py-16" aria-hidden />;
-  }
+  // has been read on the client, and so the SSR HTML matches the first
+  // client render before useEffect populates the saved values.
+  if (!mounted) return null;
 
   return (
     <div className="mx-auto max-w-3xl space-y-10 px-6 py-12">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Settings } from "lucide-react";
 
@@ -26,11 +27,18 @@ function GithubMark({ className }: { className?: string }) {
 }
 
 function IcpStatusBadge() {
+  const [mounted, setMounted] = useState(false);
   const { configured } = useIcp();
 
-  // Pre-hydration: render nothing so SSR markup matches client.  The badge
-  // appears once useEffect inside useIcp() reads localStorage.
-  if (typeof window === "undefined") return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // The badge depends on localStorage (read inside useIcp), which doesn't
+  // exist during SSR.  Returning null on both the server render and the
+  // first client render keeps the markup identical, then the badge mounts
+  // after hydration and reflects the real value.
+  if (!mounted) return null;
 
   if (configured) {
     return (
