@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 
 import type { QualifyResponse } from "@/lib/types";
+import { useIcp } from "@/lib/icp";
 import { Button } from "@/components/ui/button";
 import { DossierCard } from "@/components/dossier-card";
 import { ContactCard } from "@/components/contact-card";
@@ -18,6 +19,7 @@ import { DecisionButtons } from "@/components/decision-buttons";
 export default function LeadPage() {
   const params = useParams<{ threadId: string }>();
   const threadId = decodeURIComponent(params.threadId);
+  const { configured: icpConfigured } = useIcp();
 
   // Read the cache seeded by the qualify form.  Direct loads / hard refreshes
   // hit this with no cached data — we render an empty state in that case.
@@ -89,12 +91,43 @@ export default function LeadPage() {
         />
       )}
 
+      {/* ICP-not-set warning — only when the user hasn't configured one. */}
+      {!icpConfigured && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4"
+        >
+          <AlertTriangle
+            className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"
+            aria-hidden
+          />
+          <div className="min-w-0 flex-1 space-y-1 text-sm">
+            <p className="font-medium text-foreground">
+              You haven&apos;t set your ICP yet
+            </p>
+            <p className="text-muted-foreground">
+              <Link
+                href="/settings"
+                className="font-medium text-amber-700 underline-offset-2 hover:underline"
+              >
+                Configure now →
+              </Link>{" "}
+              for a score tailored to your targets.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Fit score — full-width strip */}
       <section className="rounded-lg border border-border/60 bg-card p-6">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Fit score
         </p>
-        <FitScoreBadge score={data.fit_score} />
+        <FitScoreBadge
+          score={data.fit_score}
+          explanation={data.score_explanation}
+        />
       </section>
 
       {/* Two-column on desktop: dossier + (contact stack) */}

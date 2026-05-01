@@ -189,6 +189,7 @@ async def test_postgres_checkpointer_helper() -> None:
                 {
                     "company_url": "https://example.com",
                     "domain": "example.com",
+                    "icp_context": None,
                     "messages": [],
                     "company_profile": None,
                     "contact": None,

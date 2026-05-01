@@ -94,6 +94,22 @@ def test_qualify_request_rejects_empty_string() -> None:
         QualifyRequest(url="")
 
 
+def test_qualify_request_icp_context_defaults_to_none() -> None:
+    req = QualifyRequest(url="https://acme.example.com")
+    assert req.icp_context is None
+
+
+def test_qualify_request_accepts_icp_context() -> None:
+    req = QualifyRequest(
+        url="https://acme.example.com",
+        icp_context={"target_industries": ["B2B SaaS"], "value_proposition": "..."},
+    )
+    assert req.icp_context == {
+        "target_industries": ["B2B SaaS"],
+        "value_proposition": "...",
+    }
+
+
 # ---------------------------------------------------------------------------
 # QualifyResponse schema
 # ---------------------------------------------------------------------------
@@ -187,11 +203,35 @@ async def test_qualify_passes_correct_state_to_graph() -> None:
     state = call_args.args[0]
     assert state["company_url"] == "https://acme.example.com"
     assert state["domain"] == "acme.example.com"
+    assert state["icp_context"] is None
     assert state["company_profile"] is None
     assert state["errors"] == []
 
     config = call_args.kwargs["config"]
     assert config["configurable"]["thread_id"] == "lead:acme.example.com"
+
+
+@pytest.mark.asyncio
+async def test_qualify_forwards_icp_context_into_state() -> None:
+    """When the request carries icp_context, it must reach the graph state."""
+    mock_graph = AsyncMock()
+    mock_graph.ainvoke = AsyncMock(return_value=_GRAPH_RESULT)
+    icp = {
+        "seller_name": "John at Acme Agency",
+        "target_industries": ["B2B SaaS"],
+        "must_have_signals": ["Recent funding"],
+        "value_proposition": "We help SaaS teams ship faster.",
+    }
+
+    with patch("saas_lead_agent.api.routes._graph", mock_graph):
+        async with await _client() as client:
+            await client.post(
+                "/api/qualify",
+                json={"url": "https://acme.example.com", "icp_context": icp},
+            )
+
+    state = mock_graph.ainvoke.call_args.args[0]
+    assert state["icp_context"] == icp
 
 
 @pytest.mark.asyncio

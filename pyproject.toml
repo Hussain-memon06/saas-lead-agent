@@ -58,6 +58,13 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 
+# Prompt templates contain long single-line example strings that mirror
+# what the model is meant to emit verbatim — wrapping them would change
+# the prompt semantics, so E501 is opted out per-file rather than masked
+# with noqa comments inside the literals.
+[tool.ruff.lint.per-file-ignores]
+"src/saas_lead_agent/agents/dossier_writer.py" = ["E501"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true

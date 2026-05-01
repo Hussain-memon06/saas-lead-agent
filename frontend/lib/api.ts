@@ -14,6 +14,7 @@
  */
 
 import { apiUrl } from "./api-base";
+import { isIcpConfigured, loadIcp } from "./icp";
 import type {
   ApproveResponse,
   QualifyRequest,
@@ -103,7 +104,16 @@ async function postJson<TResponse>(
 }
 
 export async function qualify(req: QualifyRequest): Promise<QualifyResponse> {
-  return postJson<QualifyResponse>("/api/qualify", req, QUALIFY_TIMEOUT_MS);
+  // Always read the latest ICP from localStorage at call time so the user
+  // doesn't have to refresh after editing settings.  An unconfigured ICP
+  // is sent as `null` — the backend prompt branches on presence.
+  const stored = loadIcp();
+  const icp_context = isIcpConfigured(stored) ? stored : null;
+  return postJson<QualifyResponse>(
+    "/api/qualify",
+    { ...req, icp_context },
+    QUALIFY_TIMEOUT_MS,
+  );
 }
 
 export async function approve(threadId: string): Promise<ApproveResponse> {

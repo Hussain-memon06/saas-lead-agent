@@ -23,6 +23,7 @@ def _merge(a: LeadState, b: dict) -> LeadState:  # type: ignore[return]
 _BASE: LeadState = {
     "company_url": "https://example.com",
     "domain": "example.com",
+    "icp_context": None,
     "messages": [],
     "company_profile": None,
     "contact": None,

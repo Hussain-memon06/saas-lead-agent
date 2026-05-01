@@ -111,6 +111,7 @@ def _initial_state(url: str, domain: str) -> LeadState:
     return {
         "company_url": url,
         "domain": domain,
+        "icp_context": None,
         "messages": [],
         "company_profile": None,
         "contact": None,

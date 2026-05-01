@@ -72,6 +72,7 @@ async def qualify(body: QualifyRequest) -> QualifyResponse:
     initial_state: LeadState = {
         "company_url": body.url,
         "domain": domain,
+        "icp_context": body.icp_context,
         "messages": [],
         "company_profile": None,
         "contact": None,

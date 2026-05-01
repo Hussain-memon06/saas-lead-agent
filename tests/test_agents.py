@@ -39,6 +39,7 @@ _PROFILE: dict[str, Any] = {
 _BASE_STATE: LeadState = {
     "company_url": "https://acme.example.com",
     "domain": "acme.example.com",
+    "icp_context": None,
     "messages": [],
     "company_profile": None,
     "contact": None,
@@ -714,6 +715,57 @@ async def test_dossier_writer_clamps_fit_score() -> None:
 
         got = result["fit_score"]
         assert got == expected, f"score {raw_score} → expected {expected}, got {got}"
+
+
+_ICP_FIXTURE: dict[str, Any] = {
+    "seller_name": "John at Acme Agency",
+    "offering": "B2B sales automation software for SaaS companies",
+    "target_industries": ["B2B SaaS", "Fintech"],
+    "target_stages": ["Series B", "Series C"],
+    "target_geographies": ["US", "EU"],
+    "target_employees": "51-200",
+    "must_have_signals": ["Recent funding", "Hiring sales team"],
+    "red_flags": ["Pre-revenue", "Consumer app"],
+    "value_proposition": "We help SaaS teams 3x their meeting volume.",
+}
+
+
+@pytest.mark.asyncio
+async def test_dossier_writer_uses_icp_prompt_when_icp_provided() -> None:
+    """When state.icp_context is set, the system prompt embeds the rubric."""
+    mock_model = _make_model_mock(json.dumps(_DOSSIER_RESPONSE))
+    state: LeadState = {**_BASE_STATE, "icp_context": _ICP_FIXTURE}
+
+    with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
+        await dossier_writer(state)
+
+    sent_messages = mock_model.ainvoke.call_args.args[0]
+    system_content = sent_messages[0].content
+    # ICP fields must appear in the prompt verbatim.
+    assert "John at Acme Agency" in system_content
+    assert "B2B SaaS, Fintech" in system_content
+    assert "Series B, Series C" in system_content
+    assert "Recent funding, Hiring sales team" in system_content
+    assert "Pre-revenue, Consumer app" in system_content
+    assert "We help SaaS teams 3x their meeting volume." in system_content
+    # The pipe-format spec must be in the prompt so the model emits the
+    # explanation in the shape the dossier UI parses.
+    assert "Industry:" in system_content and "✅" in system_content
+
+
+@pytest.mark.asyncio
+async def test_dossier_writer_uses_generic_prompt_when_no_icp() -> None:
+    """When state.icp_context is None, the prompt is the generic fallback."""
+    mock_model = _make_model_mock(json.dumps(_DOSSIER_RESPONSE))
+
+    with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
+        await dossier_writer(_BASE_STATE)  # _BASE_STATE has icp_context=None
+
+    sent_messages = mock_model.ainvoke.call_args.args[0]
+    system_content = sent_messages[0].content
+    assert "Set your ICP in Settings" in system_content
+    # The ICP-mode rubric phrases must NOT appear.
+    assert "STRICTLY against this Ideal Customer Profile" not in system_content
 
 
 # ===========================================================================

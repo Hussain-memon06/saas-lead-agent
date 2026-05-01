@@ -1,4 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { AlertTriangle, CheckCircle2, Settings } from "lucide-react";
+
+import { useIcp } from "@/lib/icp";
 
 const REPO_URL = "https://github.com/Hussain-memon06/saas-lead-agent";
 
@@ -20,6 +25,32 @@ function GithubMark({ className }: { className?: string }) {
   );
 }
 
+function IcpStatusBadge() {
+  const { configured } = useIcp();
+
+  // Pre-hydration: render nothing so SSR markup matches client.  The badge
+  // appears once useEffect inside useIcp() reads localStorage.
+  if (typeof window === "undefined") return null;
+
+  if (configured) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
+        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+        ICP configured
+      </span>
+    );
+  }
+  return (
+    <Link
+      href="/settings"
+      className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/15"
+    >
+      <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+      Set your ICP
+    </Link>
+  );
+}
+
 export function SiteHeader() {
   return (
     <header
@@ -37,15 +68,25 @@ export function SiteHeader() {
           />
           <span>Dossify</span>
         </Link>
-        <a
-          href={REPO_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          <GithubMark className="h-4 w-4" />
-          GitHub
-        </a>
+        <div className="flex items-center gap-3">
+          <IcpStatusBadge />
+          <Link
+            href="/settings"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <Settings className="h-4 w-4" aria-hidden />
+            Settings
+          </Link>
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <GithubMark className="h-4 w-4" />
+            <span className="hidden sm:inline">GitHub</span>
+          </a>
+        </div>
       </div>
     </header>
   );

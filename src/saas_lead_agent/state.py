@@ -9,6 +9,10 @@ from typing_extensions import TypedDict
 class LeadState(TypedDict):
     company_url: str
     domain: str
+    # User-supplied Ideal Customer Profile from the frontend Settings page.
+    # Read by dossier_writer to score against the user's actual targets.
+    # ``None`` = no ICP configured → dossier_writer falls back to generic mode.
+    icp_context: dict[str, Any] | None
     messages: Annotated[list[AnyMessage], add_messages]
     company_profile: dict[str, Any] | None
     contact: dict[str, Any] | None

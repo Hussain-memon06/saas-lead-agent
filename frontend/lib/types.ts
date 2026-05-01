@@ -35,17 +35,21 @@ export type SignalType =
   | "funding"
   | "hiring"
   | "product"
-  | "techstack"
   | "leadership"
   | "partnership"
   | "other";
 
+/**
+ * Mirrors the backend's signal shape exactly (see
+ * `agents/signal_detector.py`): `signal_type`, `details`, `date`, `source`.
+ * Earlier versions of this type used `type/title/summary/url` and silently
+ * fell back to empty UI — the rename here fixes that.
+ */
 export type Signal = {
-  type: SignalType | string; // backend may emit additional types
-  title: string;
-  summary?: string | null;
-  url?: string | null;
-  date?: string | null;
+  signal_type: SignalType | string;
+  details: string;
+  date: string | null;
+  source: string;
 };
 
 export type SendResult = "sent" | "rejected" | "no_contact" | "failed";
@@ -56,6 +60,7 @@ export type SendResult = "sent" | "rejected" | "no_contact" | "failed";
 
 export type QualifyRequest = {
   url: string;
+  icp_context?: Record<string, unknown> | null;
 };
 
 export type QualifyResponse = {

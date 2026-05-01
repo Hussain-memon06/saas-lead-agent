@@ -8,6 +8,12 @@ from pydantic import BaseModel, field_validator
 
 class QualifyRequest(BaseModel):
     url: str
+    # User-supplied ICP from the frontend Settings page.  Free-form dict
+    # (snake_case fields matching `frontend/lib/icp.ts`) so the dossier
+    # prompt can read it directly without a backend-side schema rewrite
+    # every time the frontend adds a field.  ``None`` means the user has
+    # not configured an ICP — dossier_writer falls back to generic mode.
+    icp_context: dict[str, Any] | None = None
 
     @field_validator("url")
     @classmethod

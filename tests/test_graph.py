@@ -27,6 +27,7 @@ from saas_lead_agent.state import LeadState
 _BASE_INPUT: LeadState = {
     "company_url": "https://acme.example.com",
     "domain": "acme.example.com",
+    "icp_context": None,
     "messages": [],
     "company_profile": None,
     "contact": None,
