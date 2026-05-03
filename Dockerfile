@@ -63,6 +63,9 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --from=builder --chown=app:app /app/src /app/src
 COPY --chown=app:app pyproject.toml /app/pyproject.toml
 
+RUN mkdir -p /app/.files /app/.chainlit && chown -R app:app /app/.files /app/.chainlit
+
+
 USER app
 
 EXPOSE 8080
