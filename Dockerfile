@@ -20,10 +20,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Build deps for psycopg / asyncpg native bits
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        libpq-dev \
-        ca-certificates \
-        curl \
+    build-essential \
+    libpq-dev \
+    ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # uv binary (pinned major.minor for reproducibility)
@@ -33,12 +33,12 @@ WORKDIR /app
 
 # 1. Resolve and install dependencies first (good cache layer).
 COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
     uv sync --frozen --no-install-project --no-dev
 
 # 2. Copy source and install the project itself.
 COPY src ./src
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
     uv sync --frozen --no-dev
 
 # ---------------------------------------------------------------------------
@@ -53,8 +53,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Runtime libs only (no build-essential, no compilers).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libpq5 \
-        ca-certificates \
+    libpq5 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root user — Cloud Run requires the container to run as non-root.
