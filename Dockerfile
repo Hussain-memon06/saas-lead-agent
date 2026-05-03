@@ -69,4 +69,4 @@ EXPOSE 8080
 
 # Cloud Run injects PORT; default to 8080 for docker-compose / local.
 # Use sh -c so ${PORT} is expanded at container start, not build.
-CMD ["sh", "-c", "exec uvicorn saas_lead_agent.api.main:app --host 0.0.0.0 --port ${PORT:-8080} --timeout-keep-alive 120"]
+CMD ["sh", "-c", "uvicorn saas_lead_agent.api.main:app --host 0.0.0.0 --port 8080 --timeout-keep-alive 120"]
