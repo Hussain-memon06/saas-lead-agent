@@ -68,13 +68,15 @@ export function SiteHeader() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
         <Link
           href="/"
-          className="flex items-center gap-2 font-semibold tracking-tight"
+          className="flex items-center gap-2 tracking-tight"
         >
           <span
             aria-hidden
-            className="inline-block h-6 w-6 rounded-md bg-primary"
-          />
-          <span>Dossify</span>
+            className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-600 text-sm font-bold text-white"
+          >
+            D
+          </span>
+          <span className="text-lg font-semibold text-gray-900">Dossify</span>
         </Link>
         <div className="flex items-center gap-3">
           <IcpStatusBadge />
