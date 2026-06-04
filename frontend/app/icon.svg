@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#4f46e5"/><text x="16" y="22" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="20" font-weight="700" fill="white" letter-spacing="-0.5">D</text></svg>
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="8" fill="#FAFAF8"/>
+  <circle cx="11" cy="14" r="3" fill="#0F172A"/>
+  <circle cx="16" cy="19" r="3" fill="#C2703E"/>
+  <circle cx="22" cy="14" r="3" fill="#0F172A" opacity="0.32"/>
+  <circle cx="16" cy="19" r="6" fill="none" stroke="#FDE8D8" stroke-width="2"/>
+</svg>

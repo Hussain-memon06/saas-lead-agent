@@ -1,41 +1,41 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Surfaces */
-    --background: 0 0% 100%;
+    /* Warm HussainFlow surfaces */
+    --background: 60 17% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Indigo accent (Stripe-Atlas-style) */
-    --primary: 239 84% 60%;
+    /* HussainFlow copper accent */
+    --primary: 23 51% 50%;
     --primary-foreground: 0 0% 100%;
 
-    /* Neutral grays */
-    --secondary: 210 40% 96%;
+    /* Warm neutrals */
+    --secondary: 30 18% 96%;
     --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
+    --muted: 30 18% 96%;
     --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
+    --accent: 27 100% 97%;
     --accent-foreground: 222 47% 11%;
 
     /* Status */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --success: 142 71% 45%;
+    --success: 153 40% 30%;
     --success-foreground: 0 0% 100%;
 
     /* Borders / focus rings */
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 239 84% 60%;
+    --border: 30 12% 88%;
+    --input: 30 12% 88%;
+    --ring: 23 51% 50%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
   }
 }
 
@@ -54,31 +54,23 @@
     text-wrap: balance;
   }
 
-  /* Subtle dotted grid for hero backdrops (Linear-style).  The dot
-     colour is the muted-foreground HSL with reduced alpha so it sits
-     very gently behind content. */
   .bg-grid-dots {
     background-image: radial-gradient(
-      hsl(215 16% 47% / 0.18) 1px,
+      hsl(23 51% 50% / 0.11) 1px,
       transparent 1px
     );
     background-size: 22px 22px;
   }
 
-  /* Soft indigo halo for the hero — a wide radial fading from the
-     primary tint into the page background. Layered on top of
-     bg-grid-dots via the `before:` pseudo-element on the hero. */
   .bg-hero-halo {
     background-image:
       radial-gradient(
         80% 60% at 50% 0%,
-        hsl(239 84% 60% / 0.12) 0%,
-        hsl(239 84% 60% / 0) 70%
+        hsl(23 51% 50% / 0.12) 0%,
+        hsl(23 51% 50% / 0) 70%
       );
   }
 
-  /* Mask that fades a background out near the bottom edge so the
-     pattern doesn't slam into the next section. */
   .mask-fade-b {
     -webkit-mask-image: linear-gradient(
       to bottom,

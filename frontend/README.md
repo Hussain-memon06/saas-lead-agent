@@ -1,6 +1,6 @@
-# Dossify — Frontend
+# Outbound Lead Agent — Frontend
 
-Next.js 14 App Router UI for the AI SDR lead-research agent.  Talks to the
+Next.js 14 App Router UI for the Outbound Lead Agent demo.  Talks to the
 FastAPI backend in `../src/saas_lead_agent/api/` over three endpoints
 (`/api/qualify`, `/api/leads/{thread_id}/approve`, `/api/leads/{thread_id}/reject`).
 

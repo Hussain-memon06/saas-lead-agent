@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -8,11 +8,6 @@ import { useIcp } from "@/lib/icp";
 
 const REPO_URL = "https://github.com/Hussain-memon06/saas-lead-agent";
 
-/**
- * Inline GitHub mark — lucide-react v1 dropped brand icons for trademark
- * reasons.  Permitted use under GitHub's logo guidelines: "link to GitHub".
- * https://github.com/logos
- */
 function GithubMark({ className }: { className?: string }) {
   return (
     <svg
@@ -26,6 +21,19 @@ function GithubMark({ className }: { className?: string }) {
   );
 }
 
+function HfMark() {
+  return (
+    <span
+      aria-hidden
+      className="grid h-6 w-8 grid-cols-3 items-center"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
+      <span className="h-1.5 w-1.5 translate-y-1 rounded-full bg-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.16)]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-foreground/30" />
+    </span>
+  );
+}
+
 function IcpStatusBadge() {
   const [mounted, setMounted] = useState(false);
   const { configured } = useIcp();
@@ -34,10 +42,6 @@ function IcpStatusBadge() {
     setMounted(true);
   }, []);
 
-  // The badge depends on localStorage (read inside useIcp), which doesn't
-  // exist during SSR.  Returning null on both the server render and the
-  // first client render keeps the markup identical, then the badge mounts
-  // after hydration and reflects the real value.
   if (!mounted) return null;
 
   if (configured) {
@@ -63,26 +67,21 @@ export function SiteHeader() {
   return (
     <header
       aria-label="Site header"
-      className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/82 backdrop-blur supports-[backdrop-filter]:bg-background/72"
     >
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-        <Link
-          href="/"
-          className="flex items-center gap-2 tracking-tight"
-        >
-          <span
-            aria-hidden
-            className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-600 text-sm font-bold text-white"
-          >
-            D
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+        <Link href="/" className="flex items-center gap-3 tracking-tight">
+          <HfMark />
+          <span className="text-lg font-semibold text-foreground">HussainFlow</span>
+          <span className="hidden rounded-full border border-primary/15 bg-primary/5 px-2.5 py-1 text-xs font-semibold text-primary md:inline-flex">
+            Outbound Lead Agent
           </span>
-          <span className="text-lg font-semibold text-gray-900">Dossify</span>
         </Link>
         <div className="flex items-center gap-3">
           <IcpStatusBadge />
           <Link
             href="/settings"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background/60 px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <Settings className="h-4 w-4" aria-hidden />
             Settings
@@ -91,7 +90,7 @@ export function SiteHeader() {
             href={REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-background/60 px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <GithubMark className="h-4 w-4" />
             <span className="hidden sm:inline">GitHub</span>

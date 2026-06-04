@@ -168,7 +168,7 @@ export default function SettingsPage() {
             Configure your ICP
           </h1>
           <p className="text-sm text-muted-foreground">
-            Tell Dossify what your ideal customer looks like. Your settings
+            Tell Outbound Lead Agent what your ideal customer looks like. Your settings
             stay on this device — they&apos;re sent with each research request
             so the agent scores against your actual targets.
           </p>
@@ -261,7 +261,7 @@ export default function SettingsPage() {
               What makes a great lead?
             </h2>
             <p className="text-sm text-muted-foreground">
-              The agent rewards must-have signals and penalises red flags.
+              The agent rewards must-have signals and penalizes red flags.
             </p>
           </div>
 
