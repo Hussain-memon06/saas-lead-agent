@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { Search, Users, Mail, ShieldCheck, ArrowRight } from "lucide-react";
 import { QualifyForm } from "@/components/qualify-form";
 
@@ -108,7 +108,7 @@ export default function HomePage() {
         <div className="relative isolate overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-[#A85A2A] to-[#8F4B22] px-8 py-16 text-center shadow-xl shadow-primary/10 sm:px-12 sm:py-20">
           <div
             aria-hidden
-            className="absolute inset-0 -z-10 opacity-24"
+            className="absolute inset-0 -z-10 opacity-30"
             style={{
               backgroundImage:
                 "radial-gradient(rgb(255 255 255 / 0.18) 1px, transparent 1px)",
@@ -118,7 +118,7 @@ export default function HomePage() {
           <h2 className="text-balance text-3xl font-semibold tracking-tight text-primary-foreground sm:text-4xl">
             Ready to research your first lead?
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-balance text-base leading-relaxed text-primary-foreground/82 sm:text-lg">
+          <p className="mx-auto mt-4 max-w-xl text-balance text-base leading-relaxed text-white/85 sm:text-lg">
             Drop a company URL and let the agent build the research layer. You
             stay in the loop before anything goes out.
           </p>
@@ -137,17 +137,19 @@ export default function HomePage() {
       {/* ----- Footer ----- */}
       <footer className="border-t border-border/60">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-3">
             <span
               aria-hidden
-              className="inline-block h-6 w-6 rounded-md bg-primary"
+              className="mt-0.5 inline-block h-6 w-6 rounded-lg bg-primary shadow-sm shadow-primary/20"
             />
-            <span className="font-semibold tracking-tight text-foreground">
-              Outbound Lead Agent
-            </span>
-            <span className="ml-2 text-xs text-muted-foreground">
-              A HussainFlow demo built with LangGraph, FastAPI &amp; Next.js
-            </span>
+            <div className="space-y-1">
+              <span className="block font-semibold tracking-tight text-foreground">
+                Outbound Lead Agent
+              </span>
+              <span className="block text-xs leading-relaxed text-muted-foreground">
+                Lead research, fit signals, outreach draft, and approval before send
+              </span>
+            </div>
           </div>
           <nav aria-label="Footer">
             <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
