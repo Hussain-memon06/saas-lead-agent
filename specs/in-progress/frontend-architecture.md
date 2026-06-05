@@ -1,9 +1,9 @@
-# Dossify Frontend Architecture
+# Outbound Lead Agent Frontend Architecture
 
 ## Goal
 A professional Next.js 14 web UI for the AI SDR backend, replacing the
 Chainlit chat surface for end-users.  The Chainlit UI stays — it's a great
-internal/dev tool — but Dossify is the polished customer-facing front door.
+internal/dev tool — but Outbound Lead Agent is the polished customer-facing front door.
 
 Lives in `frontend/` inside this repo (monorepo) so the API contract and
 TypeScript types stay in sync, and so a single PR can change a backend

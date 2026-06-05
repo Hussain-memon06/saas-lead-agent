@@ -12,12 +12,12 @@
 
 import { useEffect, useState } from "react";
 
-export const STORAGE_KEY = "dossify_icp";
+export const STORAGE_KEY = "outbound_lead_agent_icp";
 
 /** Custom event the save/clear helpers dispatch so `useIcp()` subscribers
  *  in the same tab see updates immediately (the native `storage` event
  *  only fires across tabs, not within the tab that wrote the value). */
-const CHANGE_EVENT = "dossify-icp-change";
+const CHANGE_EVENT = "outbound-lead-agent-icp-change";
 
 export type IcpContext = {
   seller_name: string;
@@ -146,7 +146,7 @@ export function clearIcp(): void {
 /**
  * Reactive hook: returns the current ICP and whether one is configured.
  * Re-reads on cross-tab `storage` events and on our intra-tab
- * `dossify-icp-change` event so the header badge stays in sync.
+ * `outbound-lead-agent-icp-change` event so the header badge stays in sync.
  */
 export function useIcp(): { icp: IcpContext | null; configured: boolean } {
   const [icp, setIcp] = useState<IcpContext | null>(null);

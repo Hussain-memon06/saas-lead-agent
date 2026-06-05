@@ -3,7 +3,7 @@
  *
  * - Dev: `NEXT_PUBLIC_API_BASE_URL` is unset, so we return an empty string
  *   and let Next.js `rewrites()` proxy `/api/*` to localhost:8080.
- * - Prod: set `NEXT_PUBLIC_API_BASE_URL=https://api.dossify.app` (or
+ * - Prod: set `NEXT_PUBLIC_API_BASE_URL=https://api.outbound-lead-agent.example.com` (or
  *   wherever the backend lives); we prepend it to every path.
  *
  * Always call paths starting with `/` so the join below is safe in both

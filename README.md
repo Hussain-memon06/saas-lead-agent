@@ -1,4 +1,4 @@
-# Dossify
+# Outbound Lead Agent
 
 > AI-powered B2B lead research agent with human-in-the-loop approval. Built with LangGraph, FastAPI, and Next.js.
 
@@ -13,9 +13,9 @@
 
 ## Demo
 
-**Live:** [https://dossify.vercel.app/](https://dossify.vercel.app/)
+**Live:** [https://agent.hussainflow.com/](https://agent.hussainflow.com/)
 
-Paste a company URL and Dossify researches the company end-to-end: it scrapes the website, searches the public web for buying signals, looks up the primary decision-maker, scores the company against your Ideal Customer Profile, and drafts a personalised cold-outreach email. Nothing is sent until you click *Approve* — the pipeline pauses on a human-in-the-loop gate so you stay in control of every email that leaves the system.
+Paste a company URL and Outbound Lead Agent researches the company end-to-end: it scrapes the website, searches the public web for buying signals, looks up the primary decision-maker, scores the company against your Ideal Customer Profile, and drafts a personalised cold-outreach email. Nothing is sent until you click *Approve* — the pipeline pauses on a human-in-the-loop gate so you stay in control of every email that leaves the system.
 
 > **Note:** A research run typically takes 60–90 seconds. The agent waits on real web search and external lookups, so the first request after a cold start can be a little slower while connections warm up.
 
