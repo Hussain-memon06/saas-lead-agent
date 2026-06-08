@@ -82,11 +82,15 @@ def test_outreach_and_lead_report_compose() -> None:
         company_profile=CompanyProfile(name="Acme", sources=[]),
         signals=[],
         fit_score=8,
+        grounding_report={"is_sufficient": True},
+        outreach_quality={"passed": True},
         outreach=OutreachDraft(email_subject="Quick question", email_body="Hi Alice"),
         send_result="stubbed",
     )
 
     assert report.fit_score == 8
+    assert report.grounding_report == {"is_sufficient": True}
+    assert report.outreach_quality == {"passed": True}
     assert report.send_result == "stubbed"
 
 

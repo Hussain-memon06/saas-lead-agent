@@ -43,6 +43,8 @@ class QualifyResponse(BaseModel):
     needs_human_review: bool | None = None
     score_reasons: list[str] | None = None
     score_uncertainty: list[str] | None = None
+    grounding_report: dict[str, Any] | None = None
+    outreach_quality: dict[str, Any] | None = None
     email_subject: str | None = None
     email_body: str | None = None
     email_approved: bool | None = None

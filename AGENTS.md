@@ -21,8 +21,10 @@ Follow this file together with `PLANS.md`.
 - Frontend: Next.js 14, React, TypeScript, Tailwind/shadcn-style components
 - Package managers: uv for Python, npm or pnpm for frontend
 - Primary model: OpenAI `gpt-4o-mini` for current agent nodes
-- Planned: model/provider abstraction, deterministic scoring, persistence,
-  RAG, durable execution, auth/compliance, evals, and production operations
+- Implemented Phase 2 so far: deterministic scoring, evidence grounding, and
+  outreach quality checks.
+- Planned: model/provider abstraction, persistence, RAG, durable execution,
+  auth/compliance, evals, and production operations
 
 ## Current Architecture
 
@@ -241,7 +243,8 @@ These are tracked in `PLANS.md`; do not solve them out of phase:
 
 - No authentication or authorization.
 - No app-owned relational schema beyond checkpoints.
-- No deterministic scoring engine yet.
+- Deterministic scoring now exists; keep tuning, evidence grounding, and
+  outreach quality checks inside Phase 2 until the phase is closed.
 - No persistence-backed dossier recovery after refresh.
 - No RAG/vector memory/retrieval quality system yet.
 - No MCP/tool abstraction or durable job layer yet.

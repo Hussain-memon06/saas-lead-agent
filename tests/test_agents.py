@@ -44,6 +44,8 @@ _BASE_STATE: LeadState = {
     "company_profile": None,
     "contact": None,
     "signals": None,
+    "grounding_report": None,
+    "outreach_quality": None,
     "errors": [],
 }
 
@@ -667,7 +669,12 @@ _DOSSIER_RESPONSE: dict[str, Any] = {
     "fit_score": 8,
     "score_explanation": "8/10 — B2B SaaS ✅, Series A ✅, US ✅, hiring SDRs ✅",
     "email_subject": "Quick question about Acme Corp",
-    "email_body": "Hi Alice, saw your recent funding round — congrats!",
+    "email_body": (
+        "Hi Alice, I noticed Acme Corp's recent funding and hiring momentum. "
+        "Your team is scaling sales while expanding outbound workflow work. "
+        "We help B2B teams turn that timing into qualified meetings without "
+        "extra research. Would it be worth a quick chat next week?"
+    ),
 }
 
 
@@ -699,7 +706,9 @@ async def test_dossier_writer_happy_path() -> None:
     assert result["score_confidence"] == "high"
     assert result["score_breakdown"]["signal_strength"] == 1.5
     assert result["email_subject"] == "Quick question about Acme Corp"
-    assert result["email_body"] == "Hi Alice, saw your recent funding round — congrats!"
+    assert result["email_body"] == _DOSSIER_RESPONSE["email_body"]
+    assert result["grounding_report"]["is_sufficient"] is True
+    assert result["outreach_quality"]["passed"] is True
     assert "errors" not in result
 
 
@@ -742,7 +751,10 @@ async def test_dossier_writer_handles_none_upstream_fields() -> None:
     assert result["fit_score"] == 2
     assert result["score_confidence"] == "low"
     assert result["needs_human_review"] is True
-    assert "errors" not in result
+    assert result["grounding_report"]["is_sufficient"] is False
+    assert result["outreach_quality"]["passed"] is True
+    assert "errors" in result
+    assert any(error.startswith("grounding:") for error in result["errors"])
 
 
 @pytest.mark.asyncio

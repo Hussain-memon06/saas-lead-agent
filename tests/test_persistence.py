@@ -105,9 +105,7 @@ async def test_thread_persists_across_checkpointer_instances() -> None:
     # --- Second connection (simulates restart): resume and run to END ---
     async with AsyncPostgresSaver.from_conn_string(url) as cp:
         g = _build_test_graph(cp)
-        result = await g.ainvoke(
-            Command(resume=True), config=config, durability="sync"
-        )
+        result = await g.ainvoke(Command(resume=True), config=config, durability="sync")
 
     # step_b ran with decision=True → counter += 1 → 2
     assert result["counter"] == 2, (
@@ -130,9 +128,7 @@ async def test_thread_persists_with_resume_false() -> None:
 
     async with AsyncPostgresSaver.from_conn_string(url) as cp:
         g = _build_test_graph(cp)
-        result = await g.ainvoke(
-            Command(resume=False), config=config, durability="sync"
-        )
+        result = await g.ainvoke(Command(resume=False), config=config, durability="sync")
 
     # step_b ran with decision=False → counter += 0 → stays at 1
     assert result["counter"] == 1
@@ -195,7 +191,15 @@ async def test_postgres_checkpointer_helper() -> None:
                     "contact": None,
                     "signals": None,
                     "fit_score": None,
+                    "fit_level": None,
+                    "score_breakdown": None,
+                    "score_confidence": None,
                     "score_explanation": None,
+                    "needs_human_review": None,
+                    "score_reasons": None,
+                    "score_uncertainty": None,
+                    "grounding_report": None,
+                    "outreach_quality": None,
                     "email_subject": None,
                     "email_body": None,
                     "email_approved": None,

@@ -40,6 +40,8 @@ async def await_approval(state: LeadState) -> dict[str, Any]:
             "fit_level": state.get("fit_level"),
             "score_confidence": state.get("score_confidence"),
             "needs_human_review": state.get("needs_human_review"),
+            "grounding_report": state.get("grounding_report"),
+            "outreach_quality": state.get("outreach_quality"),
         }
     )
     return {"email_approved": bool(decision)}

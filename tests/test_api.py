@@ -54,6 +54,24 @@ _GRAPH_RESULT: dict[str, Any] = {
     "needs_human_review": False,
     "score_reasons": ["company profile has usable sourced detail"],
     "score_uncertainty": [],
+    "grounding_report": {
+        "evidence": {"items": []},
+        "source_urls": ["https://acme.example.com/about"],
+        "supported_claim_count": 1,
+        "unsupported_claims": [],
+        "missing_source_count": 0,
+        "evidence_coverage": 1.0,
+        "is_sufficient": True,
+    },
+    "outreach_quality": {
+        "quality_score": 95,
+        "passed": True,
+        "issues": [],
+        "personalization_hooks": ["company_name", "buying_signal"],
+        "spam_terms": [],
+        "placeholder_terms": [],
+        "word_count": 42,
+    },
     "score_explanation": "8/10 — B2B SaaS ✅, Series A ✅, US ✅, hiring SDRs ✅",
     "email_subject": "Quick question about Acme Corp",
     "email_body": "Hi Alice, saw your recent Series A — congrats!",
@@ -153,6 +171,8 @@ def test_qualify_response_defaults() -> None:
     assert resp.needs_human_review is None
     assert resp.score_reasons is None
     assert resp.score_uncertainty is None
+    assert resp.grounding_report is None
+    assert resp.outreach_quality is None
     assert resp.email_subject is None
     assert resp.email_body is None
     assert resp.email_approved is None
@@ -191,6 +211,8 @@ async def test_qualify_happy_path() -> None:
     assert body["needs_human_review"] is False
     assert body["score_reasons"] == ["company profile has usable sourced detail"]
     assert body["score_uncertainty"] == []
+    assert body["grounding_report"]["is_sufficient"] is True
+    assert body["outreach_quality"]["passed"] is True
     assert body["score_explanation"] == "8/10 — B2B SaaS ✅, Series A ✅, US ✅, hiring SDRs ✅"
     assert body["email_subject"] == "Quick question about Acme Corp"
     assert body["email_body"] == "Hi Alice, saw your recent Series A — congrats!"
@@ -244,6 +266,8 @@ async def test_qualify_passes_correct_state_to_graph() -> None:
     assert state["fit_level"] is None
     assert state["score_breakdown"] is None
     assert state["score_confidence"] is None
+    assert state["grounding_report"] is None
+    assert state["outreach_quality"] is None
     assert state["errors"] == []
 
     config = call_args.kwargs["config"]

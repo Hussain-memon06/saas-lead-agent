@@ -55,6 +55,36 @@ export type ScoreBreakdown = {
   red_flag_penalty: number;
 };
 
+export type EvidenceItem = {
+  claim: string;
+  source_text: string;
+  source_location: string;
+  source_url: string | null;
+  confidence: "low" | "medium" | "high";
+};
+
+export type GroundingReport = {
+  evidence: {
+    items: EvidenceItem[];
+  };
+  source_urls: string[];
+  supported_claim_count: number;
+  unsupported_claims: string[];
+  missing_source_count: number;
+  evidence_coverage: number;
+  is_sufficient: boolean;
+};
+
+export type OutreachQuality = {
+  quality_score: number;
+  passed: boolean;
+  issues: string[];
+  personalization_hooks: string[];
+  spam_terms: string[];
+  placeholder_terms: string[];
+  word_count: number;
+};
+
 export type QualifyRequest = {
   url: string;
   icp_context?: Record<string, unknown> | null;
@@ -74,6 +104,8 @@ export type QualifyResponse = {
   needs_human_review: boolean | null;
   score_reasons: string[] | null;
   score_uncertainty: string[] | null;
+  grounding_report: GroundingReport | null;
+  outreach_quality: OutreachQuality | null;
   email_subject: string | null;
   email_body: string | null;
   email_approved: boolean | null;

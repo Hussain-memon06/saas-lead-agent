@@ -12,7 +12,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from pydantic import ValidationError
 
-from saas_lead_agent.engine import ScoringEngine
+from saas_lead_agent.engine import GroundingEngine, OutreachQualityEngine, ScoringEngine
 from saas_lead_agent.schemas import (
     CompanyProfile,
     CompanySignal,
@@ -204,12 +204,37 @@ async def dossier_writer(state: LeadState) -> dict[str, Any]:
     except ValidationError as exc:
         return {"errors": [f"dossier_writer: schema validation error - {exc}"]}
 
-    return {
+    grounding = GroundingEngine().validate(
+        profile=profile,
+        contact=contact,
+        signals=signals,
+        draft=draft,
+        score=score,
+    )
+    outreach_quality = OutreachQualityEngine().evaluate(
+        profile=profile,
+        contact=contact,
+        signals=signals,
+        draft=draft,
+    )
+
+    review_reasons: list[str] = []
+    if not grounding.is_sufficient:
+        review_reasons.extend(f"grounding: {claim}" for claim in grounding.unsupported_claims[:3])
+    if not outreach_quality.passed:
+        review_reasons.extend(f"outreach quality: {issue}" for issue in outreach_quality.issues[:3])
+
+    output: dict[str, Any] = {
         **validated.model_dump(),
         "fit_level": score.fit_level,
         "score_breakdown": score.score_breakdown.model_dump(),
         "score_confidence": score.confidence,
-        "needs_human_review": score.needs_human_review,
+        "needs_human_review": score.needs_human_review or bool(review_reasons),
         "score_reasons": score.reasons,
         "score_uncertainty": score.uncertainty_reasons,
+        "grounding_report": grounding.model_dump(),
+        "outreach_quality": outreach_quality.model_dump(),
     }
+    if review_reasons:
+        output["errors"] = review_reasons
+    return output

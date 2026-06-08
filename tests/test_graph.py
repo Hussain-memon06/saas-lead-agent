@@ -33,7 +33,15 @@ _BASE_INPUT: LeadState = {
     "contact": None,
     "signals": None,
     "fit_score": None,
+    "fit_level": None,
+    "score_breakdown": None,
+    "score_confidence": None,
     "score_explanation": None,
+    "needs_human_review": None,
+    "score_reasons": None,
+    "score_uncertainty": None,
+    "grounding_report": None,
+    "outreach_quality": None,
     "email_subject": None,
     "email_body": None,
     "errors": [],
@@ -60,6 +68,14 @@ _CONTACT: dict[str, Any] = {
 
 _DOSSIER: dict[str, Any] = {
     "fit_score": 8,
+    "fit_level": "high",
+    "score_breakdown": {"baseline": 2.5},
+    "score_confidence": "high",
+    "needs_human_review": False,
+    "score_reasons": [],
+    "score_uncertainty": [],
+    "grounding_report": {"is_sufficient": True},
+    "outreach_quality": {"passed": True},
     "email_subject": "Quick question",
     "email_body": "Hi Alice,",
 }
@@ -146,14 +162,18 @@ def test_graph_send_email_goes_to_end() -> None:
 
 @pytest.mark.asyncio
 async def test_graph_run_populates_all_fields() -> None:
-    with patch("saas_lead_agent.graph.company_researcher",
-               new=AsyncMock(return_value={"company_profile": _PROFILE})), \
-         patch("saas_lead_agent.graph.contact_finder",
-               new=AsyncMock(return_value={"contact": _CONTACT})), \
-         patch("saas_lead_agent.graph.signal_detector",
-               new=AsyncMock(return_value={"signals": []})), \
-         patch("saas_lead_agent.graph.dossier_writer",
-               new=AsyncMock(return_value=_DOSSIER)):
+    with (
+        patch(
+            "saas_lead_agent.graph.company_researcher",
+            new=AsyncMock(return_value={"company_profile": _PROFILE}),
+        ),
+        patch(
+            "saas_lead_agent.graph.contact_finder",
+            new=AsyncMock(return_value={"contact": _CONTACT}),
+        ),
+        patch("saas_lead_agent.graph.signal_detector", new=AsyncMock(return_value={"signals": []})),
+        patch("saas_lead_agent.graph.dossier_writer", new=AsyncMock(return_value=_DOSSIER)),
+    ):
         graph = build_graph()
         config = {"configurable": {"thread_id": "lead:acme.example.com"}}
         result = await graph.ainvoke(_BASE_INPUT, config=config)
@@ -168,14 +188,18 @@ async def test_graph_run_populates_all_fields() -> None:
 
 @pytest.mark.asyncio
 async def test_graph_run_with_memory_compiles_and_runs() -> None:
-    with patch("saas_lead_agent.graph.company_researcher",
-               new=AsyncMock(return_value={"company_profile": _PROFILE})), \
-         patch("saas_lead_agent.graph.contact_finder",
-               new=AsyncMock(return_value={"contact": _CONTACT})), \
-         patch("saas_lead_agent.graph.signal_detector",
-               new=AsyncMock(return_value={"signals": []})), \
-         patch("saas_lead_agent.graph.dossier_writer",
-               new=AsyncMock(return_value=_DOSSIER)):
+    with (
+        patch(
+            "saas_lead_agent.graph.company_researcher",
+            new=AsyncMock(return_value={"company_profile": _PROFILE}),
+        ),
+        patch(
+            "saas_lead_agent.graph.contact_finder",
+            new=AsyncMock(return_value={"contact": _CONTACT}),
+        ),
+        patch("saas_lead_agent.graph.signal_detector", new=AsyncMock(return_value={"signals": []})),
+        patch("saas_lead_agent.graph.dossier_writer", new=AsyncMock(return_value=_DOSSIER)),
+    ):
         graph = build_graph_with_memory()
         config = {"configurable": {"thread_id": "lead:acme.example.com"}}
         result = await graph.ainvoke(_BASE_INPUT, config=config)
@@ -201,11 +225,12 @@ async def test_graph_research_nodes_called_in_order() -> None:
         call_order.append("signal_detector")
         return {"signals": []}
 
-    with patch("saas_lead_agent.graph.company_researcher", new=_researcher), \
-         patch("saas_lead_agent.graph.contact_finder", new=_contact), \
-         patch("saas_lead_agent.graph.signal_detector", new=_signal), \
-         patch("saas_lead_agent.graph.dossier_writer",
-               new=AsyncMock(return_value=_DOSSIER)):
+    with (
+        patch("saas_lead_agent.graph.company_researcher", new=_researcher),
+        patch("saas_lead_agent.graph.contact_finder", new=_contact),
+        patch("saas_lead_agent.graph.signal_detector", new=_signal),
+        patch("saas_lead_agent.graph.dossier_writer", new=AsyncMock(return_value=_DOSSIER)),
+    ):
         graph = build_graph()
         config = {"configurable": {"thread_id": "lead:order-test"}}
         await graph.ainvoke(_BASE_INPUT, config=config)
@@ -216,14 +241,21 @@ async def test_graph_research_nodes_called_in_order() -> None:
 @pytest.mark.asyncio
 async def test_graph_errors_accumulate_across_nodes() -> None:
     """errors reducer (operator.add) must concatenate errors from all nodes."""
-    with patch("saas_lead_agent.graph.company_researcher",
-               new=AsyncMock(return_value={"errors": ["researcher failed"]})), \
-         patch("saas_lead_agent.graph.contact_finder",
-               new=AsyncMock(return_value={"errors": ["contact failed"]})), \
-         patch("saas_lead_agent.graph.signal_detector",
-               new=AsyncMock(return_value={"signals": []})), \
-         patch("saas_lead_agent.graph.dossier_writer",
-               new=AsyncMock(return_value={"errors": ["dossier failed"]})):
+    with (
+        patch(
+            "saas_lead_agent.graph.company_researcher",
+            new=AsyncMock(return_value={"errors": ["researcher failed"]}),
+        ),
+        patch(
+            "saas_lead_agent.graph.contact_finder",
+            new=AsyncMock(return_value={"errors": ["contact failed"]}),
+        ),
+        patch("saas_lead_agent.graph.signal_detector", new=AsyncMock(return_value={"signals": []})),
+        patch(
+            "saas_lead_agent.graph.dossier_writer",
+            new=AsyncMock(return_value={"errors": ["dossier failed"]}),
+        ),
+    ):
         graph = build_graph()
         config = {"configurable": {"thread_id": "lead:error-test"}}
         result = await graph.ainvoke(_BASE_INPUT, config=config)
@@ -236,14 +268,18 @@ async def test_graph_errors_accumulate_across_nodes() -> None:
 @pytest.mark.asyncio
 async def test_graph_partial_results_on_node_error() -> None:
     """A node returning only errors should not overwrite other nodes' results."""
-    with patch("saas_lead_agent.graph.company_researcher",
-               new=AsyncMock(return_value={"company_profile": _PROFILE})), \
-         patch("saas_lead_agent.graph.contact_finder",
-               new=AsyncMock(return_value={"errors": ["contact failed"]})), \
-         patch("saas_lead_agent.graph.signal_detector",
-               new=AsyncMock(return_value={"signals": []})), \
-         patch("saas_lead_agent.graph.dossier_writer",
-               new=AsyncMock(return_value=_DOSSIER)):
+    with (
+        patch(
+            "saas_lead_agent.graph.company_researcher",
+            new=AsyncMock(return_value={"company_profile": _PROFILE}),
+        ),
+        patch(
+            "saas_lead_agent.graph.contact_finder",
+            new=AsyncMock(return_value={"errors": ["contact failed"]}),
+        ),
+        patch("saas_lead_agent.graph.signal_detector", new=AsyncMock(return_value={"signals": []})),
+        patch("saas_lead_agent.graph.dossier_writer", new=AsyncMock(return_value=_DOSSIER)),
+    ):
         graph = build_graph()
         config = {"configurable": {"thread_id": "lead:partial-test"}}
         result = await graph.ainvoke(_BASE_INPUT, config=config)

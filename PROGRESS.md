@@ -4,9 +4,10 @@
 
 Phase 1 is complete and committed.
 
-Phase 2 is in progress. The first scoring milestone is implemented: the final
-fit score now comes from deterministic Python business logic instead of the
-LLM-generated dossier text.
+Phase 2 is in progress. Deterministic scoring, first-pass evidence grounding,
+and outreach quality checks are implemented: the final fit score and review
+flags now come from Python business logic instead of LLM-generated dossier
+text.
 
 ## What We Completed
 
@@ -98,6 +99,7 @@ or explicitly requested checks:
 ## Commit History
 
 - `0310420 feat: complete phase 1 contracts and safety hardening`
+- `3be9fe3 feat: add deterministic lead scoring engine`
 
 ## Phase 2 Progress
 
@@ -124,6 +126,27 @@ Completed so far:
   - frontend TypeScript response types
   - HITL interrupt payload
 - Added focused tests for deterministic scoring and scorer/dossier integration.
+- Added `engine/grounding.py` for deterministic evidence grounding checks:
+  - maps profile, signal, and contact facts to evidence items
+  - flags missing profile/signal/contact sources
+  - flags uncited URLs and unsupported signal claims in draft outreach
+  - checks score components against available evidence
+- Added `engine/outreach_quality.py` for deterministic outreach quality checks:
+  - placeholder detection
+  - CTA checks
+  - length checks
+  - personalization density
+  - spam/high-pressure wording detection
+- Updated `dossier_writer` so weak grounding or outreach quality issues trigger
+  `needs_human_review` and return inspectable review reasons.
+- Threaded optional grounding and outreach quality metadata through:
+  - `LeadState`
+  - FastAPI qualify response schema
+  - REST route response construction
+  - frontend TypeScript response types
+  - HITL interrupt payload
+  - Chainlit initial state
+- Added focused tests for grounding, outreach quality, and contract threading.
 
 Verification completed:
 
@@ -135,8 +158,10 @@ uv run python -m pytest tests\test_scoring.py tests\test_agents.py tests\test_st
 
 Result:
 
-- `98 passed`
+- scoring milestone: `98 passed`
+- grounding/outreach-quality milestone: `155 passed`
 - changed-file Ruff checks passed
+- changed-file Ruff format checks passed
 
 Not run by policy:
 
@@ -149,22 +174,25 @@ Not run by policy:
 
 ## Next Plan
 
-### Step 1: Review And Commit Phase 2 Scoring Milestone
+### Step 1: Review And Commit Phase 2 Grounding/Quality Milestone
 
 Suggested commit message:
 
 ```text
-feat: add deterministic lead scoring engine
+feat: add deterministic grounding and outreach quality checks
 ```
 
-### Step 2: Continue Phase 2 With Grounding And Quality
+### Step 2: Decide Whether Phase 2 Needs One More Tuning Pass
 
-The next Phase 2 milestone should stay focused on deterministic business logic:
+Possible final Phase 2 tuning before Phase 3:
 
-1. Add evidence grounding checks.
-2. Add outreach quality checks.
-3. Keep both engines pure Python with deterministic tests.
-4. Do not add persistence, RAG, MCP, auth, evals, or production ops yet.
+1. Decide whether `IcpContext` is enough for the current typed ICP config, or
+   whether a small `engine/icp.py` wrapper is still useful.
+2. Review score/grounding/quality thresholds against a few real examples.
+3. Decide whether the frontend should display score breakdown, grounding, and
+   outreach quality now or wait for a designed UI pass.
+4. Do not add persistence, RAG, MCP, auth, evals, or production ops until
+   Phase 2 is explicitly closed.
 
 ## Phase 2 Guardrails
 
@@ -184,6 +212,8 @@ Run only the checks related to changed files:
 uv run python -m ruff check <changed-python-files>
 uv run python -m ruff format --check <changed-python-files>
 uv run python -m pytest tests\test_scoring.py -q
+uv run python -m pytest tests\test_grounding.py -q
+uv run python -m pytest tests\test_outreach_quality.py -q
 ```
 
 If `dossier_writer`, graph flow, or API response behavior changes, add the
@@ -192,6 +222,7 @@ relevant targeted tests:
 ```bash
 uv run python -m pytest tests\test_agents.py -q
 uv run python -m pytest tests\test_api.py -q
+uv run python -m pytest tests\test_state.py tests\test_schemas.py -q
 ```
 
 ## Open Decisions
@@ -202,3 +233,5 @@ uv run python -m pytest tests\test_api.py -q
   with examples later.
 - Whether to display score breakdown/confidence in the frontend now or wait
   until the UI has a designed section for it.
+- Whether grounding/outreach quality reports should be rendered in the current
+  lead page immediately or kept API-visible until a focused UI milestone.

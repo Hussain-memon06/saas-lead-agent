@@ -21,6 +21,8 @@ class LeadReport(StrictBaseModel):
     needs_human_review: bool | None = None
     score_reasons: list[str] = Field(default_factory=list)
     score_uncertainty: list[str] = Field(default_factory=list)
+    grounding_report: dict[str, object] | None = None
+    outreach_quality: dict[str, object] | None = None
     outreach: OutreachDraft | None = None
     send_result: SendResult | None = None
     errors: list[str] = Field(default_factory=list)

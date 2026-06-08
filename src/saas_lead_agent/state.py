@@ -25,6 +25,8 @@ class LeadState(TypedDict):
     needs_human_review: bool | None
     score_reasons: list[str] | None
     score_uncertainty: list[str] | None
+    grounding_report: dict[str, Any] | None
+    outreach_quality: dict[str, Any] | None
     email_subject: str | None
     email_body: str | None
     email_approved: bool | None

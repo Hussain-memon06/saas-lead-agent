@@ -36,6 +36,8 @@ _BASE: LeadState = {
     "needs_human_review": None,
     "score_reasons": None,
     "score_uncertainty": None,
+    "grounding_report": None,
+    "outreach_quality": None,
     "email_subject": None,
     "email_body": None,
     "email_approved": None,
@@ -76,6 +78,8 @@ def test_initial_state_is_valid() -> None:
     assert _BASE["fit_level"] is None
     assert _BASE["score_breakdown"] is None
     assert _BASE["score_confidence"] is None
+    assert _BASE["grounding_report"] is None
+    assert _BASE["outreach_quality"] is None
     assert _BASE["email_subject"] is None
     assert _BASE["email_body"] is None
     assert _BASE["email_approved"] is None
@@ -91,6 +95,8 @@ def test_dossier_fields_overwrite() -> None:
             "fit_level": "medium",
             "score_breakdown": {"baseline": 2.5},
             "score_confidence": "medium",
+            "grounding_report": {"is_sufficient": True},
+            "outreach_quality": {"passed": True},
             "email_subject": "Quick question",
             "email_body": "Hi Alice,",
         },
@@ -99,6 +105,8 @@ def test_dossier_fields_overwrite() -> None:
     assert updated["fit_level"] == "medium"
     assert updated["score_breakdown"] == {"baseline": 2.5}
     assert updated["score_confidence"] == "medium"
+    assert updated["grounding_report"] == {"is_sufficient": True}
+    assert updated["outreach_quality"] == {"passed": True}
     assert updated["email_subject"] == "Quick question"
     assert updated["email_body"] == "Hi Alice,"
     assert updated["company_url"] == "https://example.com"  # untouched
