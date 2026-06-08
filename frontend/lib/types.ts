@@ -1,15 +1,10 @@
 /**
  * TypeScript types mirroring the FastAPI backend's Pydantic schemas.
  *
- * These are hand-written for Phase 1 — keep them in sync with
+ * These are hand-written for now; keep them in sync with
  * `src/saas_lead_agent/api/schemas.py` and the LeadState in
- * `src/saas_lead_agent/state.py`.  Phase 4 follow-up: generate from
- * /openapi.json via openapi-typescript.
+ * `src/saas_lead_agent/state.py`.
  */
-
-// ---------------------------------------------------------------------------
-// Sub-shapes (derived from agent fixtures and the LangGraph state contract)
-// ---------------------------------------------------------------------------
 
 export type CompanyProfile = {
   name: string;
@@ -39,12 +34,6 @@ export type SignalType =
   | "partnership"
   | "other";
 
-/**
- * Mirrors the backend's signal shape exactly (see
- * `agents/signal_detector.py`): `signal_type`, `details`, `date`, `source`.
- * Earlier versions of this type used `type/title/summary/url` and silently
- * fell back to empty UI — the rename here fixes that.
- */
 export type Signal = {
   signal_type: SignalType | string;
   details: string;
@@ -54,9 +43,17 @@ export type Signal = {
 
 export type SendResult = "sent" | "stubbed" | "rejected" | "no_contact" | "failed";
 
-// ---------------------------------------------------------------------------
-// Request / response models (POST /api/qualify, /approve, /reject)
-// ---------------------------------------------------------------------------
+export type ScoreBreakdown = {
+  baseline: number;
+  profile_completeness: number;
+  industry_match: number;
+  stage_match: number;
+  geography_match: number;
+  company_size_fit: number;
+  signal_strength: number;
+  contact_quality: number;
+  red_flag_penalty: number;
+};
 
 export type QualifyRequest = {
   url: string;
@@ -69,14 +66,20 @@ export type QualifyResponse = {
   company_profile: CompanyProfile | null;
   contact: Contact | null;
   signals: Signal[] | null;
-  fit_score: number | null; // 1-10
-  score_explanation: string | null; // e.g. "9/10 — B2B SaaS ✅, Series C ✅, …"
+  fit_score: number | null;
+  fit_level: string | null;
+  score_breakdown: ScoreBreakdown | null;
+  score_confidence: string | null;
+  score_explanation: string | null;
+  needs_human_review: boolean | null;
+  score_reasons: string[] | null;
+  score_uncertainty: string[] | null;
   email_subject: string | null;
   email_body: string | null;
   email_approved: boolean | null;
   send_result: SendResult | null;
   message_id: string | null;
-  sent_at: string | null; // ISO-8601
+  sent_at: string | null;
   interrupted: boolean;
   errors: string[];
 };

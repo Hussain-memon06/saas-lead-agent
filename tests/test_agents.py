@@ -678,31 +678,42 @@ def _make_model_mock(content: str) -> MagicMock:
     return model
 
 
+_STATE_WITH_RESEARCH: LeadState = {
+    **_BASE_STATE,
+    "company_profile": _PROFILE,
+    "contact": _CONTACT,
+    "signals": _SIGNALS,
+}
+
+
 @pytest.mark.asyncio
 async def test_dossier_writer_happy_path() -> None:
     mock_model = _make_model_mock(json.dumps(_DOSSIER_RESPONSE))
 
     with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
-        result = await dossier_writer(_BASE_STATE)
+        result = await dossier_writer(_STATE_WITH_RESEARCH)
 
-    assert result["fit_score"] == 8
-    assert result["score_explanation"] == "8/10 — B2B SaaS ✅, Series A ✅, US ✅, hiring SDRs ✅"
+    assert result["fit_score"] == 9
+    assert result["score_explanation"].startswith("9/10 - ")
+    assert result["fit_level"] == "high"
+    assert result["score_confidence"] == "high"
+    assert result["score_breakdown"]["signal_strength"] == 1.5
     assert result["email_subject"] == "Quick question about Acme Corp"
     assert result["email_body"] == "Hi Alice, saw your recent funding round — congrats!"
     assert "errors" not in result
 
 
 @pytest.mark.asyncio
-async def test_dossier_writer_score_explanation_defaults_to_empty_when_missing() -> None:
-    """If the model omits score_explanation, fall back to '' rather than crash."""
+async def test_dossier_writer_score_explanation_is_deterministic_when_model_omits_it() -> None:
+    """The score explanation is produced by Python, not the model."""
     payload = {k: v for k, v in _DOSSIER_RESPONSE.items() if k != "score_explanation"}
     mock_model = _make_model_mock(json.dumps(payload))
 
     with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
-        result = await dossier_writer(_BASE_STATE)
+        result = await dossier_writer(_STATE_WITH_RESEARCH)
 
-    assert result["fit_score"] == 8
-    assert result["score_explanation"] == ""
+    assert result["fit_score"] == 9
+    assert result["score_explanation"].startswith("9/10 - ")
     assert "errors" not in result
 
 
@@ -712,7 +723,7 @@ async def test_dossier_writer_separate_subject_and_body() -> None:
     mock_model = _make_model_mock(json.dumps(_DOSSIER_RESPONSE))
 
     with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
-        result = await dossier_writer(_BASE_STATE)
+        result = await dossier_writer(_STATE_WITH_RESEARCH)
 
     assert "email_subject" in result
     assert "email_body" in result
@@ -728,7 +739,9 @@ async def test_dossier_writer_handles_none_upstream_fields() -> None:
     with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
         result = await dossier_writer(_BASE_STATE)  # _BASE_STATE has all None
 
-    assert result["fit_score"] == 8
+    assert result["fit_score"] == 2
+    assert result["score_confidence"] == "low"
+    assert result["needs_human_review"] is True
     assert "errors" not in result
 
 
@@ -771,16 +784,15 @@ async def test_dossier_writer_model_exception() -> None:
 
 
 @pytest.mark.asyncio
-async def test_dossier_writer_clamps_fit_score() -> None:
-    for raw_score, expected in [(0, 1), (11, 10), (-5, 1), (100, 10)]:
-        resp = {**_DOSSIER_RESPONSE, "fit_score": raw_score}
-        mock_model = _make_model_mock(json.dumps(resp))
+async def test_dossier_writer_ignores_model_fit_score() -> None:
+    resp = {**_DOSSIER_RESPONSE, "fit_score": 1_000}
+    mock_model = _make_model_mock(json.dumps(resp))
 
-        with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
-            result = await dossier_writer(_BASE_STATE)
+    with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
+        result = await dossier_writer(_STATE_WITH_RESEARCH)
 
-        got = result["fit_score"]
-        assert got == expected, f"score {raw_score} → expected {expected}, got {got}"
+    assert result["fit_score"] == 9
+    assert result["score_explanation"].startswith("9/10 - ")
 
 
 _ICP_FIXTURE: dict[str, Any] = {
@@ -814,9 +826,8 @@ async def test_dossier_writer_uses_icp_prompt_when_icp_provided() -> None:
     assert "Recent funding, Hiring sales team" in system_content
     assert "Pre-revenue, Consumer app" in system_content
     assert "We help SaaS teams 3x their meeting volume." in system_content
-    # The pipe-format spec must be in the prompt so the model emits the
-    # explanation in the shape the dossier UI parses.
-    assert "Industry:" in system_content and "✅" in system_content
+    assert "Do not create" in system_content
+    assert "score" in system_content
 
 
 @pytest.mark.asyncio
@@ -829,9 +840,9 @@ async def test_dossier_writer_uses_generic_prompt_when_no_icp() -> None:
 
     sent_messages = mock_model.ainvoke.call_args.args[0]
     system_content = sent_messages[0].content
-    assert "Set your ICP in Settings" in system_content
-    # The ICP-mode rubric phrases must NOT appear.
-    assert "STRICTLY against this Ideal Customer Profile" not in system_content
+    assert "has not configured their Ideal Customer Profile" in system_content
+    assert "Do not create" in system_content
+    assert "score" in system_content
 
 
 # ===========================================================================

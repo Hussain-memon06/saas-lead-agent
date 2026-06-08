@@ -48,6 +48,12 @@ _GRAPH_RESULT: dict[str, Any] = {
     "contact": _CONTACT,
     "signals": [],
     "fit_score": 8,
+    "fit_level": "high",
+    "score_breakdown": {"baseline": 2.5, "signal_strength": 1.5},
+    "score_confidence": "high",
+    "needs_human_review": False,
+    "score_reasons": ["company profile has usable sourced detail"],
+    "score_uncertainty": [],
     "score_explanation": "8/10 — B2B SaaS ✅, Series A ✅, US ✅, hiring SDRs ✅",
     "email_subject": "Quick question about Acme Corp",
     "email_body": "Hi Alice, saw your recent Series A — congrats!",
@@ -140,7 +146,13 @@ def test_qualify_response_defaults() -> None:
     assert resp.contact is None
     assert resp.signals is None
     assert resp.fit_score is None
+    assert resp.fit_level is None
+    assert resp.score_breakdown is None
+    assert resp.score_confidence is None
     assert resp.score_explanation is None
+    assert resp.needs_human_review is None
+    assert resp.score_reasons is None
+    assert resp.score_uncertainty is None
     assert resp.email_subject is None
     assert resp.email_body is None
     assert resp.email_approved is None
@@ -173,6 +185,12 @@ async def test_qualify_happy_path() -> None:
     assert body["contact"]["source"] == "stub"
     assert body["signals"] == []
     assert body["fit_score"] == 8
+    assert body["fit_level"] == "high"
+    assert body["score_breakdown"]["signal_strength"] == 1.5
+    assert body["score_confidence"] == "high"
+    assert body["needs_human_review"] is False
+    assert body["score_reasons"] == ["company profile has usable sourced detail"]
+    assert body["score_uncertainty"] == []
     assert body["score_explanation"] == "8/10 — B2B SaaS ✅, Series A ✅, US ✅, hiring SDRs ✅"
     assert body["email_subject"] == "Quick question about Acme Corp"
     assert body["email_body"] == "Hi Alice, saw your recent Series A — congrats!"
@@ -223,6 +241,9 @@ async def test_qualify_passes_correct_state_to_graph() -> None:
     assert state["domain"] == "acme.example.com"
     assert state["icp_context"] is None
     assert state["company_profile"] is None
+    assert state["fit_level"] is None
+    assert state["score_breakdown"] is None
+    assert state["score_confidence"] is None
     assert state["errors"] == []
 
     config = call_args.kwargs["config"]

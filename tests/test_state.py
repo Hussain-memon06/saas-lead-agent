@@ -29,7 +29,13 @@ _BASE: LeadState = {
     "contact": None,
     "signals": None,
     "fit_score": None,
+    "fit_level": None,
+    "score_breakdown": None,
+    "score_confidence": None,
     "score_explanation": None,
+    "needs_human_review": None,
+    "score_reasons": None,
+    "score_uncertainty": None,
     "email_subject": None,
     "email_body": None,
     "email_approved": None,
@@ -67,6 +73,9 @@ def test_initial_state_is_valid() -> None:
     assert _BASE["company_url"] == "https://example.com"
     assert _BASE["company_profile"] is None
     assert _BASE["fit_score"] is None
+    assert _BASE["fit_level"] is None
+    assert _BASE["score_breakdown"] is None
+    assert _BASE["score_confidence"] is None
     assert _BASE["email_subject"] is None
     assert _BASE["email_body"] is None
     assert _BASE["email_approved"] is None
@@ -77,9 +86,19 @@ def test_initial_state_is_valid() -> None:
 def test_dossier_fields_overwrite() -> None:
     updated = _merge(
         _BASE,
-        {"fit_score": 7, "email_subject": "Quick question", "email_body": "Hi Alice,"},
+        {
+            "fit_score": 7,
+            "fit_level": "medium",
+            "score_breakdown": {"baseline": 2.5},
+            "score_confidence": "medium",
+            "email_subject": "Quick question",
+            "email_body": "Hi Alice,",
+        },
     )
     assert updated["fit_score"] == 7
+    assert updated["fit_level"] == "medium"
+    assert updated["score_breakdown"] == {"baseline": 2.5}
+    assert updated["score_confidence"] == "medium"
     assert updated["email_subject"] == "Quick question"
     assert updated["email_body"] == "Hi Alice,"
     assert updated["company_url"] == "https://example.com"  # untouched

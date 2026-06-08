@@ -2,10 +2,11 @@
 
 ## Current Status
 
-Phase 1 is complete. The project is still a deployed prototype, but it now has
-the first contract and safety layer needed before deeper production work.
+Phase 1 is complete and committed.
 
-The next planned phase is Phase 2: deterministic scoring.
+Phase 2 is in progress. The first scoring milestone is implemented: the final
+fit score now comes from deterministic Python business logic instead of the
+LLM-generated dossier text.
 
 ## What We Completed
 
@@ -94,64 +95,76 @@ or explicitly requested checks:
 - SendGrid real delivery
 - Langfuse trace verification
 
-## Current Worktree Note
+## Commit History
 
-The Phase 1 work is not committed yet. The current recommended next action is
-to commit Phase 1 before starting Phase 2, so future changes have a clean base.
+- `0310420 feat: complete phase 1 contracts and safety hardening`
+
+## Phase 2 Progress
+
+Completed so far:
+
+- Added `src/saas_lead_agent/engine/` with a pure-Python deterministic scoring
+  engine.
+- Added scoring contracts for:
+  - score breakdown
+  - fit level
+  - score confidence
+  - human-review flag
+  - reasons
+  - uncertainty reasons
+- Updated `dossier_writer` so:
+  - the model drafts only `email_subject` and `email_body`
+  - Python calculates the final `fit_score`
+  - model-provided score fields are ignored
+  - deterministic score metadata is returned with the dossier state
+- Threaded optional score metadata through:
+  - `LeadState`
+  - FastAPI qualify response schema
+  - REST route response construction
+  - frontend TypeScript response types
+  - HITL interrupt payload
+- Added focused tests for deterministic scoring and scorer/dossier integration.
+
+Verification completed:
+
+```bash
+uv run python -m ruff check <phase-2-changed-python-files>
+uv run python -m ruff format --check <phase-2-changed-python-files>
+uv run python -m pytest tests\test_scoring.py tests\test_agents.py tests\test_state.py tests\test_api.py -q
+```
+
+Result:
+
+- `98 passed`
+- changed-file Ruff checks passed
+
+Not run by policy:
+
+- full pytest
+- full mypy
+- frontend production build
+- Docker
+- eval suites
+- external API checks
+
+## Next Plan
+
+### Step 1: Review And Commit Phase 2 Scoring Milestone
 
 Suggested commit message:
 
 ```text
-feat: complete phase 1 contracts and safety hardening
+feat: add deterministic lead scoring engine
 ```
 
-## Next Plan
+### Step 2: Continue Phase 2 With Grounding And Quality
 
-### Step 1: Commit Phase 1
+The next Phase 2 milestone should stay focused on deterministic business logic:
 
-Commit the current Phase 1 changes once reviewed.
-
-Before committing, optionally inspect:
-
-```bash
-git status --short
-git diff --stat
-```
-
-### Step 2: Begin Phase 2 Narrowly
-
-Start Phase 2 with deterministic scoring only. Do not begin persistence, RAG,
-MCP, auth, evals, or production ops yet.
-
-Recommended first Phase 2 milestone:
-
-1. Define scoring contracts:
-   - score breakdown
-   - scoring result
-   - confidence/uncertainty fields
-   - human-readable reasons
-2. Add a small pure-Python scoring engine.
-3. Keep `dossier_writer` responsible for draft text only.
-4. Ensure the LLM cannot directly set the final fit score.
-5. Add focused tests for high, medium, low, and edge-case scoring.
-
-Suggested initial files:
-
-- `src/saas_lead_agent/engine/__init__.py`
-- `src/saas_lead_agent/engine/scoring.py`
-- `tests/test_scoring.py`
-
-### Step 3: Integrate Scoring Carefully
-
-After the scoring engine is tested in isolation:
-
-1. Feed validated company profile, signals, contact, and ICP context into the
-   scoring engine.
-2. Have `dossier_writer` use the deterministic score result instead of trusting
-   the model-provided score.
-3. Preserve the existing API response shape unless a versioned contract change
-   is explicitly planned.
-4. Update frontend types only if the response gains new optional fields.
+1. Add evidence grounding checks.
+2. Add outreach quality checks.
+3. Keep both engines pure Python with deterministic tests.
+4. Do not add persistence, RAG, MCP, auth, evals, or production ops yet.
 
 ## Phase 2 Guardrails
 
@@ -183,9 +196,9 @@ uv run python -m pytest tests\test_api.py -q
 
 ## Open Decisions
 
-- Whether to commit Phase 1 immediately or inspect the diff first.
-- Whether Phase 2 should expose score breakdown fields in the current flat API
-  response or keep them internal until the frontend display is updated.
 - Whether the first deterministic scoring rules should be minimal and
   conservative, or closer to the full future scoring model described in
-  `PLANS.md`.
+  `PLANS.md`. Current implementation starts conservative and should be tuned
+  with examples later.
+- Whether to display score breakdown/confidence in the frontend now or wait
+  until the UI has a designed section for it.

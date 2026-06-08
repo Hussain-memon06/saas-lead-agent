@@ -105,7 +105,9 @@ Optional Platform Services
 - No API versioning. A planned response envelope contract exists, but current
   public routes intentionally keep the flat response shape for frontend
   compatibility.
-- No deterministic scoring engine; `dossier_writer` asks the LLM to score.
+- Initial deterministic scoring engine exists and `dossier_writer` no longer
+  trusts the LLM for the final score. Evidence grounding and outreach quality
+  engines are still pending.
 - Agent outputs now pass through first-pass Pydantic validation after JSON
   parsing, but OpenAI structured-output/function-calling enforcement and
   retry-on-validation-failure are not yet implemented.
@@ -291,6 +293,11 @@ Run frontend build only if the milestone changes frontend contracts or
 build-sensitive frontend files, and only when explicitly requested.
 
 ## Phase 2: Deterministic Business Logic & Scoring Engine
+
+Status: in progress. The deterministic scoring engine and dossier integration
+are implemented for the first Phase 2 milestone: the LLM drafts outreach copy,
+while Python calculates the final fit score, score breakdown, confidence,
+review flag, reasons, and uncertainty fields.
 
 ### Goal
 
@@ -881,8 +888,7 @@ documented with their outputs.
 
 ## Immediate Next Step
 
-Begin Phase 2 with a narrow implementation plan for deterministic scoring.
-Keep the LLM responsible for extracting profile, signal, evidence, and outreach
-draft inputs, but move the final fit score into inspectable Python business
-logic. Do not implement persistence, RAG, MCP, auth, evals, or production ops
-yet. Those come later in order.
+Continue Phase 2 with evidence grounding and outreach quality checks. Keep both
+as deterministic Python business logic with focused tests. Do not implement
+persistence, RAG, MCP, auth, evals, or production ops yet. Those come later in
+order.
