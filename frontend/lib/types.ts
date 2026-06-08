@@ -52,7 +52,7 @@ export type Signal = {
   source: string;
 };
 
-export type SendResult = "sent" | "rejected" | "no_contact" | "failed";
+export type SendResult = "sent" | "stubbed" | "rejected" | "no_contact" | "failed";
 
 // ---------------------------------------------------------------------------
 // Request / response models (POST /api/qualify, /approve, /reject)
@@ -64,6 +64,7 @@ export type QualifyRequest = {
 };
 
 export type QualifyResponse = {
+  request_id: string | null;
   thread_id: string;
   company_profile: CompanyProfile | null;
   contact: Contact | null;
@@ -81,6 +82,7 @@ export type QualifyResponse = {
 };
 
 export type ApproveResponse = {
+  request_id: string | null;
   thread_id: string;
   email_approved: boolean | null;
   send_result: SendResult | null;

@@ -71,9 +71,7 @@ def _make_agent_mock(content: str) -> MagicMock:
     from langchain_core.messages import AIMessage
 
     agent = MagicMock()
-    agent.ainvoke = AsyncMock(
-        return_value={"messages": [AIMessage(content=content)]}
-    )
+    agent.ainvoke = AsyncMock(return_value={"messages": [AIMessage(content=content)]})
     return agent
 
 
@@ -214,6 +212,22 @@ async def test_company_researcher_json_parse_error() -> None:
     assert "errors" in result
     assert len(result["errors"]) == 1
     assert "JSON parse error" in result["errors"][0]
+    assert "company_profile" not in result
+
+
+@pytest.mark.asyncio
+async def test_company_researcher_schema_validation_error() -> None:
+    invalid_profile = {**_PROFILE, "funding_stage": "Mega Round"}
+    mock_agent = _make_agent_mock(json.dumps(invalid_profile))
+
+    with patch(
+        "saas_lead_agent.agents.company_researcher._get_researcher_agent",
+        return_value=mock_agent,
+    ):
+        result = await company_researcher(_BASE_STATE)
+
+    assert "errors" in result
+    assert "schema validation error" in result["errors"][0]
     assert "company_profile" not in result
 
 
@@ -386,6 +400,22 @@ async def test_contact_finder_json_parse_error() -> None:
 
 
 @pytest.mark.asyncio
+async def test_contact_finder_schema_validation_error() -> None:
+    invalid_contact = {**_CONTACT, "confidence": 120}
+    mock_agent = _make_agent_mock(json.dumps(invalid_contact))
+
+    with patch(
+        "saas_lead_agent.agents.contact_finder._get_contact_finder_agent",
+        return_value=mock_agent,
+    ):
+        result = await contact_finder(_BASE_STATE)
+
+    assert "errors" in result
+    assert "schema validation error" in result["errors"][0]
+    assert "contact" not in result
+
+
+@pytest.mark.asyncio
 async def test_contact_finder_agent_exception() -> None:
     mock_agent = MagicMock()
     mock_agent.ainvoke = AsyncMock(side_effect=RuntimeError("LLM quota exceeded"))
@@ -494,6 +524,29 @@ async def test_signal_detector_json_parse_error() -> None:
 
     assert "errors" in result
     assert "JSON parse error" in result["errors"][0]
+    assert "signals" not in result
+
+
+@pytest.mark.asyncio
+async def test_signal_detector_schema_validation_error() -> None:
+    invalid_signals = [
+        {
+            "signal_type": "vibes",
+            "date": None,
+            "source": "https://acme.example.com/news",
+            "details": "Invalid signal type with on-domain source.",
+        }
+    ]
+    mock_agent = _make_agent_mock(json.dumps(invalid_signals))
+
+    with patch(
+        "saas_lead_agent.agents.signal_detector._get_signal_detector_agent",
+        return_value=mock_agent,
+    ):
+        result = await signal_detector(_BASE_STATE)
+
+    assert "errors" in result
+    assert "schema validation error" in result["errors"][0]
     assert "signals" not in result
 
 
@@ -692,6 +745,19 @@ async def test_dossier_writer_json_parse_error() -> None:
 
 
 @pytest.mark.asyncio
+async def test_dossier_writer_schema_validation_error() -> None:
+    payload = {**_DOSSIER_RESPONSE, "email_subject": "x" * 301}
+    mock_model = _make_model_mock(json.dumps(payload))
+
+    with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
+        result = await dossier_writer(_BASE_STATE)
+
+    assert "errors" in result
+    assert "schema validation error" in result["errors"][0]
+    assert "fit_score" not in result
+
+
+@pytest.mark.asyncio
 async def test_dossier_writer_model_exception() -> None:
     mock_model = MagicMock()
     mock_model.ainvoke = AsyncMock(side_effect=RuntimeError("OpenAI quota exceeded"))
@@ -808,18 +874,34 @@ async def test_send_email_no_contact_when_contact_dict_missing() -> None:
 
 @pytest.mark.asyncio
 async def test_send_email_stub_mode_when_no_api_key() -> None:
-    """Approved + contact email but no SENDGRID_API_KEY → stub 'sent', no delivery."""
+    """Approved + explicit stub mode but no key → 'stubbed', no delivery."""
     import os as _os
-    with patch.dict(_os.environ, {}, clear=False):
+
+    with patch.dict(_os.environ, {"SENDGRID_STUB_ENABLED": "true"}, clear=False):
         _os.environ.pop("SENDGRID_API_KEY", None)
         result = await send_email(_APPROVED_STATE)  # type: ignore[arg-type]
-    assert result == {"send_result": "sent"}
+    assert result == {"send_result": "stubbed"}
+
+
+@pytest.mark.asyncio
+async def test_send_email_fails_closed_when_no_api_key_and_stub_not_enabled() -> None:
+    """Missing SendGrid config must not masquerade as real delivery."""
+    import os as _os
+
+    with patch.dict(_os.environ, {}, clear=False):
+        _os.environ.pop("SENDGRID_API_KEY", None)
+        _os.environ.pop("SENDGRID_STUB_ENABLED", None)
+        result = await send_email(_APPROVED_STATE)  # type: ignore[arg-type]
+
+    assert result["send_result"] == "failed"
+    assert "SENDGRID_API_KEY is not set" in result["errors"][0]
 
 
 @pytest.mark.asyncio
 async def test_send_email_calls_sendgrid_on_success() -> None:
     """Approved + key set → calls send_email_via_sendgrid, returns delivery metadata."""
     import os as _os
+
     fake_result = {
         "status_code": 202,
         "message_id": "msg-real-123",
@@ -846,6 +928,7 @@ async def test_send_email_calls_sendgrid_on_success() -> None:
 async def test_send_email_records_failure_on_sendgrid_error() -> None:
     """SendGrid raises → send_result='failed' + error appended; node does not raise."""
     import os as _os
+
     with patch.dict(_os.environ, {"SENDGRID_API_KEY": "SG.test"}, clear=False):
         with patch(
             "saas_lead_agent.agents.send_email.send_email_via_sendgrid",

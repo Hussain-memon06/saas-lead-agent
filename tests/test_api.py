@@ -110,6 +110,24 @@ def test_qualify_request_accepts_icp_context() -> None:
     }
 
 
+def test_qualify_request_rejects_localhost_url() -> None:
+    with pytest.raises(ValidationError, match="hostname is not allowed"):
+        QualifyRequest(url="https://localhost")
+
+
+def test_qualify_request_rejects_private_ip_url() -> None:
+    with pytest.raises(ValidationError, match="IP address is not allowed"):
+        QualifyRequest(url="http://10.0.0.5")
+
+
+def test_qualify_request_rejects_invalid_icp_shape() -> None:
+    with pytest.raises(ValidationError, match="must be a list"):
+        QualifyRequest(
+            url="https://acme.example.com",
+            icp_context={"target_industries": "B2B SaaS"},
+        )
+
+
 # ---------------------------------------------------------------------------
 # QualifyResponse schema
 # ---------------------------------------------------------------------------
@@ -117,6 +135,7 @@ def test_qualify_request_accepts_icp_context() -> None:
 
 def test_qualify_response_defaults() -> None:
     resp = QualifyResponse(thread_id="lead:acme.example.com")
+    assert resp.request_id is None
     assert resp.company_profile is None
     assert resp.contact is None
     assert resp.signals is None
@@ -148,6 +167,7 @@ async def test_qualify_happy_path() -> None:
 
     assert resp.status_code == 200
     body = resp.json()
+    assert body["request_id"]
     assert body["thread_id"] == "lead:acme.example.com"
     assert body["company_profile"]["name"] == "Acme Corp"
     assert body["contact"]["source"] == "stub"
@@ -166,9 +186,7 @@ async def test_qualify_www_prefix_stripped_from_domain() -> None:
 
     with patch("saas_lead_agent.api.routes._graph", mock_graph):
         async with await _client() as client:
-            resp = await client.post(
-                "/api/qualify", json={"url": "https://www.acme.example.com"}
-            )
+            resp = await client.post("/api/qualify", json={"url": "https://www.acme.example.com"})
 
     assert resp.status_code == 200
     assert resp.json()["thread_id"] == "lead:acme.example.com"
@@ -209,6 +227,8 @@ async def test_qualify_passes_correct_state_to_graph() -> None:
 
     config = call_args.kwargs["config"]
     assert config["configurable"]["thread_id"] == "lead:acme.example.com"
+    assert config["metadata"]["thread_id"] == "lead:acme.example.com"
+    assert config["metadata"]["request_id"]
 
 
 @pytest.mark.asyncio
@@ -266,6 +286,52 @@ async def test_qualify_invalid_url_returns_422() -> None:
         resp = await client.post("/api/qualify", json={"url": "not-a-url"})
 
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_qualify_invalid_private_ip_returns_422() -> None:
+    async with await _client() as client:
+        resp = await client.post("/api/qualify", json={"url": "http://127.0.0.1"})
+
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_request_id_header_generated_on_error_response() -> None:
+    async with await _client() as client:
+        resp = await client.post("/api/qualify", json={"url": "not-a-url"})
+
+    assert resp.headers["X-Request-ID"]
+
+
+@pytest.mark.asyncio
+async def test_request_id_header_preserved_from_client() -> None:
+    async with await _client() as client:
+        resp = await client.post(
+            "/api/qualify",
+            json={"url": "not-a-url"},
+            headers={"X-Request-ID": "req-test-123"},
+        )
+
+    assert resp.headers["X-Request-ID"] == "req-test-123"
+
+
+@pytest.mark.asyncio
+async def test_qualify_response_includes_request_id_from_client() -> None:
+    mock_graph = AsyncMock()
+    mock_graph.ainvoke = AsyncMock(return_value=_GRAPH_RESULT)
+
+    with patch("saas_lead_agent.api.routes._graph", mock_graph):
+        async with await _client() as client:
+            resp = await client.post(
+                "/api/qualify",
+                json={"url": "https://acme.example.com"},
+                headers={"X-Request-ID": "req-test-123"},
+            )
+
+    assert resp.json()["request_id"] == "req-test-123"
+    config = mock_graph.ainvoke.call_args.kwargs["config"]
+    assert config["metadata"]["request_id"] == "req-test-123"
 
 
 @pytest.mark.asyncio
@@ -364,6 +430,7 @@ async def test_approve_resumes_graph_with_true() -> None:
 
     assert resp.status_code == 200
     body = resp.json()
+    assert body["request_id"]
     assert body["thread_id"] == "lead:acme.example.com"
     assert body["email_approved"] is True
     assert body["send_result"] == "sent"

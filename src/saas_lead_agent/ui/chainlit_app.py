@@ -8,20 +8,20 @@ Flow:
   2. graph runs to ``await_approval``; dossier + draft email shown
   3. AskActionMessage offers Approve / Reject actions
   4. action handler resumes the graph with ``Command(resume=<bool>)``
-  5. final ``send_result`` (sent / rejected / failed / no_contact) reported
+  5. final ``send_result`` (sent / stubbed / rejected / failed / no_contact) reported
 
 Shares the module-level ``_graph`` from ``api.routes`` so HITL state is the
 same regardless of whether the user came in via REST or via the chat UI.
 """
 
 from typing import Any
-from urllib.parse import urlparse
 
 import chainlit as cl
 from langgraph.types import Command
 
 from saas_lead_agent.api import routes as _routes
 from saas_lead_agent.api.routes import _config, _domain_from_url, _is_interrupted
+from saas_lead_agent.schemas import normalize_public_http_url
 from saas_lead_agent.state import LeadState
 
 # ---------------------------------------------------------------------------
@@ -35,13 +35,15 @@ def validate_url(raw: str) -> tuple[bool, str]:
     On success the second tuple element is the cleaned URL; on failure it
     is a user-facing error string.
     """
-    cleaned = raw.strip()
-    if not cleaned:
-        return False, "Please paste a company URL."
-    parsed = urlparse(cleaned)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        return False, "URL must start with http:// or https:// (e.g. https://stripe.com)."
-    return True, cleaned
+    try:
+        return True, normalize_public_http_url(raw)
+    except ValueError as exc:
+        message = str(exc)
+        if message == "url is required":
+            return False, "Please paste a company URL."
+        if "HTTP/HTTPS" in message:
+            return False, "URL must start with http:// or https:// (e.g. https://stripe.com)."
+        return False, message
 
 
 def format_dossier(result: dict[str, Any]) -> str:
@@ -95,6 +97,7 @@ def format_send_result(result: dict[str, Any]) -> str:
     outcome = result.get("send_result")
     icons = {
         "sent": "✅ Sent",
+        "stubbed": "🧪 Stubbed (not delivered)",
         "rejected": "🚫 Rejected (not delivered)",
         "no_contact": "⚠️  No contact email — nothing sent",
         "failed": "❌ Delivery failed",

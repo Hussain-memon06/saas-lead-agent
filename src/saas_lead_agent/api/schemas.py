@@ -1,9 +1,10 @@
 """Pydantic v2 request/response models for the lead-research API."""
 
 from typing import Any
-from urllib.parse import urlparse
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
+
+from saas_lead_agent.schemas import IcpContext, SendResult, normalize_public_http_url
 
 
 class QualifyRequest(BaseModel):
@@ -18,16 +19,18 @@ class QualifyRequest(BaseModel):
     @field_validator("url")
     @classmethod
     def validate_url(cls, v: str) -> str:
-        parsed = urlparse(v.strip())
-        if parsed.scheme not in ("http", "https") or not parsed.netloc:
-            raise ValueError(
-                "url must be a fully-qualified HTTP/HTTPS URL "
-                "(e.g. https://acme.example.com)"
-            )
-        return v.strip()
+        return normalize_public_http_url(v)
+
+    @field_validator("icp_context")
+    @classmethod
+    def validate_icp_context(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
+        if v is None:
+            return None
+        return IcpContext.model_validate(v).model_dump(exclude_unset=True)
 
 
 class QualifyResponse(BaseModel):
+    request_id: str | None = None
     thread_id: str
     company_profile: dict[str, Any] | None = None
     contact: dict[str, Any] | None = None
@@ -37,18 +40,19 @@ class QualifyResponse(BaseModel):
     email_subject: str | None = None
     email_body: str | None = None
     email_approved: bool | None = None
-    send_result: str | None = None
+    send_result: SendResult | None = None
     message_id: str | None = None
     sent_at: str | None = None
     interrupted: bool = False
-    errors: list[str] = []
+    errors: list[str] = Field(default_factory=list)
 
 
 class ApproveResponse(BaseModel):
+    request_id: str | None = None
     thread_id: str
     email_approved: bool | None = None
-    send_result: str | None = None
+    send_result: SendResult | None = None
     message_id: str | None = None
     sent_at: str | None = None
     interrupted: bool = False
-    errors: list[str] = []
+    errors: list[str] = Field(default_factory=list)

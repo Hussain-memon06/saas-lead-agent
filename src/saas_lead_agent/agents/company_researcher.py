@@ -14,7 +14,9 @@ from typing import Any
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
+from pydantic import ValidationError
 
+from saas_lead_agent.schemas import CompanyProfile
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.tools.scraper import scrape
 from saas_lead_agent.tools.web_search import web_search
@@ -55,7 +57,7 @@ all other fields to null.
 
 Use null for unknown fields. Return ONLY the JSON object."""
 
-# Lazy singleton — avoids requiring GOOGLE_API_KEY at import time.
+# Lazy singleton — avoids requiring OPENAI_API_KEY at import time.
 _researcher_agent: Any = None
 
 
@@ -139,9 +141,7 @@ async def company_researcher(state: LeadState) -> dict[str, Any]:
     prompt = f"Research this company and return the JSON profile: {url}"
 
     try:
-        result: dict[str, Any] = await agent.ainvoke(
-            {"messages": [HumanMessage(content=prompt)]}
-        )
+        result: dict[str, Any] = await agent.ainvoke({"messages": [HumanMessage(content=prompt)]})
     except Exception as exc:
         return {"errors": [f"company_researcher: agent invocation failed: {exc}"]}
 
@@ -162,4 +162,8 @@ async def company_researcher(state: LeadState) -> dict[str, Any]:
     # Precision over recall: if no source URL contains the company domain,
     # the model likely pulled info from a different company. Wipe fields.
     verified = _verify_sources(profile, state["domain"])
-    return {"company_profile": verified}
+    try:
+        validated = CompanyProfile.model_validate(verified)
+    except ValidationError as exc:
+        return {"errors": [f"company_researcher: schema validation error — {exc}"]}
+    return {"company_profile": validated.model_dump()}

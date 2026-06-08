@@ -31,11 +31,11 @@ uv run uvicorn src.saas_lead_agent.api.main:app --reload --port 8080 --timeout-k
 You'll need a `.env` at the repo root with at minimum:
 
 ```
-GOOGLE_API_KEY=...        # Gemini (research agents)
-OPENAI_API_KEY=...        # GPT-4o-mini (email writer)
+OPENAI_API_KEY=...        # GPT-4o-mini for agent nodes
 TAVILY_API_KEY=...        # Web search
 HUNTER_API_KEY=...        # Decision-maker email lookup
-SENDGRID_API_KEY=...      # (optional in dev — falls back to stub send)
+SENDGRID_STUB_ENABLED=true  # explicit dev/test stub mode
+SENDGRID_API_KEY=...      # optional real delivery credentials
 POSTGRES_URL=...          # (optional — InMemorySaver if absent)
 LANGFUSE_PUBLIC_KEY=...   # (optional — tracing disabled if absent)
 LANGFUSE_SECRET_KEY=...
@@ -59,11 +59,11 @@ The frontend reads exactly one optional variable:
 
 | Var | Default | Purpose |
 | --- | --- | --- |
-| `NEXT_PUBLIC_API_BASE` | `""` (relative) | Override the backend origin.  Leave unset for local dev — the rewrite proxy handles it.  Set to e.g. `https://api.example.com` when deploying without a proxy. |
+| `NEXT_PUBLIC_API_BASE_URL` | `""` (relative) | Override the backend origin. Leave unset for local dev — the rewrite proxy handles it. Set to e.g. `https://api.example.com` when deploying without a proxy. |
 
-In production, the simplest deploy is a Cloud Run service that serves
-both the FastAPI app and a built frontend behind one origin; in that
-case you also leave `NEXT_PUBLIC_API_BASE` unset.
+In production, the current split deployment is Vercel for the frontend and
+Railway for the backend. Set `NEXT_PUBLIC_API_BASE_URL` to the deployed backend
+origin when the frontend cannot rely on a same-origin proxy.
 
 ## Scripts
 
@@ -130,7 +130,7 @@ hooks/                    # (reserved)
 ## Troubleshooting
 
 - **`/api/*` requests 404 in the browser** — backend isn't running on
-  `:8080`, or you set `NEXT_PUBLIC_API_BASE` to something unreachable.
+  `:8080`, or you set `NEXT_PUBLIC_API_BASE_URL` to something unreachable.
 - **Qualify hangs past 2 min** — the client aborts at 120 s with an
   `ApiError` shown in the form.  Check the backend logs; one of the
   external tool calls (Tavily, Hunter, scraper) is likely the culprit.

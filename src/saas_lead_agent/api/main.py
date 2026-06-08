@@ -1,11 +1,12 @@
 """FastAPI application factory for the lead-research API."""
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
+from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 import saas_lead_agent.api.routes as _routes
@@ -57,11 +58,23 @@ def create_app() -> FastAPI:
     cause every ``/api/*`` route to 404 (CLAUDE.md).
     """
     app = FastAPI(
-        title="SaaS Lead Research Agent",
+        title="Outbound Lead Agent",
         description="Research and qualify B2B SaaS companies.",
         version="0.1.0",
         lifespan=lifespan,
     )
+
+    @app.middleware("http")
+    async def add_request_id(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        request_id = request.headers.get("X-Request-ID") or str(uuid4())
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

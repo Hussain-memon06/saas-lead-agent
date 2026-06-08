@@ -6,6 +6,8 @@ import httpx
 from bs4 import BeautifulSoup
 from langchain_core.tools import tool
 
+from saas_lead_agent.schemas import normalize_public_http_url
+
 _MAX_CHARS: Final[int] = 20_000
 
 # Realistic Chrome UA — many sites block requests without one (CLAUDE.md gotcha).
@@ -38,20 +40,20 @@ def scrape(url: str) -> str:
     Raises:
         RuntimeError: If the HTTP request fails (non-2xx status or network error).
     """
+    safe_url = normalize_public_http_url(url)
+
     try:
         response = httpx.get(
-            url,
+            safe_url,
             headers={"User-Agent": _USER_AGENT},
             follow_redirects=True,
             timeout=15.0,
         )
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
-        raise RuntimeError(
-            f"HTTP {exc.response.status_code} fetching {url}"
-        ) from exc
+        raise RuntimeError(f"HTTP {exc.response.status_code} fetching {safe_url}") from exc
     except httpx.RequestError as exc:
-        raise RuntimeError(f"Network error fetching {url}: {exc}") from exc
+        raise RuntimeError(f"Network error fetching {safe_url}: {exc}") from exc
 
     soup = BeautifulSoup(response.text, "html.parser")
 

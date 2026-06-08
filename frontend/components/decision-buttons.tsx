@@ -22,6 +22,11 @@ const OUTCOME_COPY: Record<
     title: "Email sent",
     body: "SendGrid accepted the message for delivery.",
   },
+  stubbed: {
+    tone: "warning",
+    title: "Delivery stubbed",
+    body: "No email was delivered. Stub mode is explicitly enabled for this environment.",
+  },
   rejected: {
     tone: "muted",
     title: "Email rejected",
@@ -49,6 +54,7 @@ export function DecisionButtons({ threadId, state }: Props) {
       prev
         ? {
             ...prev,
+            request_id: data.request_id,
             email_approved: data.email_approved,
             send_result: data.send_result,
             message_id: data.message_id,
@@ -118,8 +124,8 @@ export function DecisionButtons({ threadId, state }: Props) {
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Approving will deliver the drafted email through SendGrid (or record a
-        stub success in dev). This is the last gate.
+        Approving will deliver through SendGrid, unless explicit stub mode is
+        enabled for this environment. This is the last gate.
       </p>
       {error && (
         <div

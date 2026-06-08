@@ -37,6 +37,8 @@ Paste a company URL and Outbound Lead Agent researches the company end-to-end: i
 
 **Anti-hallucination throughout.** Every research claim ties back to a source URL. Domain-verification runs on company profiles and on signals. Tool-call schemas are explicit. JSON outputs are parsed with a fence-stripping primitive that rejects unstructured prose. Tests assert these guards.
 
+**Prompt-injection boundary.** Scraped pages and search snippets are untrusted external data. Agent prompts may quote or summarize that content as evidence, but page text must never be treated as system, developer, or tool instructions. Future RAG work must preserve the same trusted-user-context versus untrusted-source-content boundary.
+
 ---
 
 ## Architecture
@@ -58,7 +60,7 @@ flowchart LR
 
 **Frontend.** Next.js 14 App Router (`/`, `/settings`, `/leads/[threadId]`). The qualify form posts a URL plus the locally-stored ICP, then routes the user to the dossier page where TanStack Query hydrates from the cache the form just seeded. Approve/Reject buttons fire mutations against `/api/leads/{thread_id}/approve` or `/reject`.
 
-**Backend.** A FastAPI app (`src/saas_lead_agent/api/main.py`) exposes three POST endpoints, holds a singleton compiled LangGraph in module scope, and mounts a Chainlit chat UI at `/chainlit` for an alternative interaction surface.
+**Backend.** A FastAPI app (`src/saas_lead_agent/api/main.py`) exposes three POST endpoints, holds a singleton compiled LangGraph in module scope, and mounts a Chainlit chat UI at `/chainlit` for an alternative interaction surface. Current responses intentionally preserve the flat frontend contract; the schema package defines a planned `APIResponse`/`APIError` envelope for a future versioned `/api/v1` transition.
 
 **LangGraph pipeline.** `START → company_researcher → contact_finder → signal_detector → dossier_writer → await_approval → send_email → END`. Sequential rather than parallel — see *Design decisions*.
 
@@ -78,7 +80,7 @@ flowchart LR
 | Research tools | Tavily (web search), Hunter.io (email finder), httpx + BeautifulSoup (scrape) | External lookups grounded in real sources |
 | Persistence | Supabase / Postgres via `AsyncPostgresSaver` (psycopg3) | Durable HITL resume; falls back to InMemorySaver |
 | Observability | Langfuse v3 | Optional per-node tracing; None-safe fallback |
-| Email | SendGrid (sync SDK in `asyncio.to_thread`) | Optional outbound delivery; stub fallback for dev |
+| Email | SendGrid (sync SDK in `asyncio.to_thread`) | Optional outbound delivery; explicit stub fallback for dev |
 | Alt UI | Chainlit v2 (mounted at `/chainlit`) | Chat-style interface sharing the same graph instance |
 | Deployment | Railway (backend), Vercel (frontend), Docker (multi-stage, non-root, runs locally via `docker compose`) | Production hosting |
 | Quality | ruff, mypy (strict), pytest, pytest-asyncio | 170+ tests, ruff + mypy clean on every change |
@@ -92,7 +94,7 @@ flowchart LR
 3. **The dossier renders** with company profile, decision-maker, signals, fit score with `✅/❌` rationale, and the drafted email.
 4. **Set your ICP in Settings** (industries, stages, geographies, must-have signals, red flags, value proposition) for a personalised score; the page in-line warns if you haven't.
 5. **Review the email** — recipient, subject, body, all visible before send.
-6. **Approve or Reject.** Approve delivers via SendGrid (or records a stub success in dev); Reject closes the thread without delivery.
+6. **Approve or Reject.** Approve delivers via SendGrid (or records an explicit `stubbed` result in dev); Reject closes the thread without delivery.
 
 ---
 
@@ -140,7 +142,8 @@ Open `http://localhost:3000`. Next.js proxies `/api/*` to `localhost:8080` via a
 | `OPENAI_API_KEY` | Yes | GPT-4o-mini for every agent | No |
 | `TAVILY_API_KEY` | Yes | Web search tool used by researcher and signal detector | Yes (1 000 req/mo) |
 | `HUNTER_API_KEY` | Yes | Domain search for the decision-maker email | Yes (25 req/mo) |
-| `SENDGRID_API_KEY` | No | Real email delivery; stub-success fallback when unset | Yes (100 emails/day) |
+| `SENDGRID_STUB_ENABLED` | No | Explicit dev/test stub mode; returns `stubbed`, not `sent` | — |
+| `SENDGRID_API_KEY` | No | Real email delivery; required when stub mode is disabled and approval should send | Yes (100 emails/day) |
 | `SENDGRID_FROM_EMAIL` | No | Required only when SendGrid is configured | — |
 | `POSTGRES_URL` | No | Durable HITL resume; InMemorySaver fallback when unset | Yes (Supabase free tier) |
 | `LANGFUSE_PUBLIC_KEY` | No | Per-node tracing; tracing disabled when unset | Yes (50k events/mo) |
@@ -200,7 +203,7 @@ A few of the more interesting calls (the full list with rationale lives in [`dec
 
 **Domain-verification on every research output.** Two LLM-driven nodes (researcher and signal detector) post-process their JSON to drop any field or signal whose source URL doesn't contain the company's own domain. Name collisions are common in startup-land — you don't want a Stripe dossier inheriting facts from a different "Stripe". The guards run mechanically after parsing; the prompt also explains the rule, but the code enforces it.
 
-**Optional dependencies must be None-safe.** SendGrid, Postgres, and Langfuse are all optional. If `POSTGRES_URL` is unset the lifespan falls back to `InMemorySaver`. If `SENDGRID_API_KEY` is unset `send_email` returns `send_result="sent"` without delivering. If `LANGFUSE_PUBLIC_KEY` is unset the callback handler is `None` and no callbacks are attached. Tests rely on these branches; deploys can adopt providers incrementally without rewrites.
+**Optional dependencies must be None-safe.** SendGrid, Postgres, and Langfuse are all optional. If `POSTGRES_URL` is unset the lifespan falls back to `InMemorySaver`. If `SENDGRID_API_KEY` is unset, `send_email` returns `send_result="stubbed"` only when `SENDGRID_STUB_ENABLED=true`; otherwise it fails closed instead of reporting fake delivery. If `LANGFUSE_PUBLIC_KEY` is unset the callback handler is `None` and no callbacks are attached. Tests rely on these branches; deploys can adopt providers incrementally without rewrites.
 
 **Human-in-the-loop via `interrupt()`, not a status field.** `await_approval` calls LangGraph's `interrupt()`, which durably suspends the graph on the checkpointer and returns control to the API. Approve/reject is a `graph.ainvoke(Command(resume=<bool>), config)` — not a separate "approved=true, please run send_email" job that the worker has to discover. Resume is exactly-once and survives process restarts when Postgres is configured.
 

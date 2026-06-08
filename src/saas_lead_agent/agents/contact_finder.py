@@ -6,7 +6,9 @@ from typing import Any
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
+from pydantic import ValidationError
 
+from saas_lead_agent.schemas import Contact
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.tools.hunter import hunt_contact
 from saas_lead_agent.utils import _extract_json
@@ -84,9 +86,7 @@ async def contact_finder(state: LeadState) -> dict[str, Any]:
     prompt = f"Find the primary decision-maker contact for domain: {domain}"
 
     try:
-        result: dict[str, Any] = await agent.ainvoke(
-            {"messages": [HumanMessage(content=prompt)]}
-        )
+        result: dict[str, Any] = await agent.ainvoke({"messages": [HumanMessage(content=prompt)]})
     except Exception as exc:
         return {"errors": [f"contact_finder: agent invocation failed: {exc}"]}
 
@@ -104,4 +104,8 @@ async def contact_finder(state: LeadState) -> dict[str, Any]:
     except ValueError as exc:
         return {"errors": [f"contact_finder: unexpected response shape — {exc}"]}
 
-    return {"contact": contact}
+    try:
+        validated = Contact.model_validate(contact)
+    except ValidationError as exc:
+        return {"errors": [f"contact_finder: schema validation error — {exc}"]}
+    return {"contact": validated.model_dump()}

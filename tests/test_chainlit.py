@@ -104,9 +104,7 @@ def test_format_dossier_handles_missing_fields() -> None:
 def test_format_email_preview_renders_subject_and_body() -> None:
     from saas_lead_agent.ui.chainlit_app import format_email_preview
 
-    rendered = format_email_preview(
-        {"email_subject": "Quick question", "email_body": "Hi Alice,"}
-    )
+    rendered = format_email_preview({"email_subject": "Quick question", "email_body": "Hi Alice,"})
     assert "Subject:" in rendered
     assert "Quick question" in rendered
     assert "Hi Alice," in rendered
@@ -124,14 +122,13 @@ def test_format_email_preview_handles_missing_fields() -> None:
     "outcome,expected_substring",
     [
         ("sent", "Sent"),
+        ("stubbed", "Stubbed"),
         ("rejected", "Rejected"),
         ("no_contact", "No contact"),
         ("failed", "failed"),
     ],
 )
-def test_format_send_result_known_outcomes(
-    outcome: str, expected_substring: str
-) -> None:
+def test_format_send_result_known_outcomes(outcome: str, expected_substring: str) -> None:
     from saas_lead_agent.ui.chainlit_app import format_send_result
 
     rendered = format_send_result({"send_result": outcome})
@@ -141,9 +138,7 @@ def test_format_send_result_known_outcomes(
 def test_format_send_result_includes_message_id_when_sent() -> None:
     from saas_lead_agent.ui.chainlit_app import format_send_result
 
-    rendered = format_send_result(
-        {"send_result": "sent", "message_id": "msg-abc-123"}
-    )
+    rendered = format_send_result({"send_result": "sent", "message_id": "msg-abc-123"})
     assert "msg-abc-123" in rendered
 
 
@@ -183,8 +178,7 @@ def test_app_does_not_mount_chainlit_when_flag_set() -> None:
     from saas_lead_agent.api.main import app
 
     routes_with_chainlit = [
-        r for r in app.routes
-        if str(getattr(r, "path", "")).startswith("/chainlit")
+        r for r in app.routes if str(getattr(r, "path", "")).startswith("/chainlit")
     ]
     assert routes_with_chainlit == [], (
         "DISABLE_CHAINLIT=1 should keep the test FastAPI app free of "
@@ -220,9 +214,7 @@ def test_create_app_calls_mount_chainlit_after_router_when_enabled() -> None:
 
         # Patch include_router and mount_chainlit on the FastAPI instance
         # produced by reload, by patching at the call sites.
-        with patch(
-            "saas_lead_agent.api.main.mount_chainlit", create=True
-        ):
+        with patch("saas_lead_agent.api.main.mount_chainlit", create=True):
             # mount_chainlit is imported lazily inside create_app — patch
             # the module attribute it imports from instead:
             with patch("chainlit.utils.mount_chainlit") as mock_mount:

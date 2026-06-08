@@ -3,7 +3,7 @@
 from typing import Any, cast
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
@@ -24,7 +24,7 @@ def _domain_from_url(url: str) -> str:
     return netloc.removeprefix("www.")
 
 
-def _config(thread_id: str) -> RunnableConfig:
+def _config(thread_id: str, request_id: str | None = None) -> RunnableConfig:
     """Build a RunnableConfig with Langfuse callback attached when configured.
 
     LangChain propagates ``callbacks`` through every nested Runnable, so
@@ -32,7 +32,12 @@ def _config(thread_id: str) -> RunnableConfig:
     ``LANGFUSE_PUBLIC_KEY`` is unset, ``get_langfuse_handler()`` returns
     ``None`` and the key is omitted entirely.
     """
-    cfg: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
+    cfg: dict[str, Any] = {
+        "configurable": {"thread_id": thread_id},
+        "metadata": {"thread_id": thread_id},
+    }
+    if request_id is not None:
+        cfg["metadata"]["request_id"] = request_id
     handler = get_langfuse_handler()
     if handler is not None:
         cfg["callbacks"] = [handler]
@@ -49,12 +54,16 @@ async def _is_interrupted(thread_id: str) -> bool:
     return bool(snapshot.next)
 
 
+def _request_id(request: Request) -> str | None:
+    return getattr(request.state, "request_id", None)
+
+
 @router.post(
     "/api/qualify",
     response_model=QualifyResponse,
     summary="Research and qualify a B2B SaaS company",
 )
-async def qualify(body: QualifyRequest) -> QualifyResponse:
+async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
     """Invoke the lead-research graph for a given company URL.
 
     Runs company_researcher → contact_finder → signal_detector →
@@ -68,6 +77,7 @@ async def qualify(body: QualifyRequest) -> QualifyResponse:
     """
     domain = _domain_from_url(body.url)
     thread_id = f"lead:{domain}"
+    request_id = _request_id(request)
 
     initial_state: LeadState = {
         "company_url": body.url,
@@ -90,7 +100,11 @@ async def qualify(body: QualifyRequest) -> QualifyResponse:
 
     try:
         # durability="sync" required for interrupts per CLAUDE.md.
-        result = await _graph.ainvoke(initial_state, config=_config(thread_id), durability="sync")
+        result = await _graph.ainvoke(
+            initial_state,
+            config=_config(thread_id, request_id),
+            durability="sync",
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -100,6 +114,7 @@ async def qualify(body: QualifyRequest) -> QualifyResponse:
     interrupted = await _is_interrupted(thread_id)
 
     return QualifyResponse(
+        request_id=request_id,
         thread_id=thread_id,
         company_profile=result.get("company_profile"),
         contact=result.get("contact"),
@@ -117,12 +132,12 @@ async def qualify(body: QualifyRequest) -> QualifyResponse:
     )
 
 
-async def _resume(thread_id: str, decision: bool) -> ApproveResponse:
+async def _resume(thread_id: str, decision: bool, request_id: str | None = None) -> ApproveResponse:
     """Shared logic for /approve and /reject — resume the graph with a bool."""
     try:
         result = await _graph.ainvoke(
             Command(resume=decision),
-            config=_config(thread_id),
+            config=_config(thread_id, request_id),
             durability="sync",
         )
     except Exception as exc:
@@ -134,6 +149,7 @@ async def _resume(thread_id: str, decision: bool) -> ApproveResponse:
     interrupted = await _is_interrupted(thread_id)
 
     return ApproveResponse(
+        request_id=request_id,
         thread_id=thread_id,
         email_approved=result.get("email_approved"),
         send_result=result.get("send_result"),
@@ -149,13 +165,13 @@ async def _resume(thread_id: str, decision: bool) -> ApproveResponse:
     response_model=ApproveResponse,
     summary="Approve the drafted email and resume the graph",
 )
-async def approve(thread_id: str) -> ApproveResponse:
+async def approve(thread_id: str, request: Request) -> ApproveResponse:
     """Resume an interrupted graph with ``Command(resume=True)``.
 
     The await_approval node returns ``email_approved=True``, send_email
     proceeds, and the graph runs to END.
     """
-    return await _resume(thread_id, True)
+    return await _resume(thread_id, True, _request_id(request))
 
 
 @router.post(
@@ -163,10 +179,10 @@ async def approve(thread_id: str) -> ApproveResponse:
     response_model=ApproveResponse,
     summary="Reject the drafted email and resume the graph",
 )
-async def reject(thread_id: str) -> ApproveResponse:
+async def reject(thread_id: str, request: Request) -> ApproveResponse:
     """Resume an interrupted graph with ``Command(resume=False)``.
 
     The await_approval node returns ``email_approved=False``, send_email
     marks the outcome ``"rejected"``, and the graph runs to END.
     """
-    return await _resume(thread_id, False)
+    return await _resume(thread_id, False, _request_id(request))

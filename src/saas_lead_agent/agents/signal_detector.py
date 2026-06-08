@@ -6,7 +6,9 @@ from typing import Any
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
+from pydantic import ValidationError
 
+from saas_lead_agent.schemas import CompanySignal
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.tools.web_search import web_search
 from saas_lead_agent.utils import _extract_json_list
@@ -129,9 +131,7 @@ async def signal_detector(state: LeadState) -> dict[str, Any]:
     prompt = f"Find buying signals for company '{company_name}' (domain: {domain})"
 
     try:
-        result: dict[str, Any] = await agent.ainvoke(
-            {"messages": [HumanMessage(content=prompt)]}
-        )
+        result: dict[str, Any] = await agent.ainvoke({"messages": [HumanMessage(content=prompt)]})
     except Exception as exc:
         return {"errors": [f"signal_detector: agent invocation failed: {exc}"]}
 
@@ -151,4 +151,9 @@ async def signal_detector(state: LeadState) -> dict[str, Any]:
 
     # Precision over recall: drop signals whose source URL does not contain the
     # company domain. LLM may hallucinate entries from similarly-named companies.
-    return {"signals": _filter_by_domain(signals, domain)}
+    filtered = _filter_by_domain(signals, domain)
+    try:
+        validated = [CompanySignal.model_validate(signal) for signal in filtered]
+    except ValidationError as exc:
+        return {"errors": [f"signal_detector: schema validation error — {exc}"]}
+    return {"signals": [signal.model_dump() for signal in validated]}

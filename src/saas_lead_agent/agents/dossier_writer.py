@@ -22,7 +22,9 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+from pydantic import ValidationError
 
+from saas_lead_agent.schemas import DossierOutput
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.utils import _extract_json
 
@@ -225,9 +227,16 @@ async def dossier_writer(state: LeadState) -> dict[str, Any]:
     except (KeyError, TypeError, ValueError) as exc:
         return {"errors": [f"dossier_writer: invalid fit_score — {exc}"]}
 
-    return {
-        "fit_score": fit_score,
-        "score_explanation": str(result.get("score_explanation", "")),
-        "email_subject": str(result.get("email_subject", "")),
-        "email_body": str(result.get("email_body", "")),
-    }
+    try:
+        validated = DossierOutput.model_validate(
+            {
+                "fit_score": fit_score,
+                "score_explanation": str(result.get("score_explanation", "")),
+                "email_subject": str(result.get("email_subject", "")),
+                "email_body": str(result.get("email_body", "")),
+            }
+        )
+    except ValidationError as exc:
+        return {"errors": [f"dossier_writer: schema validation error — {exc}"]}
+
+    return validated.model_dump()

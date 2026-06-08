@@ -178,3 +178,11 @@ def test_scraper_raises_on_network_error() -> None:
     with patch("saas_lead_agent.tools.scraper.httpx.get", side_effect=exc):
         with pytest.raises(Exception, match="Network error"):
             scrape.invoke({"url": "https://acme.example.com"})
+
+
+def test_scraper_rejects_private_ip_before_fetch() -> None:
+    with patch("saas_lead_agent.tools.scraper.httpx.get") as mock_get:
+        with pytest.raises(Exception, match="IP address is not allowed"):
+            scrape.invoke({"url": "http://127.0.0.1"})
+
+    mock_get.assert_not_called()

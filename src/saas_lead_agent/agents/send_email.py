@@ -1,10 +1,10 @@
-"""Email send node — real delivery via SendGrid with stub fallback.
+"""Email send node — real delivery via SendGrid with explicit stub fallback.
 
 Behavior matrix:
 - ``email_approved`` is not True → ``send_result = "rejected"`` (default-deny)
 - approved + no contact email   → ``send_result = "no_contact"``
-- approved + no SENDGRID_API_KEY → ``send_result = "sent"`` (stub mode for
-  dev/test without provider credentials — preserves Phase 2 behavior)
+- approved + no SENDGRID_API_KEY and explicit stub enabled → ``send_result = "stubbed"``
+- approved + no SENDGRID_API_KEY and no explicit stub → ``send_result = "failed"``
 - approved + SendGrid call fails → ``send_result = "failed"`` + error appended
 - approved + SendGrid 2xx        → ``send_result = "sent"`` + message_id + sent_at
 """
@@ -14,6 +14,12 @@ from typing import Any
 
 from saas_lead_agent.email.sendgrid_client import send_email_via_sendgrid
 from saas_lead_agent.state import LeadState
+
+_STUB_FLAG = "SENDGRID_STUB_ENABLED"
+
+
+def _sendgrid_stub_enabled() -> bool:
+    return os.environ.get(_STUB_FLAG, "").lower() in {"1", "true", "yes"}
 
 
 async def send_email(state: LeadState) -> dict[str, Any]:
@@ -36,10 +42,17 @@ async def send_email(state: LeadState) -> dict[str, Any]:
     if not to_email:
         return {"send_result": "no_contact"}
 
-    # Stub fallback: no SendGrid credentials → record success without delivery.
-    # Keeps the Phase 2 contract intact for tests and pre-prod environments.
     if not os.environ.get("SENDGRID_API_KEY"):
-        return {"send_result": "sent"}
+        if _sendgrid_stub_enabled():
+            return {"send_result": "stubbed"}
+        return {
+            "send_result": "failed",
+            "errors": [
+                "send_email: SENDGRID_API_KEY is not set; set "
+                "SENDGRID_STUB_ENABLED=true for explicit dev stub mode or "
+                "configure SendGrid delivery credentials."
+            ],
+        }
 
     try:
         result = await send_email_via_sendgrid(
