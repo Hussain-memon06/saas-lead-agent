@@ -4,10 +4,11 @@
 
 Phase 1 is complete and committed.
 
-Phase 2 is in progress. Deterministic scoring, first-pass evidence grounding,
-and outreach quality checks are implemented: the final fit score and review
-flags now come from Python business logic instead of LLM-generated dossier
-text.
+Phase 2 is complete pending commit of the final closure milestone.
+Deterministic scoring, typed ICP configuration, first-pass evidence grounding,
+outreach quality checks, and threshold configuration are implemented: the final
+fit score and review flags now come from Python business logic instead of
+LLM-generated dossier text.
 
 ## What We Completed
 
@@ -100,6 +101,7 @@ or explicitly requested checks:
 
 - `0310420 feat: complete phase 1 contracts and safety hardening`
 - `3be9fe3 feat: add deterministic lead scoring engine`
+- `a6cedb8 feat: add deterministic grounding and outreach quality checks`
 
 ## Phase 2 Progress
 
@@ -147,6 +149,15 @@ Completed so far:
   - HITL interrupt payload
   - Chainlit initial state
 - Added focused tests for grounding, outreach quality, and contract threading.
+- Added `engine/icp.py` with typed `ICPConfig`, score weights, and scoring
+  thresholds.
+- Updated `ScoringEngine` to accept either the existing `IcpContext` or the new
+  `ICPConfig`, preserving current API behavior while making score weights and
+  classification/review thresholds explicit.
+- Added explicit outreach quality thresholds so CTA, length, personalization,
+  and pass/fail settings can be tuned without changing scattered constants.
+- Added focused tests for ICP config conversion, invalid threshold/weight
+  bounds, scoring threshold tuning, and outreach quality threshold tuning.
 
 Verification completed:
 
@@ -160,6 +171,7 @@ Result:
 
 - scoring milestone: `98 passed`
 - grounding/outreach-quality milestone: `155 passed`
+- ICP/threshold closure slice: `129 passed`
 - changed-file Ruff checks passed
 - changed-file Ruff format checks passed
 
@@ -174,25 +186,19 @@ Not run by policy:
 
 ## Next Plan
 
-### Step 1: Review And Commit Phase 2 Grounding/Quality Milestone
+### Step 1: Review And Commit Phase 2 Closure Milestone
 
 Suggested commit message:
 
 ```text
-feat: add deterministic grounding and outreach quality checks
+feat: finalize deterministic scoring configuration
 ```
 
-### Step 2: Decide Whether Phase 2 Needs One More Tuning Pass
+### Step 2: Begin Phase 3 Planning
 
-Possible final Phase 2 tuning before Phase 3:
-
-1. Decide whether `IcpContext` is enough for the current typed ICP config, or
-   whether a small `engine/icp.py` wrapper is still useful.
-2. Review score/grounding/quality thresholds against a few real examples.
-3. Decide whether the frontend should display score breakdown, grounding, and
-   outreach quality now or wait for a designed UI pass.
-4. Do not add persistence, RAG, MCP, auth, evals, or production ops until
-   Phase 2 is explicitly closed.
+Phase 3 should start with a narrow implementation plan for persistence,
+observability, and session recovery. Do not add RAG, MCP, auth, evals, or
+production ops until their later phases.
 
 ## Phase 2 Guardrails
 
@@ -212,6 +218,7 @@ Run only the checks related to changed files:
 uv run python -m ruff check <changed-python-files>
 uv run python -m ruff format --check <changed-python-files>
 uv run python -m pytest tests\test_scoring.py -q
+uv run python -m pytest tests\test_icp_config.py -q
 uv run python -m pytest tests\test_grounding.py -q
 uv run python -m pytest tests\test_outreach_quality.py -q
 ```
@@ -227,11 +234,9 @@ uv run python -m pytest tests\test_state.py tests\test_schemas.py -q
 
 ## Open Decisions
 
-- Whether the first deterministic scoring rules should be minimal and
-  conservative, or closer to the full future scoring model described in
-  `PLANS.md`. Current implementation starts conservative and should be tuned
-  with examples later.
 - Whether to display score breakdown/confidence in the frontend now or wait
   until the UI has a designed section for it.
 - Whether grounding/outreach quality reports should be rendered in the current
   lead page immediately or kept API-visible until a focused UI milestone.
+- Which app-owned persistence schema should be created first in Phase 3:
+  minimal run/session recovery or the broader users/leads/runs/sources model.

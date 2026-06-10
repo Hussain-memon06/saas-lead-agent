@@ -1,6 +1,6 @@
 """Tests for deterministic outreach quality checks."""
 
-from saas_lead_agent.engine import OutreachQualityEngine
+from saas_lead_agent.engine import OutreachQualityEngine, OutreachQualityThresholds
 from saas_lead_agent.schemas import CompanyProfile, CompanySignal, Contact, OutreachDraft
 
 
@@ -114,3 +114,26 @@ def test_outreach_quality_flags_spammy_language() -> None:
     assert "100% guaranteed" in result.spam_terms
     assert "act now" in result.spam_terms
     assert "draft contains spammy or high-pressure wording" in result.issues
+
+
+def test_outreach_quality_thresholds_can_be_tuned() -> None:
+    engine = OutreachQualityEngine(
+        thresholds=OutreachQualityThresholds(
+            min_body_words=5,
+            min_personalization_hooks=1,
+            passing_score=60,
+        )
+    )
+
+    result = engine.evaluate(
+        profile=_profile(),
+        contact=_contact(),
+        signals=_signals(),
+        draft=_draft(
+            "Quick question about Acme Corp",
+            "Hi Alice, Acme Corp looks timely. Open to a quick chat?",
+        ),
+    )
+
+    assert result.passed is True
+    assert result.word_count >= 5

@@ -21,8 +21,8 @@ Follow this file together with `PLANS.md`.
 - Frontend: Next.js 14, React, TypeScript, Tailwind/shadcn-style components
 - Package managers: uv for Python, npm or pnpm for frontend
 - Primary model: OpenAI `gpt-4o-mini` for current agent nodes
-- Implemented Phase 2 so far: deterministic scoring, evidence grounding, and
-  outreach quality checks.
+- Implemented Phase 2: deterministic scoring, typed ICP configuration,
+  evidence grounding, outreach quality checks, and threshold configuration.
 - Planned: model/provider abstraction, persistence, RAG, durable execution,
   auth/compliance, evals, and production operations
 
@@ -243,8 +243,9 @@ These are tracked in `PLANS.md`; do not solve them out of phase:
 
 - No authentication or authorization.
 - No app-owned relational schema beyond checkpoints.
-- Deterministic scoring now exists; keep tuning, evidence grounding, and
-  outreach quality checks inside Phase 2 until the phase is closed.
+- Deterministic scoring and Phase 2 business-logic hardening now exist; future
+  score tuning should be driven by targeted examples or evals, not ad hoc
+  prompt changes.
 - No persistence-backed dossier recovery after refresh.
 - No RAG/vector memory/retrieval quality system yet.
 - No MCP/tool abstraction or durable job layer yet.

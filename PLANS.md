@@ -294,12 +294,12 @@ build-sensitive frontend files, and only when explicitly requested.
 
 ## Phase 2: Deterministic Business Logic & Scoring Engine
 
-Status: in progress. The deterministic scoring engine, first-pass evidence
-grounding checks, outreach quality checks, and dossier/API integration are
-implemented for the current Phase 2 milestones: the LLM drafts outreach copy,
-while Python calculates the final fit score, score breakdown, confidence,
-review flag, reasons, uncertainty fields, grounding report, and outreach
-quality report.
+Status: complete for the Phase 2 milestone. Deterministic scoring, typed ICP
+configuration, first-pass evidence grounding checks, outreach quality checks,
+threshold configuration, and dossier/API integration are implemented: the LLM
+drafts outreach copy, while Python calculates the final fit score, score
+breakdown, confidence, review flag, reasons, uncertainty fields, grounding
+report, and outreach quality report.
 
 ### Goal
 
@@ -890,8 +890,7 @@ documented with their outputs.
 
 ## Immediate Next Step
 
-Review and commit the Phase 2 grounding/outreach-quality milestone, then decide
-whether Phase 2 needs one more tuning pass around ICP configuration and scoring
-weights before Phase 3 begins. Do not implement persistence, RAG, MCP, auth,
-evals, or production ops until Phase 2 is explicitly closed and the next phase
-is approved.
+Review and commit the Phase 2 closure milestone, then begin Phase 3 with a
+narrow implementation plan for persistence, observability, and session
+recovery. Do not implement RAG, MCP, auth, evals, or production ops yet. Those
+come later in order.

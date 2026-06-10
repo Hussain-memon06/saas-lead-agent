@@ -20,6 +20,15 @@ class OutreachQualityResult(StrictBaseModel):
     word_count: int = Field(ge=0)
 
 
+class OutreachQualityThresholds(StrictBaseModel):
+    passing_score: int = Field(default=70, ge=0, le=100)
+    min_personalization_hooks: int = Field(default=2, ge=0)
+    min_body_words: int = Field(default=35, ge=0)
+    max_body_words: int = Field(default=200, ge=1)
+    min_subject_chars: int = Field(default=8, ge=1)
+    max_subject_chars: int = Field(default=120, ge=1)
+
+
 class OutreachQualityEngine:
     """Score generated outreach copy with deterministic first-pass rules."""
 
@@ -50,6 +59,9 @@ class OutreachQualityEngine:
         re.compile(r"\{[^}]+\}"),
     )
     _WORD_PATTERN = re.compile(r"[A-Za-z0-9']+")
+
+    def __init__(self, thresholds: OutreachQualityThresholds | None = None) -> None:
+        self.thresholds = thresholds or OutreachQualityThresholds()
 
     def evaluate(
         self,
@@ -83,7 +95,7 @@ class OutreachQualityEngine:
             contact=contact,
             signals=signals,
         )
-        if len(hooks) < 2:
+        if len(hooks) < self.thresholds.min_personalization_hooks:
             issues.append("draft has low personalization density")
             score -= 20
 
@@ -91,23 +103,25 @@ class OutreachQualityEngine:
             issues.append("draft is missing a clear call to action")
             score -= 20
 
-        if word_count < 35:
+        if word_count < self.thresholds.min_body_words:
             issues.append("email body is too short for useful personalization")
             score -= 15
-        elif word_count > 200:
+        elif word_count > self.thresholds.max_body_words:
             issues.append("email body is too long for initial outbound")
             score -= 10
 
         subject_length = len(draft.email_subject.strip())
-        if subject_length < 8:
+        if subject_length < self.thresholds.min_subject_chars:
             issues.append("email subject is too short")
             score -= 10
-        elif subject_length > 120:
+        elif subject_length > self.thresholds.max_subject_chars:
             issues.append("email subject is too long")
             score -= 10
 
         quality_score = max(0, min(100, score))
-        passed = quality_score >= 70 and not placeholders and not spam_terms
+        passed = (
+            quality_score >= self.thresholds.passing_score and not placeholders and not spam_terms
+        )
 
         return OutreachQualityResult(
             quality_score=quality_score,

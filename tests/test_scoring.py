@@ -1,6 +1,6 @@
 """Tests for deterministic Phase 2 lead scoring."""
 
-from saas_lead_agent.engine import ScoringEngine
+from saas_lead_agent.engine import ICPConfig, ScoringEngine, ScoringThresholds
 from saas_lead_agent.schemas import CompanyProfile, CompanySignal, Contact, IcpContext
 
 
@@ -135,3 +135,37 @@ def test_scoring_generic_mode_does_not_require_icp() -> None:
     assert result.fit_score == 9
     assert result.fit_level == "high"
     assert result.score_explanation.startswith("9/10 - ")
+
+
+def test_scoring_accepts_explicit_icp_config() -> None:
+    config = ICPConfig.from_context(_icp())
+
+    result = ScoringEngine().calculate_score(
+        profile=_profile(),
+        contact=_contact(),
+        signals=_signals(),
+        icp=config,
+    )
+
+    assert result.fit_score >= 8
+    assert result.fit_level == "high"
+    assert result.score_breakdown.industry_match == config.weights.industry_match
+
+
+def test_scoring_thresholds_can_tune_fit_classification() -> None:
+    config = ICPConfig(
+        thresholds=ScoringThresholds(
+            high_fit_min_score=10,
+            medium_fit_min_score=6,
+        )
+    )
+
+    result = ScoringEngine().calculate_score(
+        profile=_profile(),
+        contact=_contact(),
+        signals=_signals(),
+        icp=config,
+    )
+
+    assert result.fit_score == 9
+    assert result.fit_level == "medium"

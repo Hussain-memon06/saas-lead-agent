@@ -12,6 +12,7 @@ from typing import Literal
 
 from pydantic import Field
 
+from saas_lead_agent.engine.icp import ICPConfig
 from saas_lead_agent.schemas import CompanyProfile, CompanySignal, Contact, IcpContext
 from saas_lead_agent.schemas.base import StrictBaseModel
 
@@ -69,24 +70,25 @@ class ScoringEngine:
         profile: CompanyProfile | None,
         contact: Contact | None,
         signals: list[CompanySignal],
-        icp: IcpContext | None,
+        icp: IcpContext | ICPConfig | None,
     ) -> ScoreResult:
-        has_icp = self._has_meaningful_icp(icp)
+        config = ICPConfig.from_context(icp)
+        has_icp = config.has_meaningful_targets
         corpus = self._build_corpus(profile, signals)
         signal_corpus = self._join(signal.details for signal in signals)
 
         reasons: list[str] = []
         uncertainty: list[str] = []
 
-        baseline = self._baseline(profile, signals, contact, has_icp)
-        profile_score = self._score_profile(profile, reasons, uncertainty)
-        industry_score = self._score_industry(icp, corpus, has_icp, reasons, uncertainty)
-        stage_score = self._score_stage(profile, icp, has_icp, reasons, uncertainty)
-        geography_score = self._score_geography(profile, icp, has_icp, reasons, uncertainty)
-        size_score = self._score_company_size(profile, icp, has_icp, reasons, uncertainty)
-        signal_score = self._score_signals(icp, signals, signal_corpus, reasons, uncertainty)
-        contact_score = self._score_contact(contact, reasons, uncertainty)
-        penalty = self._red_flag_penalty(icp, corpus, signal_corpus, reasons)
+        baseline = self._baseline(profile, signals, contact, config, has_icp)
+        profile_score = self._score_profile(profile, config, reasons, uncertainty)
+        industry_score = self._score_industry(config, corpus, has_icp, reasons, uncertainty)
+        stage_score = self._score_stage(profile, config, has_icp, reasons, uncertainty)
+        geography_score = self._score_geography(profile, config, has_icp, reasons, uncertainty)
+        size_score = self._score_company_size(profile, config, has_icp, reasons, uncertainty)
+        signal_score = self._score_signals(config, signals, signal_corpus, reasons, uncertainty)
+        contact_score = self._score_contact(contact, config, reasons, uncertainty)
+        penalty = self._red_flag_penalty(config, corpus, signal_corpus, reasons)
 
         breakdown = ScoreBreakdown(
             baseline=baseline,
@@ -101,9 +103,15 @@ class ScoringEngine:
         )
 
         fit_score = int(breakdown.total + 0.5)
-        fit_level = self._classify(fit_score)
-        confidence = self._confidence(profile, contact, signals, fit_score, uncertainty)
-        needs_review = confidence == "low" or 4 <= fit_score <= 6 or penalty < 0
+        fit_level = self._classify(fit_score, config)
+        confidence = self._confidence(profile, contact, signals, fit_score, uncertainty, config)
+        needs_review = (
+            confidence == "low"
+            or config.thresholds.review_band_min_score
+            <= fit_score
+            <= config.thresholds.review_band_max_score
+            or penalty < 0
+        )
 
         return ScoreResult(
             fit_score=fit_score,
@@ -126,18 +134,24 @@ class ScoringEngine:
         profile: CompanyProfile | None,
         signals: list[CompanySignal],
         contact: Contact | None,
+        config: ICPConfig,
         has_icp: bool,
     ) -> float:
         has_profile = bool(profile and (profile.name or profile.tagline or profile.products))
         if has_icp:
-            return 3.0 if has_profile else 1.5
+            return (
+                config.weights.baseline_with_icp_profile
+                if has_profile
+                else config.weights.baseline_with_icp_no_profile
+            )
         if has_profile or signals or contact:
-            return 2.5
-        return 1.5
+            return config.weights.baseline_generic_with_evidence
+        return config.weights.baseline_generic_empty
 
     def _score_profile(
         self,
         profile: CompanyProfile | None,
+        config: ICPConfig,
         reasons: list[str],
         uncertainty: list[str],
     ) -> float:
@@ -151,7 +165,7 @@ class ScoringEngine:
             bool(profile.sources),
             bool(profile.funding_stage or profile.employees_estimate or profile.hq),
         ]
-        score = 1.5 * (sum(checks) / len(checks))
+        score = config.weights.profile_completeness * (sum(checks) / len(checks))
         if score >= 1.0:
             reasons.append("company profile has usable sourced detail")
         else:
@@ -160,98 +174,98 @@ class ScoringEngine:
 
     def _score_industry(
         self,
-        icp: IcpContext | None,
+        config: ICPConfig,
         corpus: str,
         has_icp: bool,
         reasons: list[str],
         uncertainty: list[str],
     ) -> float:
-        targets = icp.target_industries if icp else []
+        targets = config.target_industries
         match = self._first_match(targets, corpus)
         if match:
             reasons.append(f"industry matched {match}")
-            return 1.5
+            return config.weights.industry_match
         if targets:
             uncertainty.append("target industry not found in extracted facts")
             return 0.0
         if not has_icp and corpus:
             reasons.append("generic mode: company has descriptive business text")
-            return 0.5
+            return config.weights.generic_industry_context
         return 0.0
 
     def _score_stage(
         self,
         profile: CompanyProfile | None,
-        icp: IcpContext | None,
+        config: ICPConfig,
         has_icp: bool,
         reasons: list[str],
         uncertainty: list[str],
     ) -> float:
         funding_stage = profile.funding_stage if profile else None
-        targets = icp.target_stages if icp else []
+        targets = config.target_stages
         if funding_stage and self._first_match(targets, funding_stage):
             reasons.append(f"stage matched {funding_stage}")
-            return 1.0
+            return config.weights.stage_match
         if targets:
             uncertainty.append("target stage not found")
             return 0.0
         if not has_icp and funding_stage and funding_stage != "Unknown":
             reasons.append(f"funding stage available: {funding_stage}")
-            return 1.0
+            return config.weights.generic_stage_context
         return 0.0
 
     def _score_geography(
         self,
         profile: CompanyProfile | None,
-        icp: IcpContext | None,
+        config: ICPConfig,
         has_icp: bool,
         reasons: list[str],
         uncertainty: list[str],
     ) -> float:
         hq = profile.hq if profile else None
-        targets = icp.target_geographies if icp else []
+        targets = config.target_geographies
         match = self._first_match(targets, hq or "")
         if match:
             reasons.append(f"geography matched {match}")
-            return 1.0
+            return config.weights.geography_match
         if targets:
             uncertainty.append("target geography not found")
             return 0.0
         if not has_icp and hq:
             reasons.append("headquarters available")
-            return 0.5
+            return config.weights.generic_geography_context
         return 0.0
 
     def _score_company_size(
         self,
         profile: CompanyProfile | None,
-        icp: IcpContext | None,
+        config: ICPConfig,
         has_icp: bool,
         reasons: list[str],
         uncertainty: list[str],
     ) -> float:
         size = profile.employees_estimate if profile else None
-        target = icp.target_employees if icp else "Any"
+        target = config.target_employees
         if target and target != "Any":
             if size and self._matches(target, size):
                 reasons.append(f"company size matched {target}")
-                return 1.0
+                return config.weights.company_size_fit
             uncertainty.append("target employee range not found")
             return 0.0
         if not has_icp and size:
             reasons.append("employee estimate available")
-            return 0.5
+            return config.weights.generic_company_size_context
         return 0.0
 
     def _score_signals(
         self,
-        icp: IcpContext | None,
+        config: ICPConfig,
         signals: list[CompanySignal],
         signal_corpus: str,
         reasons: list[str],
         uncertainty: list[str],
     ) -> float:
-        required = icp.must_have_signals if icp else []
+        required = config.must_have_signals
         if required:
             matched = [signal for signal in required if self._matches(signal, signal_corpus)]
             if matched:
@@ -259,17 +273,21 @@ class ScoringEngine:
             missing_count = len(required) - len(matched)
             if missing_count:
                 uncertainty.append(f"{missing_count} must-have signal(s) not found")
-            return round(1.5 * (len(matched) / len(required)), 2)
+            return round(config.weights.signal_strength * (len(matched) / len(required)), 2)
 
         if signals:
             reasons.append(f"{len(signals)} verified signal(s) found")
         else:
             uncertainty.append("no verified buying signals found")
-        return min(1.5, len(signals) * 0.75)
+        return min(
+            config.weights.signal_strength,
+            len(signals) * config.weights.signal_each_generic,
+        )
 
     def _score_contact(
         self,
         contact: Contact | None,
+        config: ICPConfig,
         reasons: list[str],
         uncertainty: list[str],
     ) -> float:
@@ -278,26 +296,29 @@ class ScoringEngine:
             return 0.0
         if contact.email:
             reasons.append("decision-maker email found")
-            return 0.5
+            return config.weights.contact_email
         if contact.name or contact.title:
             reasons.append("decision-maker identified without email")
-            return 0.25
+            return config.weights.contact_identified
         uncertainty.append("contact missing")
         return 0.0
 
     def _red_flag_penalty(
         self,
-        icp: IcpContext | None,
+        config: ICPConfig,
         corpus: str,
         signal_corpus: str,
         reasons: list[str],
     ) -> float:
-        red_flags = icp.red_flags if icp else []
+        red_flags = config.red_flags
         matches = [flag for flag in red_flags if self._matches(flag, f"{corpus} {signal_corpus}")]
         if not matches:
             return 0.0
         reasons.append(f"red flag detected: {', '.join(matches[:2])}")
-        return max(-2.0, -1.0 * len(matches))
+        return max(
+            config.weights.red_flag_penalty_floor,
+            config.weights.red_flag_penalty_each * len(matches),
+        )
 
     def _confidence(
         self,
@@ -306,12 +327,21 @@ class ScoringEngine:
         signals: list[CompanySignal],
         fit_score: int,
         uncertainty: list[str],
+        config: ICPConfig,
     ) -> ScoreConfidence:
         source_count = len(profile.sources) if profile else 0
         has_contact = bool(contact and contact.email)
-        if fit_score >= 7 and source_count > 0 and (len(signals) >= 2 or has_contact):
+        if (
+            fit_score >= config.thresholds.high_confidence_min_score
+            and source_count >= config.thresholds.high_confidence_min_sources
+            and (len(signals) >= config.thresholds.high_confidence_min_signals or has_contact)
+        ):
             return "high"
-        if profile and source_count > 0 and len(uncertainty) <= 2:
+        if (
+            profile
+            and source_count > 0
+            and len(uncertainty) <= config.thresholds.medium_confidence_max_uncertainty
+        ):
             return "medium"
         return "low"
 
@@ -329,24 +359,12 @@ class ScoringEngine:
         parts.append(f"confidence: {confidence}")
         return f"{fit_score}/10 - " + " | ".join(parts)
 
-    def _classify(self, fit_score: int) -> FitLevel:
-        if fit_score >= 8:
+    def _classify(self, fit_score: int, config: ICPConfig) -> FitLevel:
+        if fit_score >= config.thresholds.high_fit_min_score:
             return "high"
-        if fit_score >= 5:
+        if fit_score >= config.thresholds.medium_fit_min_score:
             return "medium"
         return "low"
-
-    def _has_meaningful_icp(self, icp: IcpContext | None) -> bool:
-        if icp is None:
-            return False
-        return bool(
-            icp.target_industries
-            or icp.target_stages
-            or icp.target_geographies
-            or icp.must_have_signals
-            or icp.red_flags
-            or (icp.target_employees and icp.target_employees != "Any")
-        )
 
     def _build_corpus(
         self,
