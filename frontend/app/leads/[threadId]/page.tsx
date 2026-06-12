@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 
 import type { QualifyResponse } from "@/lib/types";
+import { ApiError, getLead } from "@/lib/api";
 import { useIcp } from "@/lib/icp";
 import { Button } from "@/components/ui/button";
 import { DossierCard } from "@/components/dossier-card";
@@ -21,14 +22,33 @@ export default function LeadPage() {
   const threadId = decodeURIComponent(params.threadId);
   const { configured: icpConfigured } = useIcp();
 
-  // Read the cache seeded by the qualify form.  Direct loads / hard refreshes
-  // hit this with no cached data — we render an empty state in that case.
-  const { data } = useQuery<QualifyResponse | undefined>({
+  const { data, isLoading, error } = useQuery<QualifyResponse, ApiError>({
     queryKey: ["lead", threadId],
-    queryFn: () => undefined, // no fetcher; we only consume cached data
-    enabled: false,
-    staleTime: Infinity,
+    queryFn: () => getLead(threadId),
+    staleTime: 30_000,
   });
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-16">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          Back home
+        </Link>
+        <div className="mt-8 space-y-3 rounded-lg border border-border/60 bg-card p-8 text-center">
+          <h1 className="text-lg font-semibold text-foreground">
+            Loading dossier
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Recovering the latest stored run for this lead.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!data) {
     return (
@@ -42,11 +62,11 @@ export default function LeadPage() {
         </Link>
         <div className="mt-8 space-y-3 rounded-lg border border-border/60 bg-card p-8 text-center">
           <h1 className="text-lg font-semibold text-foreground">
-            No dossier data
+            {error?.status === 404 ? "Dossier not found" : "Unable to load dossier"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Dossiers are held in browser memory between qualify runs. Run a
-            new search to view a fresh report.
+            {error?.message ||
+              "Run a new search if this lead has not been researched in this environment."}
           </p>
           <div className="pt-2">
             <Button asChild>

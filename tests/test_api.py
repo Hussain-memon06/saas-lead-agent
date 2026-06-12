@@ -16,6 +16,7 @@ from pydantic import ValidationError
 
 from saas_lead_agent.api.main import app
 from saas_lead_agent.api.schemas import QualifyRequest, QualifyResponse
+from saas_lead_agent.persistence import InMemoryLeadRunRepository, LeadRunSnapshot
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -160,6 +161,7 @@ def test_qualify_request_rejects_invalid_icp_shape() -> None:
 def test_qualify_response_defaults() -> None:
     resp = QualifyResponse(thread_id="lead:acme.example.com")
     assert resp.request_id is None
+    assert resp.run_id is None
     assert resp.company_profile is None
     assert resp.contact is None
     assert resp.signals is None
@@ -173,6 +175,7 @@ def test_qualify_response_defaults() -> None:
     assert resp.score_uncertainty is None
     assert resp.grounding_report is None
     assert resp.outreach_quality is None
+    assert resp.processing_metadata is None
     assert resp.email_subject is None
     assert resp.email_body is None
     assert resp.email_approved is None
@@ -200,7 +203,16 @@ async def test_qualify_happy_path() -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["request_id"]
+    assert body["run_id"]
     assert body["thread_id"] == "lead:acme.example.com"
+    metadata = body["processing_metadata"]
+    assert metadata["run_id"] == body["run_id"]
+    assert metadata["thread_id"] == body["thread_id"]
+    assert metadata["model_used"] == "gpt-4o-mini"
+    assert metadata["total_tokens"] == 0
+    assert metadata["estimated_cost_usd"] == 0.0
+    assert metadata["timings_ms"]["graph"] >= 0
+    assert metadata["timings_ms"]["api_total"] >= metadata["timings_ms"]["graph"]
     assert body["company_profile"]["name"] == "Acme Corp"
     assert body["contact"]["source"] == "stub"
     assert body["signals"] == []
@@ -217,6 +229,61 @@ async def test_qualify_happy_path() -> None:
     assert body["email_subject"] == "Quick question about Acme Corp"
     assert body["email_body"] == "Hi Alice, saw your recent Series A — congrats!"
     assert body["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_lead_recovers_snapshot_after_qualify() -> None:
+    store = InMemoryLeadRunRepository()
+    mock_graph = _make_graph_mock(_GRAPH_RESULT, next_nodes=("await_approval",))
+
+    with (
+        patch("saas_lead_agent.api.routes._graph", mock_graph),
+        patch("saas_lead_agent.api.routes._lead_store", store),
+    ):
+        async with await _client() as client:
+            qualify_resp = await client.post(
+                "/api/qualify",
+                json={"url": "https://acme.example.com"},
+            )
+            get_resp = await client.get("/api/leads/lead%3Aacme.example.com")
+
+    assert qualify_resp.status_code == 200
+    assert get_resp.status_code == 200
+    qualified = qualify_resp.json()
+    recovered = get_resp.json()
+    assert recovered["thread_id"] == qualified["thread_id"]
+    assert recovered["run_id"] == qualified["run_id"]
+    assert recovered["company_profile"]["name"] == "Acme Corp"
+    assert recovered["processing_metadata"]["run_id"] == qualified["run_id"]
+    assert recovered["interrupted"] is True
+
+    events = await store.list_events("lead:acme.example.com")
+    assert [event.event_type for event in events] == ["qualify_completed"]
+    assert events[0].metadata["status"] == "interrupted"
+    assert events[0].metadata["total_tokens"] == 0
+    assert events[0].metadata["estimated_cost_usd"] == 0.0
+    assert events[0].metadata["timings_ms"]["graph"] >= 0
+
+    artifacts = await store.get_artifacts_by_thread_id("lead:acme.example.com")
+    assert artifacts is not None
+    assert artifacts.lead.company_name == "Acme Corp"
+    assert artifacts.lead.fit_score == 8
+    assert artifacts.score_breakdown is not None
+    assert artifacts.score_breakdown.score_confidence == "high"
+    assert artifacts.outreach_draft is not None
+    assert artifacts.outreach_draft.email_subject == "Quick question about Acme Corp"
+
+
+@pytest.mark.asyncio
+async def test_get_lead_returns_404_when_snapshot_missing() -> None:
+    store = InMemoryLeadRunRepository()
+
+    with patch("saas_lead_agent.api.routes._lead_store", store):
+        async with await _client() as client:
+            resp = await client.get("/api/leads/lead%3Amissing.example.com")
+
+    assert resp.status_code == 404
+    assert "No stored lead run found" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -259,6 +326,7 @@ async def test_qualify_passes_correct_state_to_graph() -> None:
     # state is the first positional arg; config is the second positional arg
     # (routes.py calls ainvoke(initial_state, config=config) so config is kwargs)
     state = call_args.args[0]
+    assert state["run_id"]
     assert state["company_url"] == "https://acme.example.com"
     assert state["domain"] == "acme.example.com"
     assert state["icp_context"] is None
@@ -268,12 +336,14 @@ async def test_qualify_passes_correct_state_to_graph() -> None:
     assert state["score_confidence"] is None
     assert state["grounding_report"] is None
     assert state["outreach_quality"] is None
+    assert state["processing_metadata"] is None
     assert state["errors"] == []
 
     config = call_args.kwargs["config"]
     assert config["configurable"]["thread_id"] == "lead:acme.example.com"
     assert config["metadata"]["thread_id"] == "lead:acme.example.com"
     assert config["metadata"]["request_id"]
+    assert config["metadata"]["run_id"] == state["run_id"]
 
 
 @pytest.mark.asyncio
@@ -468,18 +538,42 @@ async def test_approve_resumes_graph_with_true() -> None:
 
     resumed_result = {**_GRAPH_RESULT, "email_approved": True, "send_result": "sent"}
     mock_graph = _make_graph_mock(resumed_result, next_nodes=())
+    store = InMemoryLeadRunRepository()
 
-    with patch("saas_lead_agent.api.routes._graph", mock_graph):
+    with (
+        patch("saas_lead_agent.api.routes._graph", mock_graph),
+        patch("saas_lead_agent.api.routes._lead_store", store),
+    ):
+        await store.save_snapshot(
+            LeadRunSnapshot(
+                run_id="run-existing",
+                thread_id="lead:acme.example.com",
+                domain="acme.example.com",
+                company_url="https://acme.example.com",
+                status="interrupted",
+                result={**_GRAPH_RESULT, "run_id": "run-existing", "interrupted": True},
+            )
+        )
         async with await _client() as client:
             resp = await client.post("/api/leads/lead:acme.example.com/approve")
 
     assert resp.status_code == 200
     body = resp.json()
     assert body["request_id"]
+    assert body["run_id"] == "run-existing"
     assert body["thread_id"] == "lead:acme.example.com"
     assert body["email_approved"] is True
     assert body["send_result"] == "sent"
     assert body["interrupted"] is False
+    assert body["processing_metadata"]["run_id"] == "run-existing"
+    assert body["processing_metadata"]["timings_ms"]["graph"] >= 0
+
+    artifacts = await store.get_artifacts_by_thread_id("lead:acme.example.com")
+    assert artifacts is not None
+    assert artifacts.decision is not None
+    assert artifacts.decision.decision == "approved"
+    assert artifacts.delivery_event is not None
+    assert artifacts.delivery_event.send_result == "sent"
 
     # Verify Command(resume=True) was passed
     call_args = mock_graph.ainvoke.call_args

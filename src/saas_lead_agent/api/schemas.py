@@ -31,6 +31,7 @@ class QualifyRequest(BaseModel):
 
 class QualifyResponse(BaseModel):
     request_id: str | None = None
+    run_id: str | None = None
     thread_id: str
     company_profile: dict[str, Any] | None = None
     contact: dict[str, Any] | None = None
@@ -45,6 +46,7 @@ class QualifyResponse(BaseModel):
     score_uncertainty: list[str] | None = None
     grounding_report: dict[str, Any] | None = None
     outreach_quality: dict[str, Any] | None = None
+    processing_metadata: dict[str, Any] | None = None
     email_subject: str | None = None
     email_body: str | None = None
     email_approved: bool | None = None
@@ -57,10 +59,12 @@ class QualifyResponse(BaseModel):
 
 class ApproveResponse(BaseModel):
     request_id: str | None = None
+    run_id: str | None = None
     thread_id: str
     email_approved: bool | None = None
     send_result: SendResult | None = None
     message_id: str | None = None
     sent_at: str | None = None
+    processing_metadata: dict[str, Any] | None = None
     interrupted: bool = False
     errors: list[str] = Field(default_factory=list)

@@ -1,8 +1,8 @@
 # Outbound Lead Agent — Frontend
 
 Next.js 14 App Router UI for the Outbound Lead Agent demo.  Talks to the
-FastAPI backend in `../src/saas_lead_agent/api/` over three endpoints
-(`/api/qualify`, `/api/leads/{thread_id}/approve`, `/api/leads/{thread_id}/reject`).
+FastAPI backend in `../src/saas_lead_agent/api/` over the qualify, recovery,
+approve, and reject endpoints.
 
 ## Stack
 
@@ -106,9 +106,8 @@ hooks/                    # (reserved)
 - **State handoff:** `qualify` returns the full dossier in one response
   (the call blocks ~60-90s).  The form seeds the React Query cache under
   `["lead", thread_id]`, then `router.push`es to `/leads/{thread_id}`,
-  which reads the cache without a refetch.  Hard refresh on the dossier
-  route shows an empty state with a link back home — by design,
-  dossiers are not persisted client-side.
+  which reads the cache and can refetch from `GET /api/leads/{thread_id}`
+  after a hard refresh.
 - **Approve/reject:** mutations call `/api/leads/.../approve|reject` and
   merge the resume payload back into the same cache entry, so the
   decision UI swaps to an outcome banner without navigation.
@@ -134,5 +133,5 @@ hooks/                    # (reserved)
 - **Qualify hangs past 2 min** — the client aborts at 120 s with an
   `ApiError` shown in the form.  Check the backend logs; one of the
   external tool calls (Tavily, Hunter, scraper) is likely the culprit.
-- **Dossier page shows "No dossier data"** — expected after a hard
-  refresh.  Run a new qualify; the cache lives in browser memory only.
+- **Dossier page shows "Dossier not found"** — the backend has no stored
+  snapshot for that `thread_id` in the current environment. Run a new qualify.

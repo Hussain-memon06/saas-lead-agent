@@ -25,6 +25,7 @@ from saas_lead_agent.state import LeadState
 # ---------------------------------------------------------------------------
 
 _BASE_INPUT: LeadState = {
+    "run_id": "run-test",
     "company_url": "https://acme.example.com",
     "domain": "acme.example.com",
     "icp_context": None,
@@ -42,8 +43,13 @@ _BASE_INPUT: LeadState = {
     "score_uncertainty": None,
     "grounding_report": None,
     "outreach_quality": None,
+    "processing_metadata": None,
     "email_subject": None,
     "email_body": None,
+    "email_approved": None,
+    "send_result": None,
+    "message_id": None,
+    "sent_at": None,
     "errors": [],
 }
 

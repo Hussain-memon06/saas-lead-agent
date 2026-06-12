@@ -55,6 +55,7 @@ export function DecisionButtons({ threadId, state }: Props) {
         ? {
             ...prev,
             request_id: data.request_id,
+            run_id: data.run_id,
             email_approved: data.email_approved,
             send_result: data.send_result,
             message_id: data.message_id,

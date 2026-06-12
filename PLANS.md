@@ -51,7 +51,7 @@ Browser / User
   v
 FastAPI REST API
   |
-  | /api/qualify, /api/leads/{thread_id}/approve, /reject
+  | /api/qualify, /api/leads/{thread_id}, /approve, /reject
   v
 LangGraph StateGraph
   |
@@ -99,9 +99,11 @@ Optional Platform Services
 ### Production Gaps
 
 - No authentication or authorization.
-- No app-owned relational schema for users, leads, runs, sources, drafts,
-  audit logs, or delivery events.
-- No durable frontend dossier recovery after page refresh.
+- App-owned run snapshots, run events, and normalized lead artifacts now exist
+  for latest-run recovery, but auth-backed users, migration/versioning
+  strategy, historical querying, and broader product workflows remain pending.
+- Durable frontend dossier recovery by `thread_id` now exists for the latest
+  stored run, but broader session search/listing is not implemented.
 - No API versioning. A planned response envelope contract exists, but current
   public routes intentionally keep the flat response shape for frontend
   compatibility.
@@ -360,6 +362,17 @@ pytest tests/test_graph.py -q
 ```
 
 ## Phase 3: Persistence Layer, Observability & Session Management
+
+Status: in progress. Phase 3 now has app-owned lead run snapshots, run events,
+run IDs, Langfuse run-id correlation metadata, a `GET /api/leads/{thread_id}`
+recovery endpoint, frontend dossier recovery after refresh, normalized
+app-owned artifact records for leads, sources, contacts, company signals, score
+breakdowns, outreach drafts, decisions, and delivery events, plus first-pass
+processing metadata with run-level timings, zero-value token/cost placeholders,
+and structured log correlation context. Auth-backed users, schema
+migration/versioning strategy, historical query workflows, actual provider
+token/cost extraction, and deeper node/tool-level timing instrumentation remain
+pending.
 
 ### Goal
 
@@ -890,7 +903,8 @@ documented with their outputs.
 
 ## Immediate Next Step
 
-Review and commit the Phase 2 closure milestone, then begin Phase 3 with a
-narrow implementation plan for persistence, observability, and session
-recovery. Do not implement RAG, MCP, auth, evals, or production ops yet. Those
-come later in order.
+Continue Phase 3 with the next narrowly scoped persistence/observability
+milestone: either historical lead/run query endpoints or deeper provider
+metadata capture for actual token/cost and node/tool timings. Do not implement
+RAG, MCP, auth, evals, production ops, queues, or new dependencies until their
+later phases and explicit approvals.

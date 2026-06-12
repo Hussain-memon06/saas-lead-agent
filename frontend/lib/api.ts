@@ -3,6 +3,7 @@
  *
  * Three endpoints, all POST:
  *   /api/qualify                            { url } -> QualifyResponse
+ *   /api/leads/{thread_id}                  -> QualifyResponse
  *   /api/leads/{thread_id}/approve          (no body) -> ApproveResponse
  *   /api/leads/{thread_id}/reject           (no body) -> ApproveResponse
  *
@@ -103,6 +104,52 @@ async function postJson<TResponse>(
   return (await response.json()) as TResponse;
 }
 
+async function getJson<TResponse>(
+  path: string,
+  timeoutMs: number,
+): Promise<TResponse> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(apiUrl(path), {
+      method: "GET",
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new ApiError(
+        0,
+        `Request timed out after ${Math.round(timeoutMs / 1000)} s`,
+      );
+    }
+    throw new ApiError(
+      0,
+      err instanceof Error ? err.message : "Network error",
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!response.ok) {
+    let detail: string | undefined;
+    try {
+      const payload = (await response.json()) as { detail?: string };
+      detail = payload.detail;
+    } catch {
+      // body was not JSON; leave detail undefined
+    }
+    throw new ApiError(
+      response.status,
+      detail || `Request failed with status ${response.status}`,
+      detail,
+    );
+  }
+
+  return (await response.json()) as TResponse;
+}
+
 export async function qualify(req: QualifyRequest): Promise<QualifyResponse> {
   // Always read the latest ICP from localStorage at call time so the user
   // doesn't have to refresh after editing settings.  An unconfigured ICP
@@ -114,6 +161,11 @@ export async function qualify(req: QualifyRequest): Promise<QualifyResponse> {
     { ...req, icp_context },
     QUALIFY_TIMEOUT_MS,
   );
+}
+
+export async function getLead(threadId: string): Promise<QualifyResponse> {
+  const encoded = encodeURIComponent(threadId);
+  return getJson<QualifyResponse>(`/api/leads/${encoded}`, RESUME_TIMEOUT_MS);
 }
 
 export async function approve(threadId: string): Promise<ApproveResponse> {

@@ -4,11 +4,24 @@
 
 Phase 1 is complete and committed.
 
-Phase 2 is complete pending commit of the final closure milestone.
+Phase 2 is complete and committed.
 Deterministic scoring, typed ICP configuration, first-pass evidence grounding,
 outreach quality checks, and threshold configuration are implemented: the final
 fit score and review flags now come from Python business logic instead of
 LLM-generated dossier text.
+
+Phase 3 is in progress. The first three milestones are now implemented in the
+working tree:
+
+- app-owned run/session recovery with latest lead run snapshots, audit-style
+  run events, `run_id` correlation, `GET /api/leads/{thread_id}`, and frontend
+  dossier recovery after refresh
+- normalized latest-run app artifacts for leads, sources, contacts, company
+  signals, score breakdowns, outreach drafts, approval decisions, and delivery
+  events
+- first-pass processing metadata with run-level timings, zero-value token/cost
+  placeholders, steps-completed inference, and structured log correlation
+  context
 
 ## What We Completed
 
@@ -102,6 +115,7 @@ or explicitly requested checks:
 - `0310420 feat: complete phase 1 contracts and safety hardening`
 - `3be9fe3 feat: add deterministic lead scoring engine`
 - `a6cedb8 feat: add deterministic grounding and outreach quality checks`
+- `ebe13e6 feat: finalize deterministic scoring configuration`
 
 ## Phase 2 Progress
 
@@ -184,53 +198,102 @@ Not run by policy:
 - eval suites
 - external API checks
 
-## Next Plan
+## Phase 3 Progress
 
-### Step 1: Review And Commit Phase 2 Closure Milestone
+In progress:
 
-Suggested commit message:
+- Added app-owned lead run snapshot and run event repository design with:
+  - in-memory default for dev/tests
+  - Postgres implementation using existing `POSTGRES_URL` and `asyncpg`
+  - idempotent `app_lead_runs` and `app_run_events` table setup
+- Added `run_id` to graph state, API responses, frontend types, and LangGraph
+  config metadata for trace/run correlation.
+- Added `GET /api/leads/{thread_id}` to recover the latest stored dossier
+  snapshot.
+- Updated qualify and approve/reject flows to save snapshots and record
+  audit-style events.
+- Updated the frontend lead page to fetch stored lead state after refresh
+  instead of relying only on React Query memory.
+- Added `persistence/lead_artifacts.py` to normalize the latest snapshot into
+  app-owned records for:
+  - leads
+  - sources
+  - contacts
+  - company signals
+  - score breakdowns
+  - outreach drafts
+  - decisions
+  - delivery events
+- Extended the in-memory and Postgres repositories so saving a snapshot also
+  materializes those normalized artifact records.
+- Added idempotent Postgres setup for normalized artifact tables:
+  `app_users`, `app_leads`, `app_sources`, `app_contacts`,
+  `app_company_signals`, `app_score_breakdowns`, `app_outreach_drafts`,
+  `app_decisions`, and `app_delivery_events`.
+- Added tests for artifact extraction, in-memory artifact persistence, and API
+  route wiring.
+- Extended `ProcessingMetadata` with:
+  - `timings_ms`
+  - `token_usage`
+  - `cost_breakdown_usd`
+  - `provider_status`
+- Added `processing_metadata` to `LeadState`, qualify responses, approve/reject
+  responses, frontend response types, and persisted run snapshots.
+- Timed the REST graph invocation, interrupt-state check, and total API handler
+  duration for qualify and approve/reject flows.
+- Added safe structured log context for qualify/resume start, completion, and
+  failure events using request IDs, thread IDs, and run IDs without logging
+  contact emails, provider credentials, raw prompts, or raw scraped content.
+- Added run-event metadata for timings, total token placeholder, and estimated
+  cost placeholder.
 
-```text
-feat: finalize deterministic scoring configuration
-```
+### Next Phase 3 Milestone
 
-### Step 2: Begin Phase 3 Planning
+After this slice is reviewed, continue Phase 3 with one of these narrow
+milestones:
 
-Phase 3 should start with a narrow implementation plan for persistence,
-observability, and session recovery. Do not add RAG, MCP, auth, evals, or
-production ops until their later phases.
+- historical lead/run query endpoints for the app-owned records, still without
+  auth until Phase 6
+- deeper provider metadata capture for actual token/cost and node/tool timings,
+  only if it can be done without new dependencies
+- explicit no-secrets/no-PII logging tests or documentation hardening
 
-## Phase 2 Guardrails
+Do not add RAG, MCP, auth, evals, production ops, queues, or new dependencies
+until their later phases and explicit approval.
 
-- The LLM may extract facts, signals, and draft outreach.
-- Python business logic calculates the final fit score.
-- The score must be reproducible for identical inputs.
-- Every score component should have an inspectable reason.
-- Missing or weak evidence should lower confidence or trigger human review.
+## Phase 3 Guardrails
+
+- Keep app-owned persistence independent of LangGraph checkpoints.
+- Preserve the current flat API response shape.
+- Keep in-memory fallback available when `POSTGRES_URL` is unset.
+- Do not log secrets or raw provider credentials.
+- Do not introduce auth, queue, vector DB, MCP, or new provider dependencies.
 - No new dependencies without explicit approval.
 - No broad/full verification unless explicitly requested.
 
-## Useful Targeted Verification For Phase 2
+## Useful Targeted Verification For Phase 3
 
 Run only the checks related to changed files:
 
 ```bash
 uv run python -m ruff check <changed-python-files>
 uv run python -m ruff format --check <changed-python-files>
-uv run python -m pytest tests\test_scoring.py -q
-uv run python -m pytest tests\test_icp_config.py -q
-uv run python -m pytest tests\test_grounding.py -q
-uv run python -m pytest tests\test_outreach_quality.py -q
-```
-
-If `dossier_writer`, graph flow, or API response behavior changes, add the
-relevant targeted tests:
-
-```bash
-uv run python -m pytest tests\test_agents.py -q
+uv run python -m pytest tests\test_lead_runs.py -q
 uv run python -m pytest tests\test_api.py -q
-uv run python -m pytest tests\test_state.py tests\test_schemas.py -q
 ```
+
+Latest Phase 3 targeted verification:
+
+- app-owned run/session recovery slice: `131 passed`
+- normalized artifact persistence slice: `37 passed`
+- combined targeted Phase 3 path after both slices: `133 passed`
+- first-pass processing metadata slice: `154 passed`
+- changed-file Ruff checks passed
+- changed-file Ruff format checks passed
+
+If frontend recovery behavior changes, explain that frontend production build
+was not run unless explicitly requested under the release-only verification
+policy.
 
 ## Open Decisions
 
@@ -238,5 +301,6 @@ uv run python -m pytest tests\test_state.py tests\test_schemas.py -q
   until the UI has a designed section for it.
 - Whether grounding/outreach quality reports should be rendered in the current
   lead page immediately or kept API-visible until a focused UI milestone.
-- Which app-owned persistence schema should be created first in Phase 3:
-  minimal run/session recovery or the broader users/leads/runs/sources model.
+- Whether app-owned normalized artifacts should get query/list API endpoints
+  during Phase 3 or remain internal until auth and user-owned access checks
+  exist.

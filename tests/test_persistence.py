@@ -183,6 +183,7 @@ async def test_postgres_checkpointer_helper() -> None:
         try:
             await g.ainvoke(
                 {
+                    "run_id": "run-helper-test",
                     "company_url": "https://example.com",
                     "domain": "example.com",
                     "icp_context": None,
@@ -200,6 +201,7 @@ async def test_postgres_checkpointer_helper() -> None:
                     "score_uncertainty": None,
                     "grounding_report": None,
                     "outreach_quality": None,
+                    "processing_metadata": None,
                     "email_subject": None,
                     "email_body": None,
                     "email_approved": None,

@@ -146,6 +146,11 @@ def test_processing_metadata_defaults() -> None:
     metadata = ProcessingMetadata(run_id="run-1", thread_id="lead:acme.example")
 
     assert metadata.total_tokens == 0
+    assert metadata.estimated_cost_usd == 0.0
+    assert metadata.timings_ms == {}
+    assert metadata.token_usage == {}
+    assert metadata.cost_breakdown_usd == {}
+    assert metadata.provider_status == {}
     assert metadata.steps_completed == []
     assert metadata.started_at.tzinfo is not None
 

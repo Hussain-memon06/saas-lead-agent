@@ -15,6 +15,7 @@ same regardless of whether the user came in via REST or via the chat UI.
 """
 
 from typing import Any
+from uuid import uuid4
 
 import chainlit as cl
 from langgraph.types import Command
@@ -112,6 +113,7 @@ def format_send_result(result: dict[str, Any]) -> str:
 
 def _initial_state(url: str, domain: str) -> LeadState:
     return {
+        "run_id": str(uuid4()),
         "company_url": url,
         "domain": domain,
         "icp_context": None,
@@ -129,6 +131,7 @@ def _initial_state(url: str, domain: str) -> LeadState:
         "score_uncertainty": None,
         "grounding_report": None,
         "outreach_quality": None,
+        "processing_metadata": None,
         "email_subject": None,
         "email_body": None,
         "email_approved": None,
@@ -170,9 +173,10 @@ async def on_message(message: cl.Message) -> None:
 
     async with cl.Step(name=f"Researching {domain}", type="run"):
         try:
+            initial_state = _initial_state(url, domain)
             result = await _routes._graph.ainvoke(
-                _initial_state(url, domain),
-                config=_config(thread_id),
+                initial_state,
+                config=_config(thread_id, run_id=initial_state["run_id"]),
                 durability="sync",
             )
         except Exception as exc:

@@ -7,6 +7,7 @@ from typing_extensions import TypedDict
 
 
 class LeadState(TypedDict):
+    run_id: str | None
     company_url: str
     domain: str
     # User-supplied Ideal Customer Profile from the frontend Settings page.
@@ -27,6 +28,7 @@ class LeadState(TypedDict):
     score_uncertainty: list[str] | None
     grounding_report: dict[str, Any] | None
     outreach_quality: dict[str, Any] | None
+    processing_metadata: dict[str, Any] | None
     email_subject: str | None
     email_body: str | None
     email_approved: bool | None

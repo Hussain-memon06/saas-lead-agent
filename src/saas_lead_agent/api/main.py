@@ -25,8 +25,12 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     - Either / both unset → no-op fallback (dev / test mode).
     """
     from saas_lead_agent.memory.langfuse_handler import flush_langfuse
+    from saas_lead_agent.persistence import create_lead_run_repository
 
     postgres_url = os.environ.get("POSTGRES_URL")
+    lead_store = create_lead_run_repository(postgres_url)
+    await lead_store.setup()
+    _routes._lead_store = lead_store
     try:
         if postgres_url:
             from saas_lead_agent.memory.checkpointer import postgres_checkpointer
@@ -37,6 +41,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         else:
             yield
     finally:
+        await lead_store.close()
         flush_langfuse()
 
 

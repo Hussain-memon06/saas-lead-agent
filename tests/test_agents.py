@@ -37,6 +37,7 @@ _PROFILE: dict[str, Any] = {
 }
 
 _BASE_STATE: LeadState = {
+    "run_id": "run-test",
     "company_url": "https://acme.example.com",
     "domain": "acme.example.com",
     "icp_context": None,
@@ -46,6 +47,7 @@ _BASE_STATE: LeadState = {
     "signals": None,
     "grounding_report": None,
     "outreach_quality": None,
+    "processing_metadata": None,
     "errors": [],
 }
 

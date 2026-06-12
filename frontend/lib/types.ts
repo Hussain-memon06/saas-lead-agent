@@ -85,6 +85,23 @@ export type OutreachQuality = {
   word_count: number;
 };
 
+export type ProcessingMetadata = {
+  run_id: string;
+  thread_id: string;
+  model_used: string | null;
+  total_tokens: number;
+  estimated_cost_usd: number;
+  timings_ms: Record<string, number>;
+  token_usage: Record<string, number>;
+  cost_breakdown_usd: Record<string, number>;
+  provider_status: Record<string, string>;
+  duration_seconds: number;
+  steps_completed: string[];
+  errors: string[];
+  started_at: string;
+  completed_at: string | null;
+};
+
 export type QualifyRequest = {
   url: string;
   icp_context?: Record<string, unknown> | null;
@@ -92,6 +109,7 @@ export type QualifyRequest = {
 
 export type QualifyResponse = {
   request_id: string | null;
+  run_id: string | null;
   thread_id: string;
   company_profile: CompanyProfile | null;
   contact: Contact | null;
@@ -106,6 +124,7 @@ export type QualifyResponse = {
   score_uncertainty: string[] | null;
   grounding_report: GroundingReport | null;
   outreach_quality: OutreachQuality | null;
+  processing_metadata: ProcessingMetadata | null;
   email_subject: string | null;
   email_body: string | null;
   email_approved: boolean | null;
@@ -118,11 +137,13 @@ export type QualifyResponse = {
 
 export type ApproveResponse = {
   request_id: string | null;
+  run_id: string | null;
   thread_id: string;
   email_approved: boolean | null;
   send_result: SendResult | null;
   message_id: string | null;
   sent_at: string | null;
+  processing_metadata: ProcessingMetadata | null;
   interrupted: boolean;
   errors: string[];
 };

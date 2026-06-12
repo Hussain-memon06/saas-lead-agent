@@ -23,7 +23,8 @@ Follow this file together with `PLANS.md`.
 - Primary model: OpenAI `gpt-4o-mini` for current agent nodes
 - Implemented Phase 2: deterministic scoring, typed ICP configuration,
   evidence grounding, outreach quality checks, and threshold configuration.
-- Planned: model/provider abstraction, persistence, RAG, durable execution,
+- Planned: remaining Phase 3 historical query workflows and deeper provider
+  metadata capture, model/provider abstraction, RAG, durable execution,
   auth/compliance, evals, and production operations
 
 ## Current Architecture
@@ -58,6 +59,7 @@ company_researcher
 Current backend API:
 
 - `POST /api/qualify`
+- `GET /api/leads/{thread_id}`
 - `POST /api/leads/{thread_id}/approve`
 - `POST /api/leads/{thread_id}/reject`
 
@@ -242,11 +244,17 @@ files, state that clearly. Include:
 These are tracked in `PLANS.md`; do not solve them out of phase:
 
 - No authentication or authorization.
-- No app-owned relational schema beyond checkpoints.
+- Phase 3 has started with app-owned lead run snapshots, run events, and
+  normalized latest-run artifacts for leads, sources, contacts, company
+  signals, score breakdowns, outreach drafts, decisions, and delivery events.
 - Deterministic scoring and Phase 2 business-logic hardening now exist; future
   score tuning should be driven by targeted examples or evals, not ad hoc
   prompt changes.
-- No persistence-backed dossier recovery after refresh.
+- Dossier recovery after refresh now has a first app-owned snapshot path and
+  first-pass processing metadata with run-level timings and token/cost
+  placeholders; auth-backed users, historical query workflows,
+  migration/versioning strategy, and actual provider token/cost extraction are
+  still pending.
 - No RAG/vector memory/retrieval quality system yet.
 - No MCP/tool abstraction or durable job layer yet.
 - No dedicated eval harness yet.

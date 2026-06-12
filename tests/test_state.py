@@ -21,6 +21,7 @@ def _merge(a: LeadState, b: dict) -> LeadState:  # type: ignore[return]
 
 
 _BASE: LeadState = {
+    "run_id": "run-test",
     "company_url": "https://example.com",
     "domain": "example.com",
     "icp_context": None,
@@ -38,6 +39,7 @@ _BASE: LeadState = {
     "score_uncertainty": None,
     "grounding_report": None,
     "outreach_quality": None,
+    "processing_metadata": None,
     "email_subject": None,
     "email_body": None,
     "email_approved": None,
@@ -72,6 +74,7 @@ def test_scalar_fields_overwrite() -> None:
 
 
 def test_initial_state_is_valid() -> None:
+    assert _BASE["run_id"] == "run-test"
     assert _BASE["company_url"] == "https://example.com"
     assert _BASE["company_profile"] is None
     assert _BASE["fit_score"] is None
@@ -80,6 +83,7 @@ def test_initial_state_is_valid() -> None:
     assert _BASE["score_confidence"] is None
     assert _BASE["grounding_report"] is None
     assert _BASE["outreach_quality"] is None
+    assert _BASE["processing_metadata"] is None
     assert _BASE["email_subject"] is None
     assert _BASE["email_body"] is None
     assert _BASE["email_approved"] is None
@@ -128,3 +132,14 @@ def test_delivery_fields_overwrite() -> None:
     )
     assert updated["message_id"] == "msg-abc-123"
     assert updated["sent_at"] == "2026-04-25T12:00:00+00:00"
+
+
+def test_processing_metadata_overwrites() -> None:
+    metadata = {
+        "run_id": "run-test",
+        "thread_id": "lead:example.com",
+        "timings_ms": {"graph": 1.0},
+    }
+    updated = _merge(_BASE, {"processing_metadata": metadata})
+
+    assert updated["processing_metadata"] == metadata
