@@ -7,6 +7,7 @@ Strategy:
   real LangGraph / LLM calls occur.
 """
 
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -16,7 +17,7 @@ from pydantic import ValidationError
 
 from saas_lead_agent.api.main import app
 from saas_lead_agent.api.schemas import QualifyRequest, QualifyResponse
-from saas_lead_agent.persistence import InMemoryLeadRunRepository, LeadRunSnapshot
+from saas_lead_agent.persistence import InMemoryLeadRunRepository, LeadRunSnapshot, RunEvent
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -281,6 +282,126 @@ async def test_get_lead_returns_404_when_snapshot_missing() -> None:
     with patch("saas_lead_agent.api.routes._lead_store", store):
         async with await _client() as client:
             resp = await client.get("/api/leads/lead%3Amissing.example.com")
+
+    assert resp.status_code == 404
+    assert "No stored lead run found" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_list_leads_returns_recent_summary_without_dossier_body() -> None:
+    store = InMemoryLeadRunRepository()
+    await store.save_snapshot(
+        LeadRunSnapshot(
+            run_id="run-old",
+            thread_id="lead:old.example.com",
+            domain="old.example.com",
+            company_url="https://old.example.com",
+            status="completed",
+            result={
+                "thread_id": "lead:old.example.com",
+                "company_profile": {"name": "Old Co"},
+                "email_body": "This should not appear in summary responses.",
+            },
+            updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+    )
+    await store.save_snapshot(
+        LeadRunSnapshot(
+            run_id="run-new",
+            thread_id="lead:new.example.com",
+            domain="new.example.com",
+            company_url="https://new.example.com",
+            status="interrupted",
+            result={
+                "thread_id": "lead:new.example.com",
+                "company_profile": {"name": "New Co"},
+                "fit_score": 8,
+                "fit_level": "high",
+                "score_confidence": "high",
+                "needs_human_review": False,
+                "interrupted": True,
+                "send_result": None,
+                "processing_metadata": {
+                    "total_tokens": 0,
+                    "estimated_cost_usd": 0.0,
+                    "duration_seconds": 1.25,
+                },
+                "email_body": "This should not appear in summary responses.",
+            },
+            updated_at=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+    )
+
+    with patch("saas_lead_agent.api.routes._lead_store", store):
+        async with await _client() as client:
+            resp = await client.get("/api/leads?limit=1")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["request_id"]
+    assert len(body["leads"]) == 1
+    lead = body["leads"][0]
+    assert lead["run_id"] == "run-new"
+    assert lead["company_name"] == "New Co"
+    assert lead["fit_score"] == 8
+    assert lead["interrupted"] is True
+    assert lead["duration_seconds"] == 1.25
+    assert "email_body" not in lead
+
+
+@pytest.mark.asyncio
+async def test_get_lead_events_returns_sanitized_metadata() -> None:
+    store = InMemoryLeadRunRepository()
+    await store.save_snapshot(
+        LeadRunSnapshot(
+            run_id="run-1",
+            thread_id="lead:acme.example.com",
+            domain="acme.example.com",
+            company_url="https://acme.example.com",
+            status="completed",
+            result={"thread_id": "lead:acme.example.com"},
+        )
+    )
+    await store.record_event(
+        RunEvent(
+            run_id="run-1",
+            thread_id="lead:acme.example.com",
+            event_type="qualify_failed",
+            request_id="req-1",
+            metadata={
+                "status": "failed",
+                "error_type": "RuntimeError",
+                "error": "raw provider message should not be returned",
+                "timings_ms": {"graph": 12.0},
+                "total_tokens": 0,
+                "estimated_cost_usd": 0.0,
+            },
+        )
+    )
+
+    with patch("saas_lead_agent.api.routes._lead_store", store):
+        async with await _client() as client:
+            resp = await client.get("/api/leads/lead%3Aacme.example.com/events")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["request_id"]
+    assert body["thread_id"] == "lead:acme.example.com"
+    assert body["events"][0]["event_type"] == "qualify_failed"
+    metadata = body["events"][0]["metadata"]
+    assert metadata["status"] == "failed"
+    assert metadata["error_type"] == "RuntimeError"
+    assert metadata["timings_ms"] == {"graph": 12.0}
+    assert "error" not in metadata
+
+
+@pytest.mark.asyncio
+async def test_get_lead_events_returns_404_when_snapshot_missing() -> None:
+    store = InMemoryLeadRunRepository()
+
+    with patch("saas_lead_agent.api.routes._lead_store", store):
+        async with await _client() as client:
+            resp = await client.get("/api/leads/lead%3Amissing.example.com/events")
 
     assert resp.status_code == 404
     assert "No stored lead run found" in resp.json()["detail"]

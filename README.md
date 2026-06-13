@@ -58,15 +58,15 @@ flowchart LR
     Graph -.optional.-> LF[Langfuse traces]
 ```
 
-**Frontend.** Next.js 14 App Router (`/`, `/settings`, `/leads/[threadId]`). The qualify form posts a URL plus the locally-stored ICP, then routes the user to the dossier page where TanStack Query uses the freshly seeded cache and can recover the latest stored run through `GET /api/leads/{thread_id}` after refresh. Approve/Reject buttons fire mutations against `/api/leads/{thread_id}/approve` or `/reject`.
+**Frontend.** Next.js 14 App Router (`/`, `/settings`, `/leads/[threadId]`). The qualify form posts a URL plus the locally-stored ICP, then routes the user to the dossier page where TanStack Query uses the freshly seeded cache and can recover the latest stored run through `GET /api/leads/{thread_id}` after refresh. The frontend API client also mirrors the Phase 3 summary/history helpers for `GET /api/leads` and `GET /api/leads/{thread_id}/events`, though no dedicated history UI exists yet. Approve/Reject buttons fire mutations against `/api/leads/{thread_id}/approve` or `/reject`.
 
-**Backend.** A FastAPI app (`src/saas_lead_agent/api/main.py`) exposes qualify, recovery, approve, and reject endpoints, holds a singleton compiled LangGraph in module scope, and mounts a Chainlit chat UI at `/chainlit` for an alternative interaction surface. Current responses intentionally preserve the flat frontend contract; the schema package defines a planned `APIResponse`/`APIError` envelope for a future versioned `/api/v1` transition.
+**Backend.** A FastAPI app (`src/saas_lead_agent/api/main.py`) exposes qualify, recent-lead summary, recovery, sanitized run-event, approve, and reject endpoints, holds a singleton compiled LangGraph in module scope, and mounts a Chainlit chat UI at `/chainlit` for an alternative interaction surface. Current responses intentionally preserve the flat frontend contract; the schema package defines a planned `APIResponse`/`APIError` envelope for a future versioned `/api/v1` transition.
 
 **LangGraph pipeline.** `START → company_researcher → contact_finder → signal_detector → dossier_writer → await_approval → send_email → END`. Sequential rather than parallel — see *Design decisions*.
 
-**Persistence.** When `POSTGRES_URL` is set the FastAPI lifespan swaps the InMemorySaver for `AsyncPostgresSaver`, initializes app-owned run/event tables plus normalized latest-run artifact tables, and runs idempotent DDL on boot. A graph paused at `await_approval` survives a redeploy; the user can come back hours later, recover the dossier by thread ID, and approve.
+**Persistence.** When `POSTGRES_URL` is set the FastAPI lifespan swaps the InMemorySaver for `AsyncPostgresSaver`, initializes app-owned run/event tables plus normalized latest-run artifact tables, and runs idempotent DDL on boot. A graph paused at `await_approval` survives a redeploy; the user can come back hours later, recover the dossier by thread ID, inspect summary/event metadata, and approve.
 
-**Observability.** When `LANGFUSE_PUBLIC_KEY` is set a singleton `CallbackHandler` is attached at the FastAPI route level and LangChain propagates it through every nested Runnable. API responses and persisted snapshots also carry first-pass `processing_metadata` with request/run correlation, run-level timings, and token/cost placeholders; actual provider token/cost extraction remains a later Phase 3 task.
+**Observability.** When `LANGFUSE_PUBLIC_KEY` is set a singleton `CallbackHandler` is attached at the FastAPI route level and LangChain propagates it through every nested Runnable. API responses and persisted snapshots also carry first-pass `processing_metadata` with request/run correlation, run-level timings, and token/cost placeholders; sanitized run events can be inspected through the API. Actual provider token/cost extraction remains a later Phase 3 task.
 
 ---
 

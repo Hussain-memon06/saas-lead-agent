@@ -1,5 +1,7 @@
 """Tests for app-owned lead run persistence repositories."""
 
+from datetime import UTC, datetime
+
 import pytest
 
 from saas_lead_agent.persistence import (
@@ -175,6 +177,43 @@ async def test_in_memory_repository_saves_artifacts_with_snapshot() -> None:
     assert updated.contacts == []
     assert updated.company_signals == []
     assert updated.delivery_event is None
+
+
+async def test_in_memory_repository_lists_recent_snapshots_newest_first() -> None:
+    repo = InMemoryLeadRunRepository()
+    older = _snapshot(
+        {
+            "thread_id": "lead:older.example.com",
+            "company_profile": {"name": "Older", "sources": []},
+        }
+    ).model_copy(
+        update={
+            "thread_id": "lead:older.example.com",
+            "domain": "older.example.com",
+            "company_url": "https://older.example.com",
+            "updated_at": datetime(2026, 1, 1, tzinfo=UTC),
+        }
+    )
+    newer = _snapshot(
+        {
+            "thread_id": "lead:newer.example.com",
+            "company_profile": {"name": "Newer", "sources": []},
+        }
+    ).model_copy(
+        update={
+            "thread_id": "lead:newer.example.com",
+            "domain": "newer.example.com",
+            "company_url": "https://newer.example.com",
+            "updated_at": datetime(2026, 1, 2, tzinfo=UTC),
+        }
+    )
+
+    await repo.save_snapshot(older)
+    await repo.save_snapshot(newer)
+
+    snapshots = await repo.list_snapshots(limit=1)
+
+    assert [snapshot.thread_id for snapshot in snapshots] == ["lead:newer.example.com"]
 
 
 async def test_in_memory_repository_records_run_events() -> None:

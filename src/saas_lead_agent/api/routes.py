@@ -7,11 +7,19 @@ from typing import Any, cast
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from saas_lead_agent.api.schemas import ApproveResponse, QualifyRequest, QualifyResponse
+from saas_lead_agent.api.schemas import (
+    ApproveResponse,
+    LeadListResponse,
+    LeadSummary,
+    QualifyRequest,
+    QualifyResponse,
+    RunEventResponse,
+    RunEventsResponse,
+)
 from saas_lead_agent.graph import build_graph_with_memory
 from saas_lead_agent.memory.langfuse_handler import get_langfuse_handler
 from saas_lead_agent.persistence import (
@@ -178,6 +186,59 @@ def _response_from_state(
         sent_at=state.get("sent_at"),
         interrupted=interrupted,
         errors=state.get("errors", []),
+    )
+
+
+def _lead_summary_from_snapshot(snapshot: LeadRunSnapshot) -> LeadSummary:
+    result = snapshot.result
+    profile = result.get("company_profile")
+    processing_metadata = result.get("processing_metadata")
+    profile_data = profile if isinstance(profile, dict) else {}
+    metadata = processing_metadata if isinstance(processing_metadata, dict) else {}
+
+    return LeadSummary(
+        request_id=snapshot.request_id,
+        run_id=snapshot.run_id,
+        thread_id=snapshot.thread_id,
+        domain=snapshot.domain,
+        company_url=snapshot.company_url,
+        company_name=profile_data.get("name"),
+        status=snapshot.status,
+        fit_score=result.get("fit_score"),
+        fit_level=result.get("fit_level"),
+        score_confidence=result.get("score_confidence"),
+        needs_human_review=result.get("needs_human_review"),
+        interrupted=bool(result.get("interrupted", snapshot.status == "interrupted")),
+        send_result=result.get("send_result"),
+        total_tokens=int(metadata.get("total_tokens") or 0),
+        estimated_cost_usd=float(metadata.get("estimated_cost_usd") or 0.0),
+        duration_seconds=float(metadata.get("duration_seconds") or 0.0),
+        created_at=snapshot.created_at.isoformat(),
+        updated_at=snapshot.updated_at.isoformat(),
+    )
+
+
+def _public_event_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    allowed_keys = {
+        "status",
+        "interrupted",
+        "send_result",
+        "timings_ms",
+        "total_tokens",
+        "estimated_cost_usd",
+        "error_type",
+    }
+    return {key: metadata[key] for key in allowed_keys if key in metadata}
+
+
+def _event_response(event: RunEvent) -> RunEventResponse:
+    return RunEventResponse(
+        run_id=event.run_id,
+        thread_id=event.thread_id,
+        event_type=event.event_type,
+        metadata=_public_event_metadata(event.metadata),
+        request_id=event.request_id,
+        created_at=event.created_at.isoformat(),
     )
 
 
@@ -413,6 +474,23 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
 
 
 @router.get(
+    "/api/leads",
+    response_model=LeadListResponse,
+    summary="List recent stored lead runs",
+)
+async def list_leads(
+    request: Request,
+    limit: int = Query(default=20, ge=1, le=100),
+) -> LeadListResponse:
+    """Return recent app-owned lead summaries without draft/contact PII."""
+    snapshots = await _lead_store.list_snapshots(limit)
+    return LeadListResponse(
+        request_id=_request_id(request),
+        leads=[_lead_summary_from_snapshot(snapshot) for snapshot in snapshots],
+    )
+
+
+@router.get(
     "/api/leads/{thread_id}",
     response_model=QualifyResponse,
     summary="Return the latest stored lead dossier state",
@@ -432,6 +510,27 @@ async def get_lead(thread_id: str, request: Request) -> QualifyResponse:
         thread_id=snapshot.thread_id,
         run_id=snapshot.run_id,
         interrupted=bool(snapshot.result.get("interrupted", snapshot.status == "interrupted")),
+    )
+
+
+@router.get(
+    "/api/leads/{thread_id}/events",
+    response_model=RunEventsResponse,
+    summary="Return audit-style run events for a lead",
+)
+async def get_lead_events(thread_id: str, request: Request) -> RunEventsResponse:
+    """Return sanitized lifecycle events for the stored lead thread."""
+    snapshot = await _lead_store.get_by_thread_id(thread_id)
+    if snapshot is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No stored lead run found for thread_id={thread_id}",
+        )
+    events = await _lead_store.list_events(thread_id)
+    return RunEventsResponse(
+        request_id=_request_id(request),
+        thread_id=thread_id,
+        events=[_event_response(event) for event in events],
     )
 
 

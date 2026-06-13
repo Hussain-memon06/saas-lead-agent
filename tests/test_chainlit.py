@@ -192,7 +192,9 @@ def test_app_still_serves_api_routes() -> None:
 
     paths = {str(getattr(r, "path", "")) for r in app.routes}
     assert "/api/qualify" in paths
+    assert "/api/leads" in paths
     assert "/api/leads/{thread_id}" in paths
+    assert "/api/leads/{thread_id}/events" in paths
     assert "/api/leads/{thread_id}/approve" in paths
     assert "/api/leads/{thread_id}/reject" in paths
 

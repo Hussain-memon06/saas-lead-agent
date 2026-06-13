@@ -10,7 +10,7 @@ outreach quality checks, and threshold configuration are implemented: the final
 fit score and review flags now come from Python business logic instead of
 LLM-generated dossier text.
 
-Phase 3 is in progress. The first three milestones are now implemented in the
+Phase 3 is in progress. The first four milestones are now implemented in the
 working tree:
 
 - app-owned run/session recovery with latest lead run snapshots, audit-style
@@ -22,6 +22,8 @@ working tree:
 - first-pass processing metadata with run-level timings, zero-value token/cost
   placeholders, steps-completed inference, and structured log correlation
   context
+- summary history and sanitized run-event endpoints with frontend API helpers:
+  `GET /api/leads` and `GET /api/leads/{thread_id}/events`
 
 ## What We Completed
 
@@ -246,14 +248,21 @@ In progress:
   contact emails, provider credentials, raw prompts, or raw scraped content.
 - Added run-event metadata for timings, total token placeholder, and estimated
   cost placeholder.
+- Added summary/history access for app-owned lead snapshots:
+  - repository-level `list_snapshots`
+  - `GET /api/leads?limit=...`
+  - summary-only response models that exclude raw dossier body text
+- Added sanitized run-event retrieval through
+  `GET /api/leads/{thread_id}/events`, with metadata allowlisting so raw
+  errors, prompts, provider payloads, and source text are not exposed.
+- Added frontend API helpers and TypeScript contract mirrors for lead summaries
+  and run events.
 
 ### Next Phase 3 Milestone
 
 After this slice is reviewed, continue Phase 3 with one of these narrow
 milestones:
 
-- historical lead/run query endpoints for the app-owned records, still without
-  auth until Phase 6
 - deeper provider metadata capture for actual token/cost and node/tool timings,
   only if it can be done without new dependencies
 - explicit no-secrets/no-PII logging tests or documentation hardening
@@ -288,6 +297,7 @@ Latest Phase 3 targeted verification:
 - normalized artifact persistence slice: `37 passed`
 - combined targeted Phase 3 path after both slices: `133 passed`
 - first-pass processing metadata slice: `154 passed`
+- summary history and sanitized run-event endpoint slice: `61 passed`
 - changed-file Ruff checks passed
 - changed-file Ruff format checks passed
 
@@ -301,6 +311,6 @@ policy.
   until the UI has a designed section for it.
 - Whether grounding/outreach quality reports should be rendered in the current
   lead page immediately or kept API-visible until a focused UI milestone.
-- Whether app-owned normalized artifacts should get query/list API endpoints
-  during Phase 3 or remain internal until auth and user-owned access checks
-  exist.
+- Whether normalized artifacts beyond summary snapshots should get query/list
+  API endpoints during Phase 3 or remain internal until auth and user-owned
+  access checks exist.

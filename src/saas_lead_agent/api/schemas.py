@@ -68,3 +68,44 @@ class ApproveResponse(BaseModel):
     processing_metadata: dict[str, Any] | None = None
     interrupted: bool = False
     errors: list[str] = Field(default_factory=list)
+
+
+class LeadSummary(BaseModel):
+    request_id: str | None = None
+    run_id: str
+    thread_id: str
+    domain: str
+    company_url: str
+    company_name: str | None = None
+    status: str
+    fit_score: int | None = None
+    fit_level: str | None = None
+    score_confidence: str | None = None
+    needs_human_review: bool | None = None
+    interrupted: bool = False
+    send_result: SendResult | None = None
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    duration_seconds: float = 0.0
+    created_at: str
+    updated_at: str
+
+
+class LeadListResponse(BaseModel):
+    request_id: str | None = None
+    leads: list[LeadSummary] = Field(default_factory=list)
+
+
+class RunEventResponse(BaseModel):
+    run_id: str
+    thread_id: str
+    event_type: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    request_id: str | None = None
+    created_at: str
+
+
+class RunEventsResponse(BaseModel):
+    request_id: str | None = None
+    thread_id: str
+    events: list[RunEventResponse] = Field(default_factory=list)

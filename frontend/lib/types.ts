@@ -147,3 +147,44 @@ export type ApproveResponse = {
   interrupted: boolean;
   errors: string[];
 };
+
+export type LeadSummary = {
+  request_id: string | null;
+  run_id: string;
+  thread_id: string;
+  domain: string;
+  company_url: string;
+  company_name: string | null;
+  status: string;
+  fit_score: number | null;
+  fit_level: string | null;
+  score_confidence: string | null;
+  needs_human_review: boolean | null;
+  interrupted: boolean;
+  send_result: SendResult | null;
+  total_tokens: number;
+  estimated_cost_usd: number;
+  duration_seconds: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LeadListResponse = {
+  request_id: string | null;
+  leads: LeadSummary[];
+};
+
+export type RunEventResponse = {
+  run_id: string;
+  thread_id: string;
+  event_type: string;
+  metadata: Record<string, unknown>;
+  request_id: string | null;
+  created_at: string;
+};
+
+export type RunEventsResponse = {
+  request_id: string | null;
+  thread_id: string;
+  events: RunEventResponse[];
+};

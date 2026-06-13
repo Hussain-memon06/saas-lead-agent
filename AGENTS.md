@@ -23,8 +23,8 @@ Follow this file together with `PLANS.md`.
 - Primary model: OpenAI `gpt-4o-mini` for current agent nodes
 - Implemented Phase 2: deterministic scoring, typed ICP configuration,
   evidence grounding, outreach quality checks, and threshold configuration.
-- Planned: remaining Phase 3 historical query workflows and deeper provider
-  metadata capture, model/provider abstraction, RAG, durable execution,
+- Planned: remaining Phase 3 deeper provider metadata capture and
+  migration/versioning strategy, model/provider abstraction, RAG, durable execution,
   auth/compliance, evals, and production operations
 
 ## Current Architecture
@@ -59,7 +59,9 @@ company_researcher
 Current backend API:
 
 - `POST /api/qualify`
+- `GET /api/leads`
 - `GET /api/leads/{thread_id}`
+- `GET /api/leads/{thread_id}/events`
 - `POST /api/leads/{thread_id}/approve`
 - `POST /api/leads/{thread_id}/reject`
 
@@ -252,7 +254,7 @@ These are tracked in `PLANS.md`; do not solve them out of phase:
   prompt changes.
 - Dossier recovery after refresh now has a first app-owned snapshot path and
   first-pass processing metadata with run-level timings and token/cost
-  placeholders; auth-backed users, historical query workflows,
+  placeholders; summary history endpoints now exist; auth-backed users,
   migration/versioning strategy, and actual provider token/cost extraction are
   still pending.
 - No RAG/vector memory/retrieval quality system yet.

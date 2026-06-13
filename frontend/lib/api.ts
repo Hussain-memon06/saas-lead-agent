@@ -1,9 +1,11 @@
 /**
  * Typed fetch wrappers for the FastAPI backend.
  *
- * Three endpoints, all POST:
+ * Current backend endpoints:
  *   /api/qualify                            { url } -> QualifyResponse
+ *   /api/leads                              -> LeadListResponse
  *   /api/leads/{thread_id}                  -> QualifyResponse
+ *   /api/leads/{thread_id}/events           -> RunEventsResponse
  *   /api/leads/{thread_id}/approve          (no body) -> ApproveResponse
  *   /api/leads/{thread_id}/reject           (no body) -> ApproveResponse
  *
@@ -18,8 +20,10 @@ import { apiUrl } from "./api-base";
 import { isIcpConfigured, loadIcp } from "./icp";
 import type {
   ApproveResponse,
+  LeadListResponse,
   QualifyRequest,
   QualifyResponse,
+  RunEventsResponse,
 } from "./types";
 
 const QUALIFY_TIMEOUT_MS = 120_000;
@@ -166,6 +170,16 @@ export async function qualify(req: QualifyRequest): Promise<QualifyResponse> {
 export async function getLead(threadId: string): Promise<QualifyResponse> {
   const encoded = encodeURIComponent(threadId);
   return getJson<QualifyResponse>(`/api/leads/${encoded}`, RESUME_TIMEOUT_MS);
+}
+
+export async function listLeads(limit = 20): Promise<LeadListResponse> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return getJson<LeadListResponse>(`/api/leads?${params.toString()}`, RESUME_TIMEOUT_MS);
+}
+
+export async function getLeadEvents(threadId: string): Promise<RunEventsResponse> {
+  const encoded = encodeURIComponent(threadId);
+  return getJson<RunEventsResponse>(`/api/leads/${encoded}/events`, RESUME_TIMEOUT_MS);
 }
 
 export async function approve(threadId: string): Promise<ApproveResponse> {

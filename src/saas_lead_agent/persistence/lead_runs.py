@@ -69,6 +69,9 @@ class LeadRunRepository(Protocol):
     async def get_by_thread_id(self, thread_id: str) -> LeadRunSnapshot | None:
         """Return the latest product-facing state for a thread."""
 
+    async def list_snapshots(self, limit: int = 20) -> list[LeadRunSnapshot]:
+        """Return recent product-facing states, newest first."""
+
     async def save_artifacts(self, artifacts: LeadArtifacts) -> None:
         """Persist normalized app-owned records derived from a snapshot."""
 
@@ -107,6 +110,13 @@ class InMemoryLeadRunRepository:
 
     async def get_by_thread_id(self, thread_id: str) -> LeadRunSnapshot | None:
         return self._snapshots.get(thread_id)
+
+    async def list_snapshots(self, limit: int = 20) -> list[LeadRunSnapshot]:
+        return sorted(
+            self._snapshots.values(),
+            key=lambda snapshot: snapshot.updated_at,
+            reverse=True,
+        )[:limit]
 
     async def save_artifacts(self, artifacts: LeadArtifacts) -> None:
         self._artifacts[artifacts.lead.thread_id] = artifacts
@@ -396,6 +406,20 @@ class PostgresLeadRunRepository:
                 thread_id,
             )
         return self._snapshot_from_row(row) if row is not None else None
+
+    async def list_snapshots(self, limit: int = 20) -> list[LeadRunSnapshot]:
+        pool = self._require_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT *
+                FROM app_lead_runs
+                ORDER BY updated_at DESC, created_at DESC
+                LIMIT $1
+                """,
+                limit,
+            )
+        return [self._snapshot_from_row(row) for row in rows]
 
     async def save_artifacts(self, artifacts: LeadArtifacts) -> None:
         pool = self._require_pool()

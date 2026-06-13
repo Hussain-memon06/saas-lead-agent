@@ -1,8 +1,8 @@
 # Outbound Lead Agent — Frontend
 
 Next.js 14 App Router UI for the Outbound Lead Agent demo.  Talks to the
-FastAPI backend in `../src/saas_lead_agent/api/` over the qualify, recovery,
-approve, and reject endpoints.
+FastAPI backend in `../src/saas_lead_agent/api/` over the qualify, recent-lead
+summary, recovery, sanitized run-event, approve, and reject endpoints.
 
 ## Stack
 
@@ -108,6 +108,9 @@ hooks/                    # (reserved)
   `["lead", thread_id]`, then `router.push`es to `/leads/{thread_id}`,
   which reads the cache and can refetch from `GET /api/leads/{thread_id}`
   after a hard refresh.
+- **History helpers:** `frontend/lib/api.ts` exposes typed helpers for
+  `GET /api/leads` and `GET /api/leads/{thread_id}/events`; they are available
+  for Phase 3 debugging and future history UI work.
 - **Approve/reject:** mutations call `/api/leads/.../approve|reject` and
   merge the resume payload back into the same cache entry, so the
   decision UI swaps to an outcome banner without navigation.
