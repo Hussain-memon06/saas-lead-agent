@@ -66,7 +66,7 @@ flowchart LR
 
 **Persistence.** When `POSTGRES_URL` is set the FastAPI lifespan swaps the InMemorySaver for `AsyncPostgresSaver`, initializes app-owned run/event tables plus normalized latest-run artifact tables, and runs idempotent DDL on boot. A graph paused at `await_approval` survives a redeploy; the user can come back hours later, recover the dossier by thread ID, inspect summary/event metadata, and approve.
 
-**Observability.** When `LANGFUSE_PUBLIC_KEY` is set a singleton `CallbackHandler` is attached at the FastAPI route level and LangChain propagates it through every nested Runnable. API responses and persisted snapshots also carry first-pass `processing_metadata` with request/run correlation, run-level timings, and token/cost placeholders; sanitized run events can be inspected through the API. Actual provider token/cost extraction remains a later Phase 3 task.
+**Observability.** When `LANGFUSE_PUBLIC_KEY` is set a singleton `CallbackHandler` is attached at the FastAPI route level and LangChain propagates it through every nested Runnable. API responses and persisted snapshots also carry `processing_metadata` with request/run correlation, run-level timings, node-level provider timing/status, OpenAI token usage when LangChain exposes it, and optional env-configured cost estimates; sanitized run events can be inspected through the API.
 
 ---
 
@@ -140,6 +140,8 @@ Open `http://localhost:3000`. Next.js proxies `/api/*` to `localhost:8080` via a
 | Key | Required | Purpose | Free tier? |
 | --- | --- | --- | --- |
 | `OPENAI_API_KEY` | Yes | GPT-4o-mini for every agent | No |
+| `OPENAI_GPT_4O_MINI_INPUT_COST_PER_MILLION` | No | Optional input-token cost estimate rate; unset keeps cost at `0.0` | — |
+| `OPENAI_GPT_4O_MINI_OUTPUT_COST_PER_MILLION` | No | Optional output-token cost estimate rate; unset keeps cost at `0.0` | — |
 | `TAVILY_API_KEY` | Yes | Web search tool used by researcher and signal detector | Yes (1 000 req/mo) |
 | `HUNTER_API_KEY` | Yes | Domain search for the decision-maker email | Yes (25 req/mo) |
 | `SENDGRID_STUB_ENABLED` | No | Explicit dev/test stub mode; returns `stubbed`, not `sent` | — |
@@ -152,10 +154,14 @@ Open `http://localhost:3000`. Next.js proxies `/api/*` to `localhost:8080` via a
 ### Tests, lint, types
 
 ```bash
-uv run pytest         # 172 passing, 6 skipped without POSTGRES_URL
-uv run ruff check
-uv run mypy src/
+uv run python -m ruff check <changed-python-files>
+uv run python -m ruff format --check <changed-python-files>
+uv run python -m pytest <targeted-test-files> -q
 ```
+
+Full pytest, full mypy, frontend production builds, Docker builds, evals, and
+external API checks are release-only unless explicitly requested. See
+`PLANS.md` for the current verification strategy.
 
 ---
 

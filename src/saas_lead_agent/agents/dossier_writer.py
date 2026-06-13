@@ -6,12 +6,14 @@ text.
 """
 
 import json
+from time import perf_counter
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from pydantic import ValidationError
 
+from saas_lead_agent.agents.provider_metadata import provider_usage_record
 from saas_lead_agent.engine import GroundingEngine, OutreachQualityEngine, ScoringEngine
 from saas_lead_agent.schemas import (
     CompanyProfile,
@@ -167,6 +169,7 @@ async def dossier_writer(state: LeadState) -> dict[str, Any]:
         f"Deterministic score explanation: {score.score_explanation}"
     )
 
+    invoke_started_at = perf_counter()
     try:
         response = await model.ainvoke(
             [
@@ -175,16 +178,45 @@ async def dossier_writer(state: LeadState) -> dict[str, Any]:
             ]
         )
     except Exception as exc:
-        return {"errors": [f"dossier_writer: model invocation failed: {exc}"]}
+        return {
+            "provider_usage": [
+                provider_usage_record(
+                    node="dossier_writer",
+                    provider="openai",
+                    model=_GPT_MODEL,
+                    started_at=invoke_started_at,
+                    status="failed",
+                    error_type=type(exc).__name__,
+                )
+            ],
+            "errors": [f"dossier_writer: model invocation failed: {exc}"],
+        }
+
+    usage_record = provider_usage_record(
+        node="dossier_writer",
+        provider="openai",
+        model=_GPT_MODEL,
+        started_at=invoke_started_at,
+        status="completed",
+        messages=[response],
+    )
 
     raw: str = response.content if isinstance(response.content, str) else str(response.content)
 
     try:
         result = _extract_json(raw)
     except json.JSONDecodeError as exc:
-        return {"errors": [f"dossier_writer: JSON parse error - {exc}. Raw: {raw[:200]}"]}
+        usage_record["status"] = "invalid_response"
+        return {
+            "provider_usage": [usage_record],
+            "errors": [f"dossier_writer: JSON parse error - {exc}. Raw: {raw[:200]}"],
+        }
     except ValueError as exc:
-        return {"errors": [f"dossier_writer: unexpected response shape - {exc}"]}
+        usage_record["status"] = "invalid_response"
+        return {
+            "provider_usage": [usage_record],
+            "errors": [f"dossier_writer: unexpected response shape - {exc}"],
+        }
 
     try:
         draft = OutreachDraft.model_validate(
@@ -202,7 +234,11 @@ async def dossier_writer(state: LeadState) -> dict[str, Any]:
             }
         )
     except ValidationError as exc:
-        return {"errors": [f"dossier_writer: schema validation error - {exc}"]}
+        usage_record["status"] = "schema_validation_failed"
+        return {
+            "provider_usage": [usage_record],
+            "errors": [f"dossier_writer: schema validation error - {exc}"],
+        }
 
     grounding = GroundingEngine().validate(
         profile=profile,
@@ -237,4 +273,5 @@ async def dossier_writer(state: LeadState) -> dict[str, Any]:
     }
     if review_reasons:
         output["errors"] = review_reasons
+    output["provider_usage"] = [usage_record]
     return output

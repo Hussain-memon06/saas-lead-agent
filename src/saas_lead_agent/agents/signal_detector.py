@@ -1,6 +1,7 @@
 """Signal detector agent node for the LeadState graph."""
 
 import json
+from time import perf_counter
 from typing import Any
 
 from langchain.agents import create_agent
@@ -8,6 +9,7 @@ from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 from pydantic import ValidationError
 
+from saas_lead_agent.agents.provider_metadata import provider_usage_record
 from saas_lead_agent.schemas import CompanySignal
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.tools.web_search import web_search
@@ -129,15 +131,40 @@ async def signal_detector(state: LeadState) -> dict[str, Any]:
 
     agent = _get_signal_detector_agent()
     prompt = f"Find buying signals for company '{company_name}' (domain: {domain})"
+    invoke_started_at = perf_counter()
 
     try:
         result: dict[str, Any] = await agent.ainvoke({"messages": [HumanMessage(content=prompt)]})
     except Exception as exc:
-        return {"errors": [f"signal_detector: agent invocation failed: {exc}"]}
+        return {
+            "provider_usage": [
+                provider_usage_record(
+                    node="signal_detector",
+                    provider="openai",
+                    model=_GPT_MODEL,
+                    started_at=invoke_started_at,
+                    status="failed",
+                    error_type=type(exc).__name__,
+                )
+            ],
+            "errors": [f"signal_detector: agent invocation failed: {exc}"],
+        }
 
     messages: list[Any] = result.get("messages", [])
+    usage_record = provider_usage_record(
+        node="signal_detector",
+        provider="openai",
+        model=_GPT_MODEL,
+        started_at=invoke_started_at,
+        status="completed",
+        messages=messages,
+    )
     if not messages:
-        return {"errors": ["signal_detector: agent returned no messages"]}
+        usage_record["status"] = "empty_response"
+        return {
+            "provider_usage": [usage_record],
+            "errors": ["signal_detector: agent returned no messages"],
+        }
 
     last = messages[-1]
     raw: str = last.content if isinstance(last.content, str) else str(last.content)
@@ -145,9 +172,17 @@ async def signal_detector(state: LeadState) -> dict[str, Any]:
     try:
         signals = _extract_json_list(raw)
     except json.JSONDecodeError as exc:
-        return {"errors": [f"signal_detector: JSON parse error — {exc}. Raw: {raw[:200]}"]}
+        usage_record["status"] = "invalid_response"
+        return {
+            "provider_usage": [usage_record],
+            "errors": [f"signal_detector: JSON parse error — {exc}. Raw: {raw[:200]}"],
+        }
     except ValueError as exc:
-        return {"errors": [f"signal_detector: unexpected response shape — {exc}"]}
+        usage_record["status"] = "invalid_response"
+        return {
+            "provider_usage": [usage_record],
+            "errors": [f"signal_detector: unexpected response shape — {exc}"],
+        }
 
     # Precision over recall: drop signals whose source URL does not contain the
     # company domain. LLM may hallucinate entries from similarly-named companies.
@@ -155,5 +190,12 @@ async def signal_detector(state: LeadState) -> dict[str, Any]:
     try:
         validated = [CompanySignal.model_validate(signal) for signal in filtered]
     except ValidationError as exc:
-        return {"errors": [f"signal_detector: schema validation error — {exc}"]}
-    return {"signals": [signal.model_dump() for signal in validated]}
+        usage_record["status"] = "schema_validation_failed"
+        return {
+            "provider_usage": [usage_record],
+            "errors": [f"signal_detector: schema validation error — {exc}"],
+        }
+    return {
+        "signals": [signal.model_dump() for signal in validated],
+        "provider_usage": [usage_record],
+    }

@@ -1,6 +1,7 @@
 """Contact finder agent node for the LeadState graph."""
 
 import json
+from time import perf_counter
 from typing import Any
 
 from langchain.agents import create_agent
@@ -8,6 +9,7 @@ from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 from pydantic import ValidationError
 
+from saas_lead_agent.agents.provider_metadata import provider_usage_record
 from saas_lead_agent.schemas import Contact
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.tools.hunter import hunt_contact
@@ -84,15 +86,40 @@ async def contact_finder(state: LeadState) -> dict[str, Any]:
     domain = state["domain"]
     agent = _get_contact_finder_agent()
     prompt = f"Find the primary decision-maker contact for domain: {domain}"
+    invoke_started_at = perf_counter()
 
     try:
         result: dict[str, Any] = await agent.ainvoke({"messages": [HumanMessage(content=prompt)]})
     except Exception as exc:
-        return {"errors": [f"contact_finder: agent invocation failed: {exc}"]}
+        return {
+            "provider_usage": [
+                provider_usage_record(
+                    node="contact_finder",
+                    provider="openai",
+                    model=_GPT_MODEL,
+                    started_at=invoke_started_at,
+                    status="failed",
+                    error_type=type(exc).__name__,
+                )
+            ],
+            "errors": [f"contact_finder: agent invocation failed: {exc}"],
+        }
 
     messages: list[Any] = result.get("messages", [])
+    usage_record = provider_usage_record(
+        node="contact_finder",
+        provider="openai",
+        model=_GPT_MODEL,
+        started_at=invoke_started_at,
+        status="completed",
+        messages=messages,
+    )
     if not messages:
-        return {"errors": ["contact_finder: agent returned no messages"]}
+        usage_record["status"] = "empty_response"
+        return {
+            "provider_usage": [usage_record],
+            "errors": ["contact_finder: agent returned no messages"],
+        }
 
     last = messages[-1]
     raw: str = last.content if isinstance(last.content, str) else str(last.content)
@@ -100,12 +127,24 @@ async def contact_finder(state: LeadState) -> dict[str, Any]:
     try:
         contact = _extract_json(raw)
     except json.JSONDecodeError as exc:
-        return {"errors": [f"contact_finder: JSON parse error — {exc}. Raw: {raw[:200]}"]}
+        usage_record["status"] = "invalid_response"
+        return {
+            "provider_usage": [usage_record],
+            "errors": [f"contact_finder: JSON parse error — {exc}. Raw: {raw[:200]}"],
+        }
     except ValueError as exc:
-        return {"errors": [f"contact_finder: unexpected response shape — {exc}"]}
+        usage_record["status"] = "invalid_response"
+        return {
+            "provider_usage": [usage_record],
+            "errors": [f"contact_finder: unexpected response shape — {exc}"],
+        }
 
     try:
         validated = Contact.model_validate(contact)
     except ValidationError as exc:
-        return {"errors": [f"contact_finder: schema validation error — {exc}"]}
-    return {"contact": validated.model_dump()}
+        usage_record["status"] = "schema_validation_failed"
+        return {
+            "provider_usage": [usage_record],
+            "errors": [f"contact_finder: schema validation error — {exc}"],
+        }
+    return {"contact": validated.model_dump(), "provider_usage": [usage_record]}

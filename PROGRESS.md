@@ -10,8 +10,7 @@ outreach quality checks, and threshold configuration are implemented: the final
 fit score and review flags now come from Python business logic instead of
 LLM-generated dossier text.
 
-Phase 3 is in progress. The first four milestones are now implemented in the
-working tree:
+Phase 3 is complete for the current roadmap milestone and committed in slices.
 
 - app-owned run/session recovery with latest lead run snapshots, audit-style
   run events, `run_id` correlation, `GET /api/leads/{thread_id}`, and frontend
@@ -24,6 +23,9 @@ working tree:
   context
 - summary history and sanitized run-event endpoints with frontend API helpers:
   `GET /api/leads` and `GET /api/leads/{thread_id}/events`
+- provider metadata capture with node-level timings/status, OpenAI token usage
+  extraction when LangChain exposes usage metadata, and optional
+  env-configured cost estimates
 
 ## What We Completed
 
@@ -118,6 +120,8 @@ or explicitly requested checks:
 - `3be9fe3 feat: add deterministic lead scoring engine`
 - `a6cedb8 feat: add deterministic grounding and outreach quality checks`
 - `ebe13e6 feat: finalize deterministic scoring configuration`
+- `8fa6b60 feat: add phase 3 lead persistence and run metadata`
+- `8469b03 feat: add phase 3 lead history endpoints`
 
 ## Phase 2 Progress
 
@@ -202,7 +206,7 @@ Not run by policy:
 
 ## Phase 3 Progress
 
-In progress:
+Complete for the current roadmap milestone:
 
 - Added app-owned lead run snapshot and run event repository design with:
   - in-memory default for dev/tests
@@ -257,18 +261,39 @@ In progress:
   errors, prompts, provider payloads, and source text are not exposed.
 - Added frontend API helpers and TypeScript contract mirrors for lead summaries
   and run events.
+- Added sanitized provider metadata records from LLM-backed graph nodes:
+  - `company_researcher`
+  - `contact_finder`
+  - `signal_detector`
+  - `dossier_writer`
+- Added a reducer-backed `provider_usage` state field so node metadata
+  accumulates instead of overwriting.
+- Aggregated provider metadata into `processing_metadata`:
+  - `token_usage`
+  - `total_tokens`
+  - `provider_status`
+  - `node.<node_name>` timings
+  - optional `estimated_cost_usd` and `cost_breakdown_usd`
+- Kept cost estimates opt-in through explicit env rates instead of hard-coded
+  pricing:
+  - `OPENAI_GPT_4O_MINI_INPUT_COST_PER_MILLION`
+  - `OPENAI_GPT_4O_MINI_OUTPUT_COST_PER_MILLION`
+- Added tests proving provider metadata aggregation does not expose raw
+  prompts, completions, emails, raw scraped content, or provider payloads.
 
-### Next Phase 3 Milestone
+### Next Milestone: Phase 4
 
-After this slice is reviewed, continue Phase 3 with one of these narrow
-milestones:
+Start Phase 4 with a narrow RAG design/context-management milestone:
 
-- deeper provider metadata capture for actual token/cost and node/tool timings,
-  only if it can be done without new dependencies
-- explicit no-secrets/no-PII logging tests or documentation hardening
+- proposed document/chunk/retrieval-event entities
+- trusted user-owned context versus untrusted scraped/source text boundaries
+- retrieval node plan such as `retrieve_icp_context` and
+  `retrieve_similar_leads`
+- context assembly and token-budget policy
+- retrieval logging plan
 
-Do not add RAG, MCP, auth, evals, production ops, queues, or new dependencies
-until their later phases and explicit approval.
+Do not add vector DB, embedding, queue, MCP, auth, eval, production ops, or new
+provider dependencies without explicit approval.
 
 ## Phase 3 Guardrails
 
@@ -298,6 +323,7 @@ Latest Phase 3 targeted verification:
 - combined targeted Phase 3 path after both slices: `133 passed`
 - first-pass processing metadata slice: `154 passed`
 - summary history and sanitized run-event endpoint slice: `61 passed`
+- provider metadata closure slice: `116 passed, 5 skipped`
 - changed-file Ruff checks passed
 - changed-file Ruff format checks passed
 

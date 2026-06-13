@@ -28,6 +28,7 @@ class LeadState(TypedDict):
     score_uncertainty: list[str] | None
     grounding_report: dict[str, Any] | None
     outreach_quality: dict[str, Any] | None
+    provider_usage: Annotated[list[dict[str, Any]], operator.add]
     processing_metadata: dict[str, Any] | None
     email_subject: str | None
     email_body: str | None

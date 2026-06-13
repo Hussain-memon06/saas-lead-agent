@@ -23,9 +23,14 @@ Follow this file together with `PLANS.md`.
 - Primary model: OpenAI `gpt-4o-mini` for current agent nodes
 - Implemented Phase 2: deterministic scoring, typed ICP configuration,
   evidence grounding, outreach quality checks, and threshold configuration.
-- Planned: remaining Phase 3 deeper provider metadata capture and
-  migration/versioning strategy, model/provider abstraction, RAG, durable execution,
-  auth/compliance, evals, and production operations
+- Implemented Phase 3: app-owned run snapshots/events, latest-run artifacts,
+  dossier recovery, summary history, sanitized run-event retrieval, run
+  metadata, node-level provider timing/status, and token usage capture.
+- Current phase: Phase 4 RAG, embeddings, vector memory, and context
+  management. Start with design/context policy before adding vector or
+  embedding dependencies.
+- Planned: model/provider abstraction, durable execution, auth/compliance,
+  evals, and production operations.
 
 ## Current Architecture
 
@@ -246,17 +251,17 @@ files, state that clearly. Include:
 These are tracked in `PLANS.md`; do not solve them out of phase:
 
 - No authentication or authorization.
-- Phase 3 has started with app-owned lead run snapshots, run events, and
-  normalized latest-run artifacts for leads, sources, contacts, company
-  signals, score breakdowns, outreach drafts, decisions, and delivery events.
+- Phase 3 is complete for the current roadmap milestone with app-owned lead
+  run snapshots, run events, normalized latest-run artifacts, summary history,
+  sanitized run-event retrieval, provider timing/status, and token usage
+  capture.
 - Deterministic scoring and Phase 2 business-logic hardening now exist; future
   score tuning should be driven by targeted examples or evals, not ad hoc
   prompt changes.
-- Dossier recovery after refresh now has a first app-owned snapshot path and
-  first-pass processing metadata with run-level timings and token/cost
-  placeholders; summary history endpoints now exist; auth-backed users,
-  migration/versioning strategy, and actual provider token/cost extraction are
-  still pending.
+- Dossier recovery after refresh now has an app-owned snapshot path, summary
+  history endpoints, sanitized run events, and processing metadata with
+  run-level timings, node-level provider timings/status, token counts captured
+  when available, and optional env-configured cost estimates.
 - No RAG/vector memory/retrieval quality system yet.
 - No MCP/tool abstraction or durable job layer yet.
 - No dedicated eval harness yet.

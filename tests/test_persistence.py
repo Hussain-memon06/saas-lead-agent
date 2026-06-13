@@ -201,6 +201,7 @@ async def test_postgres_checkpointer_helper() -> None:
                     "score_uncertainty": None,
                     "grounding_report": None,
                     "outreach_quality": None,
+                    "provider_usage": [],
                     "processing_metadata": None,
                     "email_subject": None,
                     "email_body": None,

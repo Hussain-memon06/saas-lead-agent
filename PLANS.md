@@ -51,7 +51,7 @@ Browser / User
   v
 FastAPI REST API
   |
-  | /api/qualify, /api/leads/{thread_id}, /approve, /reject
+  | /api/qualify, /api/leads, /api/leads/{thread_id}, /events, /approve, /reject
   v
 LangGraph StateGraph
   |
@@ -100,9 +100,10 @@ Optional Platform Services
 
 - No authentication or authorization.
 - App-owned run snapshots, run events, normalized lead artifacts, summary
-  history, and sanitized run-event retrieval now exist, but auth-backed users,
-  migration/versioning strategy, richer filtering/pagination, and broader
-  product workflows remain pending.
+  history, sanitized run-event retrieval, provider token metadata capture, and
+  node-level timing/status aggregation now exist, but auth-backed users, formal
+  migration tooling, richer filtering/pagination, and broader product
+  workflows remain pending.
 - Durable frontend dossier recovery by `thread_id` now exists for the latest
   stored run. API-level summary listing and run-event inspection now exist,
   but broader user-owned search/list UX is not implemented.
@@ -365,17 +366,20 @@ pytest tests/test_graph.py -q
 
 ## Phase 3: Persistence Layer, Observability & Session Management
 
-Status: in progress. Phase 3 now has app-owned lead run snapshots, run events,
-run IDs, Langfuse run-id correlation metadata, a `GET /api/leads/{thread_id}`
-recovery endpoint, `GET /api/leads` summary history, sanitized
-`GET /api/leads/{thread_id}/events` run-event retrieval, frontend dossier
-recovery after refresh, normalized app-owned artifact records for leads,
-sources, contacts, company signals, score breakdowns, outreach drafts,
-decisions, and delivery events, plus first-pass processing metadata with
-run-level timings, zero-value token/cost placeholders, and structured log
-correlation context. Auth-backed users, schema migration/versioning strategy,
-richer filtering/pagination, actual provider token/cost extraction, and deeper
-node/tool-level timing instrumentation remain pending.
+Status: complete for the Phase 3 milestone. Phase 3 now has app-owned lead run
+snapshots, run events, run IDs, Langfuse run-id correlation metadata, a
+`GET /api/leads/{thread_id}` recovery endpoint, `GET /api/leads` summary
+history, sanitized `GET /api/leads/{thread_id}/events` run-event retrieval,
+frontend dossier recovery after refresh, normalized app-owned artifact records
+for leads, sources, contacts, company signals, score breakdowns, outreach
+drafts, decisions, and delivery events, plus processing metadata with run-level
+timings, node-level provider timings/status, token usage captured from
+LangChain/OpenAI messages when available, optional env-configured cost
+estimates, and structured log correlation context. The current schema strategy
+uses idempotent startup DDL with existing Postgres infrastructure; formal
+versioned migration tooling remains a later dependency/operations decision.
+Auth-backed users, richer filtering/pagination, and multi-user data boundaries
+belong to later phases.
 
 ### Goal
 
@@ -906,8 +910,8 @@ documented with their outputs.
 
 ## Immediate Next Step
 
-Continue Phase 3 with the next narrowly scoped persistence/observability
-milestone: deeper provider metadata capture for actual token/cost and
-node/tool timings, or explicit no-secrets/no-PII logging tests/documentation.
-Do not implement RAG, MCP, auth, evals, production ops, queues, or new
-dependencies until their later phases and explicit approvals.
+Begin Phase 4 with a narrow RAG design and context-management milestone:
+document the document/chunk/retrieval-event entities, trusted versus untrusted
+source boundaries, retrieval nodes, context assembly policy, and retrieval
+logging plan. Do not add vector DB, embedding, queue, MCP, auth, eval, or new
+provider dependencies without explicit approval.

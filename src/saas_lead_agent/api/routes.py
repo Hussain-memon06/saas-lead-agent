@@ -1,6 +1,7 @@
 """Lead-research API endpoints: qualify, recover, approve, reject."""
 
 import logging
+import os
 from datetime import UTC, datetime
 from time import perf_counter
 from typing import Any, cast
@@ -91,6 +92,97 @@ def _elapsed_ms(start: float) -> float:
     return round((perf_counter() - start) * 1000, 3)
 
 
+def _provider_usage_records(state: dict[str, Any]) -> list[dict[str, Any]]:
+    provider_usage = state.get("provider_usage")
+    if not isinstance(provider_usage, list):
+        return []
+    return [record for record in provider_usage if isinstance(record, dict)]
+
+
+def _aggregate_provider_usage(provider_usage: list[dict[str, Any]]) -> dict[str, Any]:
+    token_usage: dict[str, int] = {}
+    node_timings: dict[str, float] = {}
+    provider_status: dict[str, str] = {}
+    models: set[str] = set()
+
+    for index, record in enumerate(provider_usage):
+        node = str(record.get("node") or f"unknown_{index}")
+        model = record.get("model")
+        if isinstance(model, str) and model:
+            models.add(model)
+
+        status_value = record.get("status")
+        if isinstance(status_value, str) and status_value:
+            provider_status[node] = status_value
+
+        duration_ms = _nonnegative_float(record.get("duration_ms"))
+        if duration_ms is not None:
+            node_timings[f"node.{node}"] = duration_ms
+
+        raw_usage = record.get("token_usage")
+        if isinstance(raw_usage, dict):
+            for key in ("input_tokens", "output_tokens", "total_tokens"):
+                value = _nonnegative_int(raw_usage.get(key))
+                if value is not None:
+                    token_usage[key] = token_usage.get(key, 0) + value
+
+    if "total_tokens" not in token_usage:
+        total = token_usage.get("input_tokens", 0) + token_usage.get("output_tokens", 0)
+        if total:
+            token_usage["total_tokens"] = total
+
+    estimated_cost_usd, cost_breakdown = _estimate_cost_usd(token_usage)
+    return {
+        "model_used": ", ".join(sorted(models)) if models else None,
+        "total_tokens": token_usage.get("total_tokens", 0),
+        "estimated_cost_usd": estimated_cost_usd,
+        "timings_ms": node_timings,
+        "token_usage": token_usage,
+        "cost_breakdown_usd": cost_breakdown,
+        "provider_status": provider_status,
+    }
+
+
+def _estimate_cost_usd(token_usage: dict[str, int]) -> tuple[float, dict[str, float]]:
+    input_rate = _env_float("OPENAI_GPT_4O_MINI_INPUT_COST_PER_MILLION")
+    output_rate = _env_float("OPENAI_GPT_4O_MINI_OUTPUT_COST_PER_MILLION")
+    input_cost = (token_usage.get("input_tokens", 0) / 1_000_000) * input_rate
+    output_cost = (token_usage.get("output_tokens", 0) / 1_000_000) * output_rate
+
+    breakdown: dict[str, float] = {}
+    if input_cost:
+        breakdown["openai_input"] = round(input_cost, 8)
+    if output_cost:
+        breakdown["openai_output"] = round(output_cost, 8)
+    return round(sum(breakdown.values()), 8), breakdown
+
+
+def _env_float(name: str) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return 0.0
+    try:
+        return max(float(raw), 0.0)
+    except ValueError:
+        return 0.0
+
+
+def _nonnegative_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return max(value, 0)
+    return None
+
+
+def _nonnegative_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        return max(round(float(value), 3), 0.0)
+    return None
+
+
 def _log_context(
     *,
     request_id: str | None,
@@ -132,17 +224,23 @@ def _processing_metadata(
     timings_ms: dict[str, float],
     steps_completed: list[str],
     errors: list[str],
+    provider_usage: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    provider_summary = _aggregate_provider_usage(provider_usage or [])
+    combined_timings = {
+        **timings_ms,
+        **provider_summary["timings_ms"],
+    }
     metadata = ProcessingMetadata(
         run_id=run_id,
         thread_id=thread_id,
-        model_used="gpt-4o-mini",
-        total_tokens=0,
-        estimated_cost_usd=0.0,
-        timings_ms=timings_ms,
-        token_usage={},
-        cost_breakdown_usd={},
-        provider_status={},
+        model_used=provider_summary["model_used"] or "gpt-4o-mini",
+        total_tokens=provider_summary["total_tokens"],
+        estimated_cost_usd=provider_summary["estimated_cost_usd"],
+        timings_ms=combined_timings,
+        token_usage=provider_summary["token_usage"],
+        cost_breakdown_usd=provider_summary["cost_breakdown_usd"],
+        provider_status=provider_summary["provider_status"],
         duration_seconds=max((completed_at - started_at).total_seconds(), 0.0),
         steps_completed=steps_completed,
         errors=errors,
@@ -226,6 +324,9 @@ def _public_event_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
         "timings_ms",
         "total_tokens",
         "estimated_cost_usd",
+        "token_usage",
+        "cost_breakdown_usd",
+        "provider_status",
         "error_type",
     }
     return {key: metadata[key] for key in allowed_keys if key in metadata}
@@ -307,6 +408,7 @@ def _initial_state(
         "score_uncertainty": None,
         "grounding_report": None,
         "outreach_quality": None,
+        "provider_usage": [],
         "processing_metadata": None,
         "email_subject": None,
         "email_body": None,
@@ -429,6 +531,7 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
         },
         steps_completed=_steps_from_state(result, interrupted),
         errors=[str(error) for error in result.get("errors", [])],
+        provider_usage=_provider_usage_records(result),
     )
     result = {**result, "processing_metadata": processing_metadata}
     response = _response_from_state(
@@ -456,6 +559,9 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
             "timings_ms": processing_metadata["timings_ms"],
             "total_tokens": processing_metadata["total_tokens"],
             "estimated_cost_usd": processing_metadata["estimated_cost_usd"],
+            "token_usage": processing_metadata["token_usage"],
+            "cost_breakdown_usd": processing_metadata["cost_breakdown_usd"],
+            "provider_status": processing_metadata["provider_status"],
         },
     )
     logger.info(
@@ -598,6 +704,7 @@ async def _resume(thread_id: str, decision: bool, request_id: str | None = None)
         },
         steps_completed=_steps_from_state(result, interrupted),
         errors=[str(error) for error in result.get("errors", [])],
+        provider_usage=_provider_usage_records(result),
     )
     result = {**result, "processing_metadata": processing_metadata}
     response_state = _response_from_state(
@@ -636,6 +743,9 @@ async def _resume(thread_id: str, decision: bool, request_id: str | None = None)
             "timings_ms": processing_metadata["timings_ms"],
             "total_tokens": processing_metadata["total_tokens"],
             "estimated_cost_usd": processing_metadata["estimated_cost_usd"],
+            "token_usage": processing_metadata["token_usage"],
+            "cost_breakdown_usd": processing_metadata["cost_breakdown_usd"],
+            "provider_status": processing_metadata["provider_status"],
         },
     )
     logger.info(

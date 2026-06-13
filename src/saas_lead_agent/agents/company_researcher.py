@@ -9,6 +9,7 @@ delegates to langchain.agents.create_agent. We import directly from langchain.
 """
 
 import json
+from time import perf_counter
 from typing import Any
 
 from langchain.agents import create_agent
@@ -16,6 +17,7 @@ from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 from pydantic import ValidationError
 
+from saas_lead_agent.agents.provider_metadata import provider_usage_record
 from saas_lead_agent.schemas import CompanyProfile
 from saas_lead_agent.state import LeadState
 from saas_lead_agent.tools.scraper import scrape
@@ -139,15 +141,40 @@ async def company_researcher(state: LeadState) -> dict[str, Any]:
     url = state["company_url"]
     agent = _get_researcher_agent()
     prompt = f"Research this company and return the JSON profile: {url}"
+    invoke_started_at = perf_counter()
 
     try:
         result: dict[str, Any] = await agent.ainvoke({"messages": [HumanMessage(content=prompt)]})
     except Exception as exc:
-        return {"errors": [f"company_researcher: agent invocation failed: {exc}"]}
+        return {
+            "provider_usage": [
+                provider_usage_record(
+                    node="company_researcher",
+                    provider="openai",
+                    model=_GPT_MODEL,
+                    started_at=invoke_started_at,
+                    status="failed",
+                    error_type=type(exc).__name__,
+                )
+            ],
+            "errors": [f"company_researcher: agent invocation failed: {exc}"],
+        }
 
     messages: list[Any] = result.get("messages", [])
+    usage_record = provider_usage_record(
+        node="company_researcher",
+        provider="openai",
+        model=_GPT_MODEL,
+        started_at=invoke_started_at,
+        status="completed",
+        messages=messages,
+    )
     if not messages:
-        return {"errors": ["company_researcher: agent returned no messages"]}
+        usage_record["status"] = "empty_response"
+        return {
+            "provider_usage": [usage_record],
+            "errors": ["company_researcher: agent returned no messages"],
+        }
 
     last = messages[-1]
     raw: str = last.content if isinstance(last.content, str) else str(last.content)
@@ -155,9 +182,17 @@ async def company_researcher(state: LeadState) -> dict[str, Any]:
     try:
         profile = _extract_json(raw)
     except json.JSONDecodeError as exc:
-        return {"errors": [f"company_researcher: JSON parse error — {exc}. Raw: {raw[:200]}"]}
+        usage_record["status"] = "invalid_response"
+        return {
+            "provider_usage": [usage_record],
+            "errors": [f"company_researcher: JSON parse error — {exc}. Raw: {raw[:200]}"],
+        }
     except ValueError as exc:
-        return {"errors": [f"company_researcher: unexpected response shape — {exc}"]}
+        usage_record["status"] = "invalid_response"
+        return {
+            "provider_usage": [usage_record],
+            "errors": [f"company_researcher: unexpected response shape — {exc}"],
+        }
 
     # Precision over recall: if no source URL contains the company domain,
     # the model likely pulled info from a different company. Wipe fields.
@@ -165,5 +200,9 @@ async def company_researcher(state: LeadState) -> dict[str, Any]:
     try:
         validated = CompanyProfile.model_validate(verified)
     except ValidationError as exc:
-        return {"errors": [f"company_researcher: schema validation error — {exc}"]}
-    return {"company_profile": validated.model_dump()}
+        usage_record["status"] = "schema_validation_failed"
+        return {
+            "provider_usage": [usage_record],
+            "errors": [f"company_researcher: schema validation error — {exc}"],
+        }
+    return {"company_profile": validated.model_dump(), "provider_usage": [usage_record]}

@@ -15,6 +15,8 @@ def _merge(a: LeadState, b: dict) -> LeadState:  # type: ignore[return]
             result["messages"] = add_messages(a.get("messages", []), val)
         elif key == "errors":
             result["errors"] = operator.add(a.get("errors", []), val)
+        elif key == "provider_usage":
+            result["provider_usage"] = operator.add(a.get("provider_usage", []), val)
         else:
             result[key] = val
     return result  # type: ignore[return-value]
@@ -39,6 +41,7 @@ _BASE: LeadState = {
     "score_uncertainty": None,
     "grounding_report": None,
     "outreach_quality": None,
+    "provider_usage": [],
     "processing_metadata": None,
     "email_subject": None,
     "email_body": None,
@@ -63,6 +66,22 @@ def test_errors_reducer_concatenates() -> None:
     assert updated["errors"] == ["err1", "err2", "err3"]
 
 
+def test_provider_usage_reducer_concatenates() -> None:
+    state: LeadState = {
+        **_BASE,
+        "provider_usage": [{"node": "company_researcher", "status": "completed"}],
+    }
+    updated = _merge(
+        state,
+        {"provider_usage": [{"node": "dossier_writer", "status": "completed"}]},
+    )
+
+    assert updated["provider_usage"] == [
+        {"node": "company_researcher", "status": "completed"},
+        {"node": "dossier_writer", "status": "completed"},
+    ]
+
+
 def test_scalar_fields_overwrite() -> None:
     updated = _merge(
         _BASE,
@@ -83,6 +102,7 @@ def test_initial_state_is_valid() -> None:
     assert _BASE["score_confidence"] is None
     assert _BASE["grounding_report"] is None
     assert _BASE["outreach_quality"] is None
+    assert _BASE["provider_usage"] == []
     assert _BASE["processing_metadata"] is None
     assert _BASE["email_subject"] is None
     assert _BASE["email_body"] is None

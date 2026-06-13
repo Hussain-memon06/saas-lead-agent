@@ -233,6 +233,80 @@ async def test_qualify_happy_path() -> None:
 
 
 @pytest.mark.asyncio
+async def test_qualify_processing_metadata_aggregates_provider_usage() -> None:
+    store = InMemoryLeadRunRepository()
+    result = {
+        **_GRAPH_RESULT,
+        "provider_usage": [
+            {
+                "node": "company_researcher",
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "status": "completed",
+                "duration_ms": 11.5,
+                "token_usage": {
+                    "input_tokens": 100,
+                    "output_tokens": 25,
+                    "total_tokens": 125,
+                },
+            },
+            {
+                "node": "dossier_writer",
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "status": "completed",
+                "duration_ms": 7.0,
+                "token_usage": {
+                    "input_tokens": 20,
+                    "output_tokens": 25,
+                    "total_tokens": 45,
+                },
+            },
+        ],
+    }
+    mock_graph = _make_graph_mock(result)
+
+    with (
+        patch("saas_lead_agent.api.routes._graph", mock_graph),
+        patch("saas_lead_agent.api.routes._lead_store", store),
+        patch.dict(
+            "os.environ",
+            {
+                "OPENAI_GPT_4O_MINI_INPUT_COST_PER_MILLION": "1",
+                "OPENAI_GPT_4O_MINI_OUTPUT_COST_PER_MILLION": "2",
+            },
+            clear=False,
+        ),
+    ):
+        async with await _client() as client:
+            resp = await client.post("/api/qualify", json={"url": "https://acme.example.com"})
+
+    assert resp.status_code == 200
+    metadata = resp.json()["processing_metadata"]
+    assert metadata["total_tokens"] == 170
+    assert metadata["token_usage"] == {
+        "input_tokens": 120,
+        "output_tokens": 50,
+        "total_tokens": 170,
+    }
+    assert metadata["estimated_cost_usd"] == 0.00022
+    assert metadata["cost_breakdown_usd"] == {
+        "openai_input": 0.00012,
+        "openai_output": 0.0001,
+    }
+    assert metadata["provider_status"] == {
+        "company_researcher": "completed",
+        "dossier_writer": "completed",
+    }
+    assert metadata["timings_ms"]["node.company_researcher"] == 11.5
+    assert metadata["timings_ms"]["node.dossier_writer"] == 7.0
+
+    events = await store.list_events("lead:acme.example.com")
+    assert events[0].metadata["total_tokens"] == 170
+    assert events[0].metadata["provider_status"]["dossier_writer"] == "completed"
+
+
+@pytest.mark.asyncio
 async def test_get_lead_recovers_snapshot_after_qualify() -> None:
     store = InMemoryLeadRunRepository()
     mock_graph = _make_graph_mock(_GRAPH_RESULT, next_nodes=("await_approval",))
@@ -372,9 +446,14 @@ async def test_get_lead_events_returns_sanitized_metadata() -> None:
                 "status": "failed",
                 "error_type": "RuntimeError",
                 "error": "raw provider message should not be returned",
+                "raw_prompt": "do not return prompt text",
+                "provider_payload": {"choices": ["raw model payload"]},
+                "email_body": "raw outreach copy should not be returned here",
+                "source_text": "raw scraped website text should not be returned here",
                 "timings_ms": {"graph": 12.0},
                 "total_tokens": 0,
                 "estimated_cost_usd": 0.0,
+                "provider_status": {"dossier_writer": "failed"},
             },
         )
     )
@@ -392,7 +471,12 @@ async def test_get_lead_events_returns_sanitized_metadata() -> None:
     assert metadata["status"] == "failed"
     assert metadata["error_type"] == "RuntimeError"
     assert metadata["timings_ms"] == {"graph": 12.0}
+    assert metadata["provider_status"] == {"dossier_writer": "failed"}
     assert "error" not in metadata
+    assert "raw_prompt" not in metadata
+    assert "provider_payload" not in metadata
+    assert "email_body" not in metadata
+    assert "source_text" not in metadata
 
 
 @pytest.mark.asyncio
@@ -457,6 +541,7 @@ async def test_qualify_passes_correct_state_to_graph() -> None:
     assert state["score_confidence"] is None
     assert state["grounding_report"] is None
     assert state["outreach_quality"] is None
+    assert state["provider_usage"] == []
     assert state["processing_metadata"] is None
     assert state["errors"] == []
 

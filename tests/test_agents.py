@@ -47,6 +47,7 @@ _BASE_STATE: LeadState = {
     "signals": None,
     "grounding_report": None,
     "outreach_quality": None,
+    "provider_usage": [],
     "processing_metadata": None,
     "errors": [],
 }
@@ -680,10 +681,18 @@ _DOSSIER_RESPONSE: dict[str, Any] = {
 }
 
 
-def _make_model_mock(content: str) -> MagicMock:
+def _make_model_mock(
+    content: str,
+    usage_metadata: dict[str, int] | None = None,
+) -> MagicMock:
     """Return a mock model whose ainvoke resolves to an AIMessage."""
     model = MagicMock()
-    model.ainvoke = AsyncMock(return_value=AIMessage(content=content))
+    message = (
+        AIMessage(content=content, usage_metadata=usage_metadata)
+        if usage_metadata is not None
+        else AIMessage(content=content)
+    )
+    model.ainvoke = AsyncMock(return_value=message)
     return model
 
 
@@ -711,7 +720,32 @@ async def test_dossier_writer_happy_path() -> None:
     assert result["email_body"] == _DOSSIER_RESPONSE["email_body"]
     assert result["grounding_report"]["is_sufficient"] is True
     assert result["outreach_quality"]["passed"] is True
+    assert result["provider_usage"][0]["node"] == "dossier_writer"
+    assert result["provider_usage"][0]["status"] == "completed"
     assert "errors" not in result
+
+
+@pytest.mark.asyncio
+async def test_dossier_writer_records_provider_token_usage() -> None:
+    mock_model = _make_model_mock(
+        json.dumps(_DOSSIER_RESPONSE),
+        usage_metadata={"input_tokens": 120, "output_tokens": 40, "total_tokens": 160},
+    )
+
+    with patch("saas_lead_agent.agents.dossier_writer._get_model", return_value=mock_model):
+        result = await dossier_writer(_STATE_WITH_RESEARCH)
+
+    usage = result["provider_usage"][0]
+    assert usage["node"] == "dossier_writer"
+    assert usage["provider"] == "openai"
+    assert usage["model"] == "gpt-4o-mini"
+    assert usage["status"] == "completed"
+    assert usage["duration_ms"] >= 0
+    assert usage["token_usage"] == {
+        "input_tokens": 120,
+        "output_tokens": 40,
+        "total_tokens": 160,
+    }
 
 
 @pytest.mark.asyncio
