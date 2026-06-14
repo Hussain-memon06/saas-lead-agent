@@ -2,9 +2,11 @@
 
 ## Status
 
-Design milestone complete. The first implementation slice added Pydantic
-contracts and deterministic chunking without adding dependencies, vector
-storage, embeddings, graph nodes, queues, MCP, auth, or eval runners.
+Design milestone complete. The first implementation slices added Pydantic
+contracts, deterministic chunking, an in-memory lexical retrieval repository,
+context assembly, retrieval state fields, sanitized retrieval-event metadata,
+and event construction helpers without adding dependencies, vector storage,
+embeddings, graph retrieval nodes, queues, MCP, auth, or eval runners.
 
 ## Goal
 
@@ -280,10 +282,10 @@ Initial fixtures:
 1. Define Pydantic contracts for documents, chunks, retrieval events, and
    context bundles.
 2. Add deterministic chunking utilities and tests.
-3. Add an in-memory retrieval repository for tests.
-4. Add context assembly with token-budget controls and tests.
-5. Add retrieval event logging into existing run metadata.
-6. Add graph state fields for retrieval context.
+3. Add an in-memory retrieval repository for tests. Done.
+4. Add context assembly with token-budget controls and tests. Done.
+5. Add retrieval event logging into existing run metadata. Done.
+6. Add graph state fields for retrieval context. Done.
 7. Add retrieval nodes in no-provider mode using deterministic matching.
 8. Request explicit approval before adding embedding/vector dependencies.
 9. Add embedding provider abstraction, pgvector-backed retrieval, and
@@ -296,4 +298,6 @@ Initial fixtures:
 - Graph insertion points are proposed.
 - Context assembly and token-budget policies are defined.
 - Retrieval logging fields are defined.
-- No dependencies or runtime behavior are changed.
+- No dependencies are added.
+- Runtime graph behavior is not changed until no-provider retrieval nodes are
+  added in a later slice.

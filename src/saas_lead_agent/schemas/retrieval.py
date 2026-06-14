@@ -88,6 +88,7 @@ class RetrievedChunk(StrictBaseModel):
     document_type: DocumentType
     trust_label: TrustLabel
     text: str = Field(min_length=1, max_length=20_000)
+    token_count: int = Field(ge=1)
     score: float | None = Field(default=None, ge=0.0)
     source_uri: str | None = Field(default=None, max_length=2_048)
     source_location: str | None = Field(default=None, max_length=500)

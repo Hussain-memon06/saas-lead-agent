@@ -99,6 +99,35 @@ def _provider_usage_records(state: dict[str, Any]) -> list[dict[str, Any]]:
     return [record for record in provider_usage if isinstance(record, dict)]
 
 
+def _retrieval_event_records(state: dict[str, Any]) -> list[dict[str, object]]:
+    retrieval_events = state.get("retrieval_events")
+    if not isinstance(retrieval_events, list):
+        return []
+    return [_public_retrieval_event(event) for event in retrieval_events if isinstance(event, dict)]
+
+
+def _public_retrieval_event(event: dict[str, Any]) -> dict[str, object]:
+    allowed_keys = {
+        "event_id",
+        "run_id",
+        "thread_id",
+        "request_id",
+        "user_id",
+        "retrieval_node",
+        "query_text_hash",
+        "query_metadata",
+        "filters",
+        "top_k",
+        "selected_chunk_ids",
+        "scores",
+        "reasons",
+        "token_budget",
+        "tokens_selected",
+        "created_at",
+    }
+    return {key: event[key] for key in allowed_keys if key in event}
+
+
 def _aggregate_provider_usage(provider_usage: list[dict[str, Any]]) -> dict[str, Any]:
     token_usage: dict[str, int] = {}
     node_timings: dict[str, float] = {}
@@ -225,6 +254,7 @@ def _processing_metadata(
     steps_completed: list[str],
     errors: list[str],
     provider_usage: list[dict[str, Any]] | None = None,
+    retrieval_events: list[dict[str, object]] | None = None,
 ) -> dict[str, Any]:
     provider_summary = _aggregate_provider_usage(provider_usage or [])
     combined_timings = {
@@ -241,6 +271,7 @@ def _processing_metadata(
         token_usage=provider_summary["token_usage"],
         cost_breakdown_usd=provider_summary["cost_breakdown_usd"],
         provider_status=provider_summary["provider_status"],
+        retrieval_events=retrieval_events or [],
         duration_seconds=max((completed_at - started_at).total_seconds(), 0.0),
         steps_completed=steps_completed,
         errors=errors,
@@ -327,9 +358,20 @@ def _public_event_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
         "token_usage",
         "cost_breakdown_usd",
         "provider_status",
+        "retrieval_events",
         "error_type",
     }
-    return {key: metadata[key] for key in allowed_keys if key in metadata}
+    public: dict[str, Any] = {}
+    for key in allowed_keys:
+        if key not in metadata:
+            continue
+        if key == "retrieval_events" and isinstance(metadata[key], list):
+            public[key] = [
+                _public_retrieval_event(event) for event in metadata[key] if isinstance(event, dict)
+            ]
+            continue
+        public[key] = metadata[key]
+    return public
 
 
 def _event_response(event: RunEvent) -> RunEventResponse:
@@ -408,6 +450,8 @@ def _initial_state(
         "score_uncertainty": None,
         "grounding_report": None,
         "outreach_quality": None,
+        "retrieval_context": None,
+        "retrieval_events": [],
         "provider_usage": [],
         "processing_metadata": None,
         "email_subject": None,
@@ -532,6 +576,7 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
         steps_completed=_steps_from_state(result, interrupted),
         errors=[str(error) for error in result.get("errors", [])],
         provider_usage=_provider_usage_records(result),
+        retrieval_events=_retrieval_event_records(result),
     )
     result = {**result, "processing_metadata": processing_metadata}
     response = _response_from_state(
@@ -562,6 +607,7 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
             "token_usage": processing_metadata["token_usage"],
             "cost_breakdown_usd": processing_metadata["cost_breakdown_usd"],
             "provider_status": processing_metadata["provider_status"],
+            "retrieval_events": processing_metadata["retrieval_events"],
         },
     )
     logger.info(
@@ -705,6 +751,7 @@ async def _resume(thread_id: str, decision: bool, request_id: str | None = None)
         steps_completed=_steps_from_state(result, interrupted),
         errors=[str(error) for error in result.get("errors", [])],
         provider_usage=_provider_usage_records(result),
+        retrieval_events=_retrieval_event_records(result),
     )
     result = {**result, "processing_metadata": processing_metadata}
     response_state = _response_from_state(
@@ -746,6 +793,7 @@ async def _resume(thread_id: str, decision: bool, request_id: str | None = None)
             "token_usage": processing_metadata["token_usage"],
             "cost_breakdown_usd": processing_metadata["cost_breakdown_usd"],
             "provider_status": processing_metadata["provider_status"],
+            "retrieval_events": processing_metadata["retrieval_events"],
         },
     )
     logger.info(

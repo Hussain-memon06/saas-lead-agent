@@ -120,7 +120,9 @@ Optional Platform Services
   lead examples, source chunks, or outreach examples.
 - No vector store or pgvector/Qdrant/Pinecone-style retrieval layer.
 - No RAG layer for grounding lead scoring and outreach in user-owned context.
-- No chunking, metadata, document-versioning, or retrieval logging strategy.
+- Initial chunking, context assembly, and retrieval event metadata hooks now
+  exist, but there is no production document ingestion/versioning pipeline,
+  persisted retrieval-event table, or runtime graph RAG path yet.
 - No retrieval-quality evals such as recall@k, precision@k, MRR, or source
   coverage.
 - No prompt/context budget management for retrieved chunks.
@@ -445,6 +447,11 @@ document/chunk/embedding/retrieval-event entities, trust labels, graph insertion
 points, context assembly policy, retrieval logging, and implementation order.
 The first coding slice added Pydantic retrieval contracts and deterministic
 chunking utilities/tests without changing runtime graph behavior or adding
+dependencies. The second slice added an in-memory lexical retrieval repository
+and context assembly/token-budget policy for tests. The third slice added graph
+state fields for retrieval context/events, sanitized retrieval-event metadata in
+processing metadata and run-event responses, and event construction helpers,
+still without embeddings, vector storage, retrieval graph nodes, or new
 dependencies.
 
 ### Goal

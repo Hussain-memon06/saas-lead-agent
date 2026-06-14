@@ -312,15 +312,42 @@ Started with a design/context-management milestone:
   - configurable overlap
 - Added `tests/test_retrieval.py` for trust boundaries, vector dimension
   checks, event redaction boundaries, context trust splits, and chunking.
+- Added `InMemoryRetrievalRepository` in
+  `src/saas_lead_agent/retrieval/repository.py`:
+  - active-document filtering
+  - user-scoped filtering
+  - document-type filtering
+  - trust-label filtering
+  - deterministic lexical scoring
+  - stable score/chunk ordering
+- Added context assembly in `src/saas_lead_agent/retrieval/context.py`:
+  - trusted chunks are selected before untrusted external chunks
+  - token budget is enforced
+  - duplicate text is omitted by `text_hash`
+  - citations include IDs/source metadata, not raw chunk text
+- Added retrieval state and metadata support:
+  - `LeadState` now has `retrieval_context` and reducer-backed
+    `retrieval_events`
+  - FastAPI and Chainlit initial states include empty retrieval state fields
+  - `ProcessingMetadata` includes sanitized `retrieval_events`
+  - qualify/resume run events include retrieval metadata without raw prompts,
+    vectors, provider payloads, or chunk text
+  - `GET /api/leads/{thread_id}/events` sanitizes nested retrieval-event
+    metadata before returning it
+  - `frontend/lib/types.ts` mirrors the processing metadata field
+- Added `src/saas_lead_agent/retrieval/events.py` with
+  `build_retrieval_event()` for deterministic, text-redacted retrieval event
+  construction from assembled context bundles.
 
 Do not add vector DB, embedding, queue, MCP, auth, eval, production ops, or new
 provider dependencies without explicit approval.
 
 ### Next Phase 4 Milestone
 
-Implement an in-memory retrieval repository and context assembly policy with
-token-budget tests. Keep storage in-memory/test only and do not add
-embedding/vector dependencies yet.
+Add retrieval nodes in no-provider mode using deterministic matching and append
+sanitized retrieval events to graph state. Keep the graph-node slice
+dependency-free: do not add embedding providers, vector storage, queues, MCP,
+auth, eval runners, or new provider dependencies yet.
 
 ## Phase 4 Guardrails
 
@@ -342,7 +369,7 @@ Run only the checks related to changed files:
 ```bash
 uv run python -m ruff check <changed-python-files>
 uv run python -m ruff format --check <changed-python-files>
-uv run python -m pytest tests\test_retrieval.py -q
+uv run python -m pytest tests\test_retrieval.py tests\test_state.py tests\test_schemas.py tests\test_api.py -q
 ```
 
 Latest Phase 3 targeted verification:
@@ -360,6 +387,8 @@ Latest Phase 4 targeted verification:
 
 - design/context-management spec: docs-only; `git diff --check` is sufficient
 - retrieval contracts/chunking slice: `8 passed`
+- in-memory retrieval/context assembly slice: `12 passed`
+- retrieval state/metadata slice: `150 passed, 5 skipped`
 
 If frontend recovery behavior changes, explain that frontend production build
 was not run unless explicitly requested under the release-only verification

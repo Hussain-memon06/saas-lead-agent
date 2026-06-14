@@ -15,8 +15,8 @@ def _merge(a: LeadState, b: dict) -> LeadState:  # type: ignore[return]
             result["messages"] = add_messages(a.get("messages", []), val)
         elif key == "errors":
             result["errors"] = operator.add(a.get("errors", []), val)
-        elif key == "provider_usage":
-            result["provider_usage"] = operator.add(a.get("provider_usage", []), val)
+        elif key in {"provider_usage", "retrieval_events"}:
+            result[key] = operator.add(a.get(key, []), val)
         else:
             result[key] = val
     return result  # type: ignore[return-value]
@@ -41,6 +41,8 @@ _BASE: LeadState = {
     "score_uncertainty": None,
     "grounding_report": None,
     "outreach_quality": None,
+    "retrieval_context": None,
+    "retrieval_events": [],
     "provider_usage": [],
     "processing_metadata": None,
     "email_subject": None,
@@ -82,6 +84,22 @@ def test_provider_usage_reducer_concatenates() -> None:
     ]
 
 
+def test_retrieval_events_reducer_concatenates() -> None:
+    state: LeadState = {
+        **_BASE,
+        "retrieval_events": [{"retrieval_node": "retrieve_icp_context"}],
+    }
+    updated = _merge(
+        state,
+        {"retrieval_events": [{"retrieval_node": "retrieve_similar_leads"}]},
+    )
+
+    assert updated["retrieval_events"] == [
+        {"retrieval_node": "retrieve_icp_context"},
+        {"retrieval_node": "retrieve_similar_leads"},
+    ]
+
+
 def test_scalar_fields_overwrite() -> None:
     updated = _merge(
         _BASE,
@@ -102,6 +120,8 @@ def test_initial_state_is_valid() -> None:
     assert _BASE["score_confidence"] is None
     assert _BASE["grounding_report"] is None
     assert _BASE["outreach_quality"] is None
+    assert _BASE["retrieval_context"] is None
+    assert _BASE["retrieval_events"] == []
     assert _BASE["provider_usage"] == []
     assert _BASE["processing_metadata"] is None
     assert _BASE["email_subject"] is None

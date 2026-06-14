@@ -47,6 +47,8 @@ _BASE_STATE: LeadState = {
     "signals": None,
     "grounding_report": None,
     "outreach_quality": None,
+    "retrieval_context": None,
+    "retrieval_events": [],
     "provider_usage": [],
     "processing_metadata": None,
     "errors": [],

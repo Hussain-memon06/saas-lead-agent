@@ -95,6 +95,7 @@ export type ProcessingMetadata = {
   token_usage: Record<string, number>;
   cost_breakdown_usd: Record<string, number>;
   provider_status: Record<string, string>;
+  retrieval_events: Array<Record<string, unknown>>;
   duration_seconds: number;
   steps_completed: string[];
   errors: string[];

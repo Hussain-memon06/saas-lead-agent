@@ -151,6 +151,7 @@ def test_processing_metadata_defaults() -> None:
     assert metadata.token_usage == {}
     assert metadata.cost_breakdown_usd == {}
     assert metadata.provider_status == {}
+    assert metadata.retrieval_events == []
     assert metadata.steps_completed == []
     assert metadata.started_at.tzinfo is not None
 

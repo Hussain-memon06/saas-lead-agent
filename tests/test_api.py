@@ -237,6 +237,30 @@ async def test_qualify_processing_metadata_aggregates_provider_usage() -> None:
     store = InMemoryLeadRunRepository()
     result = {
         **_GRAPH_RESULT,
+        "retrieval_events": [
+            {
+                "event_id": "ret-1",
+                "run_id": "run-from-graph",
+                "thread_id": "lead:acme.example.com",
+                "request_id": "req-from-graph",
+                "retrieval_node": "retrieve_icp_context",
+                "query_text_hash": "abc1234567890def",
+                "query_metadata": {"query_kind": "icp"},
+                "filters": {
+                    "document_types": ["icp", "offer"],
+                    "trust_labels": ["trusted_user"],
+                },
+                "top_k": 3,
+                "selected_chunk_ids": ["chunk-1"],
+                "scores": {"chunk-1": 0.9},
+                "reasons": {"chunk-1": "lexical_term_match"},
+                "token_budget": 400,
+                "tokens_selected": 125,
+                "raw_prompt": "do not return prompt text",
+                "chunk_text": "do not return retrieved chunk text",
+                "embedding_vector": [0.1, 0.2],
+            }
+        ],
         "provider_usage": [
             {
                 "node": "company_researcher",
@@ -300,10 +324,33 @@ async def test_qualify_processing_metadata_aggregates_provider_usage() -> None:
     }
     assert metadata["timings_ms"]["node.company_researcher"] == 11.5
     assert metadata["timings_ms"]["node.dossier_writer"] == 7.0
+    assert metadata["retrieval_events"] == [
+        {
+            "event_id": "ret-1",
+            "run_id": "run-from-graph",
+            "thread_id": "lead:acme.example.com",
+            "request_id": "req-from-graph",
+            "retrieval_node": "retrieve_icp_context",
+            "query_text_hash": "abc1234567890def",
+            "query_metadata": {"query_kind": "icp"},
+            "filters": {
+                "document_types": ["icp", "offer"],
+                "trust_labels": ["trusted_user"],
+            },
+            "top_k": 3,
+            "selected_chunk_ids": ["chunk-1"],
+            "scores": {"chunk-1": 0.9},
+            "reasons": {"chunk-1": "lexical_term_match"},
+            "token_budget": 400,
+            "tokens_selected": 125,
+        }
+    ]
 
     events = await store.list_events("lead:acme.example.com")
     assert events[0].metadata["total_tokens"] == 170
     assert events[0].metadata["provider_status"]["dossier_writer"] == "completed"
+    assert events[0].metadata["retrieval_events"][0]["selected_chunk_ids"] == ["chunk-1"]
+    assert "chunk_text" not in events[0].metadata["retrieval_events"][0]
 
 
 @pytest.mark.asyncio
@@ -454,6 +501,17 @@ async def test_get_lead_events_returns_sanitized_metadata() -> None:
                 "total_tokens": 0,
                 "estimated_cost_usd": 0.0,
                 "provider_status": {"dossier_writer": "failed"},
+                "retrieval_events": [
+                    {
+                        "event_id": "ret-1",
+                        "retrieval_node": "retrieve_icp_context",
+                        "query_text_hash": "abc1234567890def",
+                        "selected_chunk_ids": ["chunk-1"],
+                        "token_budget": 400,
+                        "tokens_selected": 125,
+                        "chunk_text": "raw retrieved text should not be returned",
+                    }
+                ],
             },
         )
     )
@@ -472,11 +530,22 @@ async def test_get_lead_events_returns_sanitized_metadata() -> None:
     assert metadata["error_type"] == "RuntimeError"
     assert metadata["timings_ms"] == {"graph": 12.0}
     assert metadata["provider_status"] == {"dossier_writer": "failed"}
+    assert metadata["retrieval_events"] == [
+        {
+            "event_id": "ret-1",
+            "retrieval_node": "retrieve_icp_context",
+            "query_text_hash": "abc1234567890def",
+            "selected_chunk_ids": ["chunk-1"],
+            "token_budget": 400,
+            "tokens_selected": 125,
+        }
+    ]
     assert "error" not in metadata
     assert "raw_prompt" not in metadata
     assert "provider_payload" not in metadata
     assert "email_body" not in metadata
     assert "source_text" not in metadata
+    assert "chunk_text" not in metadata["retrieval_events"][0]
 
 
 @pytest.mark.asyncio
@@ -541,6 +610,8 @@ async def test_qualify_passes_correct_state_to_graph() -> None:
     assert state["score_confidence"] is None
     assert state["grounding_report"] is None
     assert state["outreach_quality"] is None
+    assert state["retrieval_context"] is None
+    assert state["retrieval_events"] == []
     assert state["provider_usage"] == []
     assert state["processing_metadata"] is None
     assert state["errors"] == []

@@ -39,7 +39,7 @@ Paste a company URL and Outbound Lead Agent researches the company end-to-end: i
 
 **Prompt-injection boundary.** Scraped pages and search snippets are untrusted external data. Agent prompts may quote or summarize that content as evidence, but page text must never be treated as system, developer, or tool instructions. Future RAG work must preserve the same trusted-user-context versus untrusted-source-content boundary.
 
-**RAG status.** Phase 4 has started with a context-management spec in `specs/in-progress/phase-4-rag-design.md`, plus Pydantic retrieval contracts and deterministic chunking utilities. No embedding provider, vector store, retrieval node, or new dependency has been added yet.
+**RAG status.** Phase 4 has started with a context-management spec in `specs/in-progress/phase-4-rag-design.md`, plus Pydantic retrieval contracts, deterministic chunking, in-memory lexical retrieval, context assembly utilities, retrieval state fields, and sanitized retrieval event metadata. No embedding provider, vector store, retrieval graph node, or new dependency has been added yet.
 
 ---
 

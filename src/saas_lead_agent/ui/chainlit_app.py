@@ -131,6 +131,8 @@ def _initial_state(url: str, domain: str) -> LeadState:
         "score_uncertainty": None,
         "grounding_report": None,
         "outreach_quality": None,
+        "retrieval_context": None,
+        "retrieval_events": [],
         "provider_usage": [],
         "processing_metadata": None,
         "email_subject": None,
