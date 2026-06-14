@@ -12,6 +12,17 @@ from saas_lead_agent.schemas.icp import IcpContext
 from saas_lead_agent.schemas.lead_report import LeadReport
 from saas_lead_agent.schemas.metadata import ProcessingMetadata
 from saas_lead_agent.schemas.outreach import DossierOutput, OutreachDraft, SendResult
+from saas_lead_agent.schemas.retrieval import (
+    ContextBundle,
+    DocumentStatus,
+    DocumentType,
+    EmbeddingRecord,
+    KnowledgeChunk,
+    KnowledgeDocument,
+    RetrievalEvent,
+    RetrievedChunk,
+    TrustLabel,
+)
 from saas_lead_agent.schemas.signals import CompanySignal, SignalType
 from saas_lead_agent.schemas.url import normalize_public_http_url
 
@@ -27,9 +38,18 @@ __all__ = [
     "FundingStage",
     "IcpContext",
     "LeadReport",
+    "ContextBundle",
+    "DocumentStatus",
+    "DocumentType",
+    "EmbeddingRecord",
+    "KnowledgeChunk",
+    "KnowledgeDocument",
     "OutreachDraft",
     "ProcessingMetadata",
+    "RetrievalEvent",
+    "RetrievedChunk",
     "SendResult",
     "SignalType",
+    "TrustLabel",
     "normalize_public_http_url",
 ]

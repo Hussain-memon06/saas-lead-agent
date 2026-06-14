@@ -27,8 +27,9 @@ Follow this file together with `PLANS.md`.
   dossier recovery, summary history, sanitized run-event retrieval, run
   metadata, node-level provider timing/status, and token usage capture.
 - Current phase: Phase 4 RAG, embeddings, vector memory, and context
-  management. Start with design/context policy before adding vector or
-  embedding dependencies.
+  management. Design plus Pydantic retrieval contracts and deterministic
+  chunking exist; next work should stay in-memory/test-only before adding
+  vector or embedding dependencies.
 - Planned: model/provider abstraction, durable execution, auth/compliance,
   evals, and production operations.
 
@@ -106,6 +107,11 @@ Phase constraints:
 Read these before making changes in their area:
 
 - `PLANS.md` - current roadmap and operating model
+- `specs/in-progress/phase-4-rag-design.md` - active Phase 4 RAG/context
+  design before implementation
+- `src/saas_lead_agent/schemas/retrieval.py` - Phase 4 document/chunk/retrieval
+  contracts
+- `src/saas_lead_agent/retrieval/chunking.py` - deterministic chunking utility
 - `src/saas_lead_agent/state.py` - `LeadState` graph state contract
 - `src/saas_lead_agent/graph.py` - LangGraph topology
 - `src/saas_lead_agent/api/main.py` - FastAPI app factory, middleware,
@@ -262,7 +268,10 @@ These are tracked in `PLANS.md`; do not solve them out of phase:
   history endpoints, sanitized run events, and processing metadata with
   run-level timings, node-level provider timings/status, token counts captured
   when available, and optional env-configured cost estimates.
-- No RAG/vector memory/retrieval quality system yet.
+- Phase 4 RAG design, retrieval contracts, and deterministic chunking now
+  exist, but no vector memory, embedding provider, retrieval repository,
+  context assembly, graph retrieval nodes, or retrieval quality system exists
+  yet.
 - No MCP/tool abstraction or durable job layer yet.
 - No dedicated eval harness yet.
 - CORS is still broad until the auth/compliance phase.

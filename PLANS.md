@@ -439,6 +439,14 @@ environment used.
 
 ## Phase 4: RAG, Embeddings, Vector Memory & Context Management
 
+Status: in progress. The first design/context-management milestone is captured
+in `specs/in-progress/phase-4-rag-design.md`; it defines proposed
+document/chunk/embedding/retrieval-event entities, trust labels, graph insertion
+points, context assembly policy, retrieval logging, and implementation order.
+The first coding slice added Pydantic retrieval contracts and deterministic
+chunking utilities/tests without changing runtime graph behavior or adding
+dependencies.
+
 ### Goal
 
 Add retrieval that grounds lead qualification and outreach in user-owned ICP

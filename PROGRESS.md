@@ -281,39 +281,68 @@ Complete for the current roadmap milestone:
 - Added tests proving provider metadata aggregation does not expose raw
   prompts, completions, emails, raw scraped content, or provider payloads.
 
-### Next Milestone: Phase 4
+## Phase 4 Progress
 
-Start Phase 4 with a narrow RAG design/context-management milestone:
+Started with a design/context-management milestone:
 
-- proposed document/chunk/retrieval-event entities
-- trusted user-owned context versus untrusted scraped/source text boundaries
-- retrieval node plan such as `retrieve_icp_context` and
+- Added `specs/in-progress/phase-4-rag-design.md` covering:
+  - proposed document, chunk, embedding, retrieval-event, and context-bundle
+    entities
+  - trusted user-owned context versus untrusted scraped/source text boundaries
+  - retrieval node plan such as `retrieve_icp_context` and
   `retrieve_similar_leads`
-- context assembly and token-budget policy
-- retrieval logging plan
+  - context assembly and token-budget policy
+  - retrieval logging plan
+  - retrieval-quality metrics to add later
+  - implementation sequence that starts with contracts/chunking before
+    embedding or vector dependencies
+- Added Phase 4 retrieval contracts in `src/saas_lead_agent/schemas/retrieval.py`:
+  - `KnowledgeDocument`
+  - `KnowledgeChunk`
+  - `EmbeddingRecord`
+  - `RetrievedChunk`
+  - `RetrievalEvent`
+  - `ContextBundle`
+- Added dependency-free deterministic chunking utilities in
+  `src/saas_lead_agent/retrieval/chunking.py`:
+  - whitespace normalization
+  - stable SHA-256 text hashes
+  - simple word-based token estimates
+  - stable chunk IDs
+  - configurable overlap
+- Added `tests/test_retrieval.py` for trust boundaries, vector dimension
+  checks, event redaction boundaries, context trust splits, and chunking.
 
 Do not add vector DB, embedding, queue, MCP, auth, eval, production ops, or new
 provider dependencies without explicit approval.
 
-## Phase 3 Guardrails
+### Next Phase 4 Milestone
 
-- Keep app-owned persistence independent of LangGraph checkpoints.
-- Preserve the current flat API response shape.
-- Keep in-memory fallback available when `POSTGRES_URL` is unset.
-- Do not log secrets or raw provider credentials.
-- Do not introduce auth, queue, vector DB, MCP, or new provider dependencies.
+Implement an in-memory retrieval repository and context assembly policy with
+token-budget tests. Keep storage in-memory/test only and do not add
+embedding/vector dependencies yet.
+
+## Phase 4 Guardrails
+
+- Keep deterministic scoring separate from retrieval and generation.
+- Treat scraped/source-page text as untrusted external evidence.
+- Keep user-owned ICP/offer/example context separate from untrusted website
+  content.
+- Do not log raw prompts, vectors, provider payloads, credentials, contact
+  emails, full outreach bodies, or raw scraped text in retrieval events.
+- Do not introduce auth, queue, vector DB, MCP, eval runner, or new provider
+  dependencies.
 - No new dependencies without explicit approval.
 - No broad/full verification unless explicitly requested.
 
-## Useful Targeted Verification For Phase 3
+## Useful Targeted Verification For Phase 4
 
 Run only the checks related to changed files:
 
 ```bash
 uv run python -m ruff check <changed-python-files>
 uv run python -m ruff format --check <changed-python-files>
-uv run python -m pytest tests\test_lead_runs.py -q
-uv run python -m pytest tests\test_api.py -q
+uv run python -m pytest tests\test_retrieval.py -q
 ```
 
 Latest Phase 3 targeted verification:
@@ -326,6 +355,11 @@ Latest Phase 3 targeted verification:
 - provider metadata closure slice: `116 passed, 5 skipped`
 - changed-file Ruff checks passed
 - changed-file Ruff format checks passed
+
+Latest Phase 4 targeted verification:
+
+- design/context-management spec: docs-only; `git diff --check` is sufficient
+- retrieval contracts/chunking slice: `8 passed`
 
 If frontend recovery behavior changes, explain that frontend production build
 was not run unless explicitly requested under the release-only verification
