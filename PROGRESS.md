@@ -338,16 +338,46 @@ Started with a design/context-management milestone:
 - Added `src/saas_lead_agent/retrieval/events.py` with
   `build_retrieval_event()` for deterministic, text-redacted retrieval event
   construction from assembled context bundles.
+- Added no-provider retrieval graph nodes in
+  `src/saas_lead_agent/agents/retrieval.py`:
+  - `retrieve_icp_context` turns the submitted ICP payload into transient
+    trusted ICP and offer documents, runs deterministic lexical matching,
+    assembles a token-budgeted context bundle, and appends a sanitized
+    retrieval event
+  - `retrieve_similar_leads` establishes the post-signal graph insertion point
+    and records a sanitized skipped event until a real lead-example/prior-dossier
+    corpus exists
+  - `retrieve_outreach_examples` establishes the pre-dossier drafting insertion
+    point and records a sanitized skipped event until a real outreach-example
+    corpus exists
+- Updated the LangGraph topology to:
+  `retrieve_icp_context -> company_researcher -> contact_finder ->
+  signal_detector -> retrieve_similar_leads -> retrieve_outreach_examples ->
+  dossier_writer -> await_approval -> send_email`
+- Updated processing metadata step inference so retrieval nodes appear in
+  `steps_completed` when retrieval events exist.
+- Updated `dossier_writer` so retrieved context is included only in the human
+  prompt as labeled drafting data, while system prompts explicitly say retrieved
+  text must not be treated as instructions or used to create/change/explain the
+  deterministic score.
+- Added `src/saas_lead_agent/retrieval/quality.py` with dependency-free
+  retrieval-quality metrics:
+  - recall@k
+  - precision@k
+  - MRR
+  - source coverage
+  - expected chunk retrieval mapping
 
 Do not add vector DB, embedding, queue, MCP, auth, eval, production ops, or new
 provider dependencies without explicit approval.
 
 ### Next Phase 4 Milestone
 
-Add retrieval nodes in no-provider mode using deterministic matching and append
-sanitized retrieval events to graph state. Keep the graph-node slice
-dependency-free: do not add embedding providers, vector storage, queues, MCP,
-auth, eval runners, or new provider dependencies yet.
+Phase 4 is now at the approval boundary for heavier infrastructure. The next
+meaningful milestones require explicit approval before adding one of:
+Postgres-backed document/chunk storage, pgvector/vector storage, embedding
+provider abstraction, retrieval datasets/eval runner, or frontend
+knowledge-base upload/management UI.
 
 ## Phase 4 Guardrails
 
@@ -370,6 +400,8 @@ Run only the checks related to changed files:
 uv run python -m ruff check <changed-python-files>
 uv run python -m ruff format --check <changed-python-files>
 uv run python -m pytest tests\test_retrieval.py tests\test_state.py tests\test_schemas.py tests\test_api.py -q
+uv run python -m pytest tests\test_retrieval_nodes.py tests\test_graph.py -q
+uv run python -m pytest tests\test_agents.py tests\test_retrieval_quality.py -q
 ```
 
 Latest Phase 3 targeted verification:
@@ -389,6 +421,9 @@ Latest Phase 4 targeted verification:
 - retrieval contracts/chunking slice: `8 passed`
 - in-memory retrieval/context assembly slice: `12 passed`
 - retrieval state/metadata slice: `150 passed, 5 skipped`
+- no-provider retrieval graph-node slice: `67 passed`
+- retrieval context consumption and quality metrics slice: `127 passed`
+- outreach-example insertion and transient offer context slice: `128 passed`
 
 If frontend recovery behavior changes, explain that frontend production build
 was not run unless explicitly requested under the release-only verification

@@ -30,8 +30,11 @@ Follow this file together with `PLANS.md`.
   management. Design plus Pydantic retrieval contracts and deterministic
   chunking, in-memory lexical retrieval, context assembly, retrieval state
   fields, sanitized retrieval event metadata, and event construction helpers
-  exist. Next work should stay no-provider graph-node/test-only before adding
-  vector or embedding dependencies.
+  exist. The graph now includes no-provider retrieval nodes for ICP/offer
+  context, similar-lead insertion, and outreach-example insertion, dossier
+  drafting consumes retrieved context as labeled data, and basic
+  retrieval-quality metrics exist. Next work should request approval before
+  adding vector or embedding dependencies.
 - Planned: model/provider abstraction, durable execution, auth/compliance,
   evals, and production operations.
 
@@ -56,9 +59,12 @@ Optional Postgres checkpoints + Langfuse traces
 Current graph:
 
 ```text
-company_researcher
+retrieve_icp_context
+  -> company_researcher
   -> contact_finder
   -> signal_detector
+  -> retrieve_similar_leads
+  -> retrieve_outreach_examples
   -> dossier_writer
   -> await_approval
   -> send_email
@@ -120,6 +126,8 @@ Read these before making changes in their area:
   policy
 - `src/saas_lead_agent/retrieval/events.py` - sanitized retrieval event
   construction
+- `src/saas_lead_agent/agents/retrieval.py` - no-provider retrieval graph
+  nodes
 - `src/saas_lead_agent/state.py` - `LeadState` graph state contract
 - `src/saas_lead_agent/graph.py` - LangGraph topology
 - `src/saas_lead_agent/api/main.py` - FastAPI app factory, middleware,
@@ -278,9 +286,12 @@ These are tracked in `PLANS.md`; do not solve them out of phase:
   when available, and optional env-configured cost estimates.
 - Phase 4 RAG design, retrieval contracts, deterministic chunking, in-memory
   retrieval, context assembly, retrieval state fields, and sanitized retrieval
-  event metadata now exist, but no vector memory, embedding provider, graph
-  retrieval nodes, persisted retrieval-event table, or retrieval quality system
-  exists yet.
+  event metadata now exist. No-provider graph retrieval nodes now append
+  deterministic retrieval context/events for ICP/offer, similar-lead, and
+  outreach-example insertion points, and dossier drafting consumes retrieved
+  context as labeled data. Basic retrieval-quality metrics exist, but no vector
+  memory, embedding provider, persisted retrieval-event table, frontend
+  knowledge-base UI, or full retrieval eval runner exists yet.
 - No MCP/tool abstraction or durable job layer yet.
 - No dedicated eval harness yet.
 - CORS is still broad until the auth/compliance phase.

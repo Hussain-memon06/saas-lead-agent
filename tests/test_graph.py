@@ -7,9 +7,8 @@ Strategy:
   runs end-to-end with no LLM or network calls.
 - Error-propagation test confirms the errors reducer accumulates across nodes.
 
-The graph runs sequentially: research nodes are chained
-(company_researcher → contact_finder → signal_detector) rather than fanned
-out, to stay under Tier 1 OpenAI rate limits.
+The graph runs sequentially: retrieval/research nodes are chained rather than
+fanned out, to stay under Tier 1 OpenAI rate limits.
 """
 
 from typing import Any
@@ -109,9 +108,12 @@ def test_graph_has_expected_nodes() -> None:
     graph = build_graph()
     node_names = set(graph.nodes.keys())
     for expected in (
+        "retrieve_icp_context",
         "company_researcher",
         "contact_finder",
         "signal_detector",
+        "retrieve_similar_leads",
+        "retrieve_outreach_examples",
         "dossier_writer",
         "await_approval",
         "send_email",
@@ -125,19 +127,22 @@ def test_graph_orchestrator_node_removed() -> None:
     assert "orchestrator" not in set(graph.nodes.keys())
 
 
-def test_graph_start_goes_to_company_researcher() -> None:
+def test_graph_start_goes_to_retrieve_icp_context() -> None:
     graph = build_graph()
     start_targets = {dst for src, dst in graph.builder.edges if src == "__start__"}
-    assert "company_researcher" in start_targets
+    assert "retrieve_icp_context" in start_targets
 
 
-def test_graph_research_nodes_run_sequentially() -> None:
-    """Research subagents must form a chain, not a fan-out."""
+def test_graph_retrieval_and_research_nodes_run_sequentially() -> None:
+    """Retrieval and research subagents must form a chain, not a fan-out."""
     graph = build_graph()
     edges = set(graph.builder.edges)
+    assert ("retrieve_icp_context", "company_researcher") in edges
     assert ("company_researcher", "contact_finder") in edges
     assert ("contact_finder", "signal_detector") in edges
-    assert ("signal_detector", "dossier_writer") in edges
+    assert ("signal_detector", "retrieve_similar_leads") in edges
+    assert ("retrieve_similar_leads", "retrieve_outreach_examples") in edges
+    assert ("retrieve_outreach_examples", "dossier_writer") in edges
 
 
 def test_graph_dossier_writer_goes_to_await_approval() -> None:
@@ -160,7 +165,15 @@ def test_graph_send_email_goes_to_end() -> None:
     end_sources = {src for src, dst in graph.builder._all_edges if dst == "__end__"}
     assert "send_email" in end_sources
     # Research/dossier nodes must not connect directly to END.
-    for node in ("company_researcher", "contact_finder", "signal_detector", "dossier_writer"):
+    for node in (
+        "retrieve_icp_context",
+        "company_researcher",
+        "contact_finder",
+        "signal_detector",
+        "retrieve_similar_leads",
+        "retrieve_outreach_examples",
+        "dossier_writer",
+    ):
         assert node not in end_sources, f"{node} should not go directly to END"
 
 
@@ -193,6 +206,11 @@ async def test_graph_run_populates_all_fields() -> None:
     assert result["fit_score"] == 8
     assert result["email_subject"] == "Quick question"
     assert result["email_body"] == "Hi Alice,"
+    assert [event["retrieval_node"] for event in result["retrieval_events"]] == [
+        "retrieve_icp_context",
+        "retrieve_similar_leads",
+        "retrieve_outreach_examples",
+    ]
 
 
 @pytest.mark.asyncio
@@ -218,9 +236,13 @@ async def test_graph_run_with_memory_compiles_and_runs() -> None:
 
 
 @pytest.mark.asyncio
-async def test_graph_research_nodes_called_in_order() -> None:
-    """company_researcher runs first, then contact_finder, then signal_detector."""
+async def test_graph_retrieval_and_research_nodes_called_in_order() -> None:
+    """Retrieval nodes wrap the sequential research chain."""
     call_order: list[str] = []
+
+    async def _retrieve_icp(state: LeadState) -> dict[str, Any]:
+        call_order.append("retrieve_icp_context")
+        return {"retrieval_context": {"icp": {"status": "completed"}}}
 
     async def _researcher(state: LeadState) -> dict[str, Any]:
         call_order.append("company_researcher")
@@ -234,17 +256,35 @@ async def test_graph_research_nodes_called_in_order() -> None:
         call_order.append("signal_detector")
         return {"signals": []}
 
+    async def _retrieve_similar(state: LeadState) -> dict[str, Any]:
+        call_order.append("retrieve_similar_leads")
+        return {"retrieval_context": {"similar_leads": {"status": "skipped"}}}
+
+    async def _retrieve_outreach(state: LeadState) -> dict[str, Any]:
+        call_order.append("retrieve_outreach_examples")
+        return {"retrieval_context": {"outreach_examples": {"status": "skipped"}}}
+
     with (
+        patch("saas_lead_agent.graph.retrieve_icp_context", new=_retrieve_icp),
         patch("saas_lead_agent.graph.company_researcher", new=_researcher),
         patch("saas_lead_agent.graph.contact_finder", new=_contact),
         patch("saas_lead_agent.graph.signal_detector", new=_signal),
+        patch("saas_lead_agent.graph.retrieve_similar_leads", new=_retrieve_similar),
+        patch("saas_lead_agent.graph.retrieve_outreach_examples", new=_retrieve_outreach),
         patch("saas_lead_agent.graph.dossier_writer", new=AsyncMock(return_value=_DOSSIER)),
     ):
         graph = build_graph()
         config = {"configurable": {"thread_id": "lead:order-test"}}
         await graph.ainvoke(_BASE_INPUT, config=config)
 
-    assert call_order == ["company_researcher", "contact_finder", "signal_detector"]
+    assert call_order == [
+        "retrieve_icp_context",
+        "company_researcher",
+        "contact_finder",
+        "signal_detector",
+        "retrieve_similar_leads",
+        "retrieve_outreach_examples",
+    ]
 
 
 @pytest.mark.asyncio

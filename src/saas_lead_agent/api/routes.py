@@ -229,12 +229,19 @@ def _log_context(
 
 def _steps_from_state(state: dict[str, Any], interrupted: bool) -> list[str]:
     steps: list[str] = []
+    retrieval_nodes = _retrieval_nodes_from_state(state)
+    if "retrieve_icp_context" in retrieval_nodes:
+        steps.append("retrieve_icp_context")
     if state.get("company_profile") is not None:
         steps.append("company_researcher")
     if state.get("contact") is not None:
         steps.append("contact_finder")
     if state.get("signals") is not None:
         steps.append("signal_detector")
+    if "retrieve_similar_leads" in retrieval_nodes:
+        steps.append("retrieve_similar_leads")
+    if "retrieve_outreach_examples" in retrieval_nodes:
+        steps.append("retrieve_outreach_examples")
     if state.get("email_subject") is not None or state.get("email_body") is not None:
         steps.append("dossier_writer")
     if interrupted:
@@ -242,6 +249,17 @@ def _steps_from_state(state: dict[str, Any], interrupted: bool) -> list[str]:
     if state.get("send_result") is not None:
         steps.append("send_email")
     return steps
+
+
+def _retrieval_nodes_from_state(state: dict[str, Any]) -> set[str]:
+    nodes: set[str] = set()
+    retrieval_events = state.get("retrieval_events")
+    if not isinstance(retrieval_events, list):
+        return nodes
+    for event in retrieval_events:
+        if isinstance(event, dict) and isinstance(event.get("retrieval_node"), str):
+            nodes.add(event["retrieval_node"])
+    return nodes
 
 
 def _processing_metadata(

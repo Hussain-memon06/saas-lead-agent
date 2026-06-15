@@ -19,10 +19,13 @@ Outbound Lead Agent is a functional full-stack AI lead research application with
 - A Next.js 14 frontend in `frontend/`.
 - A FastAPI backend in `src/saas_lead_agent/api/`.
 - A LangGraph sequential pipeline assembled in `src/saas_lead_agent/graph.py`.
-- Six graph nodes:
+- Nine graph nodes:
+  - `retrieve_icp_context`
   - `company_researcher`
   - `contact_finder`
   - `signal_detector`
+  - `retrieve_similar_leads`
+  - `retrieve_outreach_examples`
   - `dossier_writer`
   - `await_approval`
   - `send_email`
@@ -55,9 +58,12 @@ FastAPI REST API
   v
 LangGraph StateGraph
   |
+  | retrieve_icp_context
   | company_researcher
   | contact_finder
   | signal_detector
+  | retrieve_similar_leads
+  | retrieve_outreach_examples
   | dossier_writer
   | await_approval
   | send_email
@@ -77,12 +83,18 @@ Optional Platform Services
 2. Frontend reads local ICP settings from browser `localStorage`.
 3. Frontend posts `{ url, icp_context }` to `/api/qualify`.
 4. Backend derives `domain` and `thread_id = lead:{domain}`.
-5. LangGraph runs sequentially until `await_approval`.
-6. `await_approval` interrupts before email delivery.
-7. UI renders dossier and draft email from the returned state.
-8. User approves or rejects.
-9. Backend resumes the graph with `Command(resume=True|False)`.
-10. `send_email` either rejects, skips for no contact, stubs, sends, or fails.
+5. `retrieve_icp_context` creates transient trusted ICP/offer context from the
+   request payload when present.
+6. Research nodes run sequentially until signal detection completes.
+7. `retrieve_similar_leads` and `retrieve_outreach_examples` append sanitized
+   no-provider retrieval events until real corpora exist.
+8. `dossier_writer` drafts outreach with retrieved context as labeled data,
+   while deterministic Python scoring owns the final score.
+9. `await_approval` interrupts before email delivery.
+10. UI renders dossier and draft email from the returned state.
+11. User approves or rejects.
+12. Backend resumes the graph with `Command(resume=True|False)`.
+13. `send_email` either rejects, skips for no contact, stubs, sends, or fails.
 
 ### Strengths
 
@@ -119,13 +131,18 @@ Optional Platform Services
 - No embedding pipeline for ICP documents, offer documents, prior dossiers,
   lead examples, source chunks, or outreach examples.
 - No vector store or pgvector/Qdrant/Pinecone-style retrieval layer.
-- No RAG layer for grounding lead scoring and outreach in user-owned context.
+- A first no-provider retrieval graph path now exists for submitted ICP context
+  and similar-lead insertion points, but there is no production RAG layer that
+  retrieves persisted user-owned documents/examples for scoring and outreach
+  yet.
 - Initial chunking, context assembly, and retrieval event metadata hooks now
   exist, but there is no production document ingestion/versioning pipeline,
-  persisted retrieval-event table, or runtime graph RAG path yet.
-- No retrieval-quality evals such as recall@k, precision@k, MRR, or source
-  coverage.
-- No prompt/context budget management for retrieved chunks.
+  persisted retrieval-event table, or embedding-backed runtime RAG path yet.
+- Basic retrieval-quality metric helpers now cover recall@k, precision@k, MRR,
+  and source coverage, but there is no retrieval dataset, eval runner, or CI
+  quality gate yet.
+- Initial context assembly uses token budgets for selected chunks, but there is
+  no production per-model prompt budgeting or adaptive truncation policy yet.
 - Prompt-injection trust boundaries are documented for untrusted website/source
   content, but automated adversarial defenses and evals are not yet
   implemented.
@@ -451,8 +468,14 @@ dependencies. The second slice added an in-memory lexical retrieval repository
 and context assembly/token-budget policy for tests. The third slice added graph
 state fields for retrieval context/events, sanitized retrieval-event metadata in
 processing metadata and run-event responses, and event construction helpers,
-still without embeddings, vector storage, retrieval graph nodes, or new
-dependencies.
+still without embeddings, vector storage, persisted retrieval documents, or new
+dependencies. The fourth slice added no-provider graph retrieval nodes for
+submitted ICP/offer context, similar-lead insertion, and outreach-example
+insertion, appending sanitized retrieval events while preserving deterministic
+scoring and avoiding new dependencies. Later slices wired retrieved context
+into dossier drafting as labeled data, kept deterministic scoring isolated from
+retrieval prose, and added dependency-free retrieval-quality metrics for
+recall@k, precision@k, MRR, and source coverage.
 
 ### Goal
 
@@ -925,8 +948,9 @@ documented with their outputs.
 
 ## Immediate Next Step
 
-Begin Phase 4 with a narrow RAG design and context-management milestone:
-document the document/chunk/retrieval-event entities, trusted versus untrusted
-source boundaries, retrieval nodes, context assembly policy, and retrieval
-logging plan. Do not add vector DB, embedding, queue, MCP, auth, eval, or new
-provider dependencies without explicit approval.
+Phase 4 has reached the no-dependency approval boundary. Before continuing with
+heavier retrieval infrastructure, choose and approve the next milestone:
+Postgres-backed document/chunk storage, pgvector/vector storage, embedding
+provider abstraction, retrieval datasets/eval runner, or frontend
+knowledge-base upload/management UI. Do not add vector DB, embedding, queue,
+MCP, auth, eval, or new provider dependencies without explicit approval.

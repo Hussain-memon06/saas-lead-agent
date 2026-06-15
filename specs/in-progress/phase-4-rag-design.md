@@ -5,8 +5,11 @@
 Design milestone complete. The first implementation slices added Pydantic
 contracts, deterministic chunking, an in-memory lexical retrieval repository,
 context assembly, retrieval state fields, sanitized retrieval-event metadata,
-and event construction helpers without adding dependencies, vector storage,
-embeddings, graph retrieval nodes, queues, MCP, auth, or eval runners.
+event construction helpers, no-provider graph retrieval nodes for ICP/offer,
+similar-lead, and outreach-example insertion points, retrieved context
+consumption in dossier drafting, and basic retrieval-quality metrics without
+adding dependencies, vector storage, embeddings, queues, MCP, auth, or eval
+runners.
 
 ## Goal
 
@@ -23,9 +26,12 @@ fit score.
 The current graph is:
 
 ```text
-company_researcher
+retrieve_icp_context
+  -> company_researcher
   -> contact_finder
   -> signal_detector
+  -> retrieve_similar_leads
+  -> retrieve_outreach_examples
   -> dossier_writer
   -> await_approval
   -> send_email
@@ -179,7 +185,7 @@ later if scale or hosted operations require it.
 
 ## Retrieval Nodes
 
-Proposed future graph:
+Current implemented graph:
 
 ```text
 retrieve_icp_context
@@ -286,9 +292,12 @@ Initial fixtures:
 4. Add context assembly with token-budget controls and tests. Done.
 5. Add retrieval event logging into existing run metadata. Done.
 6. Add graph state fields for retrieval context. Done.
-7. Add retrieval nodes in no-provider mode using deterministic matching.
-8. Request explicit approval before adding embedding/vector dependencies.
-9. Add embedding provider abstraction, pgvector-backed retrieval, and
+7. Add retrieval nodes in no-provider mode using deterministic matching. Done.
+8. Wire retrieved context into downstream drafting as labeled data. Done.
+9. Add basic retrieval-quality metrics for recall@k, precision@k, MRR, and
+   source coverage. Done.
+10. Request explicit approval before adding embedding/vector dependencies.
+11. Add embedding provider abstraction, pgvector-backed retrieval, and
    retrieval-quality eval fixtures.
 
 ## Acceptance For This Design Milestone
@@ -299,5 +308,7 @@ Initial fixtures:
 - Context assembly and token-budget policies are defined.
 - Retrieval logging fields are defined.
 - No dependencies are added.
-- Runtime graph behavior is not changed until no-provider retrieval nodes are
-  added in a later slice.
+- Runtime graph behavior now includes no-provider retrieval nodes, but no
+  external retrieval providers, embeddings, or vector storage are used.
+- Dossier drafting may use retrieved context as labeled data, while
+  deterministic scoring remains separate from retrieval prose.

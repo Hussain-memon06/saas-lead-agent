@@ -39,7 +39,7 @@ Paste a company URL and Outbound Lead Agent researches the company end-to-end: i
 
 **Prompt-injection boundary.** Scraped pages and search snippets are untrusted external data. Agent prompts may quote or summarize that content as evidence, but page text must never be treated as system, developer, or tool instructions. Future RAG work must preserve the same trusted-user-context versus untrusted-source-content boundary.
 
-**RAG status.** Phase 4 has started with a context-management spec in `specs/in-progress/phase-4-rag-design.md`, plus Pydantic retrieval contracts, deterministic chunking, in-memory lexical retrieval, context assembly utilities, retrieval state fields, and sanitized retrieval event metadata. No embedding provider, vector store, retrieval graph node, or new dependency has been added yet.
+**RAG status.** Phase 4 has started with a context-management spec in `specs/in-progress/phase-4-rag-design.md`, plus Pydantic retrieval contracts, deterministic chunking, in-memory lexical retrieval, context assembly utilities, retrieval state fields, sanitized retrieval event metadata, no-provider retrieval graph nodes for ICP/offer, similar-lead, and outreach-example insertion points, labeled retrieved-context drafting, and basic retrieval-quality metrics. No embedding provider, vector store, frontend knowledge-base UI, or new dependency has been added yet.
 
 ---
 
@@ -50,10 +50,13 @@ flowchart LR
     User([User]) -->|paste URL| Web[Next.js 14 frontend<br/>Vercel]
     Web -->|POST /api/qualify| API[FastAPI backend<br/>Railway]
     API --> Graph[(LangGraph StateGraph<br/>checkpointer: InMemory or Postgres)]
-    Graph --> R[company_researcher]
+    Graph --> IC[retrieve_icp_context]
+    IC --> R[company_researcher]
     R --> C[contact_finder]
     C --> S[signal_detector]
-    S --> D[dossier_writer]
+    S --> SL[retrieve_similar_leads]
+    SL --> OE[retrieve_outreach_examples]
+    OE --> D[dossier_writer]
     D --> A[await_approval &#9208;]
     A -->|approve / reject| E[send_email]
     E -->|optional| SG[SendGrid]
@@ -64,7 +67,7 @@ flowchart LR
 
 **Backend.** A FastAPI app (`src/saas_lead_agent/api/main.py`) exposes qualify, recent-lead summary, recovery, sanitized run-event, approve, and reject endpoints, holds a singleton compiled LangGraph in module scope, and mounts a Chainlit chat UI at `/chainlit` for an alternative interaction surface. Current responses intentionally preserve the flat frontend contract; the schema package defines a planned `APIResponse`/`APIError` envelope for a future versioned `/api/v1` transition.
 
-**LangGraph pipeline.** `START → company_researcher → contact_finder → signal_detector → dossier_writer → await_approval → send_email → END`. Sequential rather than parallel — see *Design decisions*.
+**LangGraph pipeline.** `START -> retrieve_icp_context -> company_researcher -> contact_finder -> signal_detector -> retrieve_similar_leads -> retrieve_outreach_examples -> dossier_writer -> await_approval -> send_email -> END`. Sequential rather than parallel; see *Design decisions*.
 
 **Persistence.** When `POSTGRES_URL` is set the FastAPI lifespan swaps the InMemorySaver for `AsyncPostgresSaver`, initializes app-owned run/event tables plus normalized latest-run artifact tables, and runs idempotent DDL on boot. A graph paused at `await_approval` survives a redeploy; the user can come back hours later, recover the dossier by thread ID, inspect summary/event metadata, and approve.
 
