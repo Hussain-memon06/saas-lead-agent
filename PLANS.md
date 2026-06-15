@@ -592,6 +592,7 @@ Use Tier 1 changed-file lint by default. Add targeted tests for the tool or
 execution boundary touched, for example:
 
 ```bash
+pytest tests/test_tool_contracts.py -q
 pytest tests/test_tools.py -q
 pytest tests/test_graph.py -q
 ```
@@ -948,9 +949,8 @@ documented with their outputs.
 
 ## Immediate Next Step
 
-Phase 4 has reached the no-dependency approval boundary. Before continuing with
-heavier retrieval infrastructure, choose and approve the next milestone:
-Postgres-backed document/chunk storage, pgvector/vector storage, embedding
-provider abstraction, retrieval datasets/eval runner, or frontend
-knowledge-base upload/management UI. Do not add vector DB, embedding, queue,
-MCP, auth, eval, or new provider dependencies without explicit approval.
+Phase 5 has started with the no-dependency tooling foundation. Continue with a
+narrow milestone that adapts one existing non-action provider tool to the typed
+tool-result envelope while preserving current graph/API behavior. Do not add
+MCP, queues, durable job infrastructure, auth, evals, vector DB, embeddings, or
+new provider dependencies without explicit approval.

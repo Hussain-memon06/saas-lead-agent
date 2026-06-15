@@ -26,17 +26,19 @@ Follow this file together with `PLANS.md`.
 - Implemented Phase 3: app-owned run snapshots/events, latest-run artifacts,
   dossier recovery, summary history, sanitized run-event retrieval, run
   metadata, node-level provider timing/status, and token usage capture.
-- Current phase: Phase 4 RAG, embeddings, vector memory, and context
-  management. Design plus Pydantic retrieval contracts and deterministic
-  chunking, in-memory lexical retrieval, context assembly, retrieval state
-  fields, sanitized retrieval event metadata, and event construction helpers
-  exist. The graph now includes no-provider retrieval nodes for ICP/offer
-  context, similar-lead insertion, and outreach-example insertion, dossier
-  drafting consumes retrieved context as labeled data, and basic
-  retrieval-quality metrics exist. Next work should request approval before
-  adding vector or embedding dependencies.
-- Planned: model/provider abstraction, durable execution, auth/compliance,
-  evals, and production operations.
+- Implemented Phase 4 no-dependency foundation: RAG design, Pydantic retrieval
+  contracts, deterministic chunking, in-memory lexical retrieval, context
+  assembly, retrieval state fields, sanitized retrieval event metadata,
+  no-provider graph retrieval nodes, retrieved-context dossier drafting, and
+  basic retrieval-quality metrics. Future vector or embedding work requires
+  explicit approval.
+- Current phase: Phase 5 MCP, tooling abstraction, and durable agent execution.
+  Started with a no-dependency design note plus typed tool contracts for tool
+  specs, timeout policies, call context, execution metadata, error envelopes,
+  and result envelopes. MCP, queues, durable jobs, provider fallback runtime,
+  and new dependencies are not implemented yet.
+- Planned: model/provider abstraction, durable execution runtime,
+  auth/compliance, evals, and production operations.
 
 ## Current Architecture
 
@@ -115,7 +117,11 @@ Phase constraints:
 Read these before making changes in their area:
 
 - `PLANS.md` - current roadmap and operating model
-- `specs/in-progress/phase-4-rag-design.md` - active Phase 4 RAG/context
+- `specs/in-progress/phase-5-tooling-durable-execution.md` - active Phase 5
+  tool/MCP/durable-execution design before implementation
+- `src/saas_lead_agent/tools/contracts.py` - Phase 5 tool spec, timeout,
+  context, metadata, error, and result envelope contracts
+- `specs/in-progress/phase-4-rag-design.md` - Phase 4 RAG/context
   design before implementation
 - `src/saas_lead_agent/schemas/retrieval.py` - Phase 4 document/chunk/retrieval
   contracts
@@ -292,7 +298,10 @@ These are tracked in `PLANS.md`; do not solve them out of phase:
   context as labeled data. Basic retrieval-quality metrics exist, but no vector
   memory, embedding provider, persisted retrieval-event table, frontend
   knowledge-base UI, or full retrieval eval runner exists yet.
-- No MCP/tool abstraction or durable job layer yet.
+- Phase 5 has started with typed tool contracts and a durable-execution design
+  note. Existing runtime tools are not wrapped yet, and there is still no MCP
+  implementation, queue, durable job runner, retry/circuit-breaker runtime, or
+  provider fallback abstraction.
 - No dedicated eval harness yet.
 - CORS is still broad until the auth/compliance phase.
 - Strong SSRF hardening beyond first-pass URL checks belongs in Phase 6.

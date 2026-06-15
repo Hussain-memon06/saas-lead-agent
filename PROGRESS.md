@@ -27,6 +27,18 @@ Phase 3 is complete for the current roadmap milestone and committed in slices.
   extraction when LangChain exposes usage metadata, and optional
   env-configured cost estimates
 
+Phase 4 is complete for the no-dependency roadmap milestone and committed.
+The graph now has retrieval insertion points and retrieved-context drafting,
+but vector storage, embedding providers, persisted retrieval-event tables,
+knowledge-base UI, and the full retrieval eval runner still require explicit
+approval before implementation.
+
+Phase 5 has started with a no-dependency tooling foundation.
+Typed tool contracts and a durable-execution/MCP design note exist, but existing
+runtime tools are not wrapped yet and there is no MCP server/client, queue,
+durable job runner, retry/circuit-breaker runtime, or provider fallback
+abstraction.
+
 ## What We Completed
 
 ### Planning And Operating Model
@@ -122,6 +134,10 @@ or explicitly requested checks:
 - `ebe13e6 feat: finalize deterministic scoring configuration`
 - `8fa6b60 feat: add phase 3 lead persistence and run metadata`
 - `8469b03 feat: add phase 3 lead history endpoints`
+- `ef07b9c feat: complete phase 3 provider metadata`
+- `8b0541b feat: add phase 4 retrieval contracts`
+- `2557ca1 feat: add phase 4 retrieval context metadata`
+- `8fc91c5 feat: complete phase 4 retrieval graph foundation`
 
 ## Phase 2 Progress
 
@@ -368,8 +384,8 @@ Started with a design/context-management milestone:
   - source coverage
   - expected chunk retrieval mapping
 
-Do not add vector DB, embedding, queue, MCP, auth, eval, production ops, or new
-provider dependencies without explicit approval.
+Do not add vector DB, embedding, queue, MCP implementation/dependencies, auth,
+eval, production ops, or new provider dependencies without explicit approval.
 
 ### Next Phase 4 Milestone
 
@@ -379,6 +395,61 @@ Postgres-backed document/chunk storage, pgvector/vector storage, embedding
 provider abstraction, retrieval datasets/eval runner, or frontend
 knowledge-base upload/management UI.
 
+## Phase 5 Progress
+
+Started with a no-dependency tool-interface and durable-execution planning
+milestone:
+
+- Added `specs/in-progress/phase-5-tooling-durable-execution.md` covering:
+  - current tool surface
+  - non-goals for the first Phase 5 milestone
+  - typed tool interface design
+  - MCP-ready-but-deferred decision
+  - durable run status model
+  - retry, timeout, circuit-breaker, and fallback policy
+  - qualification and delivery idempotency policy
+  - sandboxing policy for any future browser automation or code execution
+  - implementation sequence that starts with local contracts before MCP,
+    queues, or provider/runtime changes
+- Added `src/saas_lead_agent/tools/contracts.py` with strict Pydantic
+  contracts for:
+  - tool specs
+  - timeout/retry policies
+  - call context and idempotency metadata
+  - sanitized execution metadata
+  - sanitized tool errors
+  - common tool result envelopes
+- Added helper builders for completed and failed tool-result envelopes.
+- Added `tests/test_tool_contracts.py` covering success/failure envelopes,
+  extra-field rejection, result-shape validation, attempt-budget validation,
+  and human-approval requirements for external-action tools.
+- Exported the tool contracts from `src/saas_lead_agent/tools/__init__.py`.
+
+Existing runtime tools are not wrapped yet. The graph and API behavior are
+unchanged by this milestone.
+
+### Next Phase 5 Milestone
+
+Adapt one existing non-action provider tool, likely `web_search` or `scrape`,
+to produce the typed `ToolResult` envelope internally while preserving current
+graph/API behavior. Then persist sanitized tool-result metadata in run events.
+Do not add MCP, queues, durable job infrastructure, new provider dependencies,
+or external-action retries without explicit approval.
+
+## Phase 5 Guardrails
+
+- MCP is deferred unless a concrete tool/resource boundary benefits from it.
+- Keep existing graph/API behavior backward-compatible while tool wrappers are
+  introduced.
+- Tool metadata must be sanitized: no API keys, raw provider payloads, full
+  prompts, full scraped text, full outreach bodies, or contact emails.
+- External-action tools, especially email delivery, must require human approval
+  unless a later approved phase explicitly changes that policy.
+- Do not add retries that can duplicate email delivery or expensive provider
+  work before idempotency is implemented.
+- No MCP, queue, durable-job, browser-automation, or provider dependencies
+  without explicit approval.
+
 ## Phase 4 Guardrails
 
 - Keep deterministic scoring separate from retrieval and generation.
@@ -387,8 +458,8 @@ knowledge-base upload/management UI.
   content.
 - Do not log raw prompts, vectors, provider payloads, credentials, contact
   emails, full outreach bodies, or raw scraped text in retrieval events.
-- Do not introduce auth, queue, vector DB, MCP, eval runner, or new provider
-  dependencies.
+- Do not introduce auth, queue, vector DB, MCP implementation/dependencies,
+  eval runner, or new provider dependencies.
 - No new dependencies without explicit approval.
 - No broad/full verification unless explicitly requested.
 
@@ -402,6 +473,17 @@ uv run python -m ruff format --check <changed-python-files>
 uv run python -m pytest tests\test_retrieval.py tests\test_state.py tests\test_schemas.py tests\test_api.py -q
 uv run python -m pytest tests\test_retrieval_nodes.py tests\test_graph.py -q
 uv run python -m pytest tests\test_agents.py tests\test_retrieval_quality.py -q
+```
+
+## Useful Targeted Verification For Phase 5
+
+Run only the checks related to changed files:
+
+```bash
+uv run python -m ruff check <changed-python-files>
+uv run python -m ruff format --check <changed-python-files>
+uv run python -m pytest tests\test_tool_contracts.py -q
+uv run python -m pytest tests\test_tools.py -q
 ```
 
 Latest Phase 3 targeted verification:
@@ -425,6 +507,13 @@ Latest Phase 4 targeted verification:
 - retrieval context consumption and quality metrics slice: `127 passed`
 - outreach-example insertion and transient offer context slice: `128 passed`
 
+Latest Phase 5 targeted verification:
+
+- tool contract slice: `8 passed`
+- changed-file Ruff checks passed
+- changed-file Ruff format checks passed
+- `git diff --check` passed
+
 If frontend recovery behavior changes, explain that frontend production build
 was not run unless explicitly requested under the release-only verification
 policy.
@@ -438,3 +527,5 @@ policy.
 - Whether normalized artifacts beyond summary snapshots should get query/list
   API endpoints during Phase 3 or remain internal until auth and user-owned
   access checks exist.
+- Whether the first runtime tool wrapper should adapt `web_search` or `scrape`
+  before tool-result metadata is persisted in run events.
