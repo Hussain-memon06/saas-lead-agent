@@ -1,10 +1,13 @@
 """Pydantic v2 request/response models for the lead-research API."""
 
+import json
+
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
 from saas_lead_agent.schemas import IcpContext, SendResult, normalize_public_http_url
+from saas_lead_agent.schemas.compliance import COMPLIANCE_CONFIGURATION_PLAN
 
 
 class QualifyRequest(BaseModel):
@@ -26,6 +29,10 @@ class QualifyRequest(BaseModel):
     def validate_icp_context(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         if v is None:
             return None
+        max_bytes = COMPLIANCE_CONFIGURATION_PLAN.request_limits.max_icp_json_bytes
+        encoded = json.dumps(v, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        if len(encoded) > max_bytes:
+            raise ValueError(f"icp_context must be {max_bytes} bytes or fewer")
         return IcpContext.model_validate(v).model_dump(exclude_unset=True)
 
 
@@ -51,6 +58,7 @@ class QualifyResponse(BaseModel):
     email_body: str | None = None
     email_approved: bool | None = None
     send_result: SendResult | None = None
+    delivery_idempotency_key: str | None = None
     message_id: str | None = None
     sent_at: str | None = None
     interrupted: bool = False
@@ -63,6 +71,7 @@ class ApproveResponse(BaseModel):
     thread_id: str
     email_approved: bool | None = None
     send_result: SendResult | None = None
+    delivery_idempotency_key: str | None = None
     message_id: str | None = None
     sent_at: str | None = None
     processing_metadata: dict[str, Any] | None = None

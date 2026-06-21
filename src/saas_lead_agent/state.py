@@ -30,12 +30,14 @@ class LeadState(TypedDict):
     outreach_quality: dict[str, Any] | None
     retrieval_context: dict[str, Any] | None
     retrieval_events: Annotated[list[dict[str, Any]], operator.add]
+    tool_usage: Annotated[list[dict[str, Any]], operator.add]
     provider_usage: Annotated[list[dict[str, Any]], operator.add]
     processing_metadata: dict[str, Any] | None
     email_subject: str | None
     email_body: str | None
     email_approved: bool | None
     send_result: str | None
+    delivery_idempotency_key: str | None
     message_id: str | None
     sent_at: str | None
     errors: Annotated[list[str], operator.add]

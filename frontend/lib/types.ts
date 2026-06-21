@@ -96,6 +96,8 @@ export type ProcessingMetadata = {
   cost_breakdown_usd: Record<string, number>;
   provider_status: Record<string, string>;
   retrieval_events: Array<Record<string, unknown>>;
+  tool_events: Array<Record<string, unknown>>;
+  tool_status: Record<string, string>;
   duration_seconds: number;
   steps_completed: string[];
   errors: string[];
@@ -130,6 +132,7 @@ export type QualifyResponse = {
   email_body: string | null;
   email_approved: boolean | null;
   send_result: SendResult | null;
+  delivery_idempotency_key: string | null;
   message_id: string | null;
   sent_at: string | null;
   interrupted: boolean;
@@ -142,6 +145,7 @@ export type ApproveResponse = {
   thread_id: string;
   email_approved: boolean | null;
   send_result: SendResult | null;
+  delivery_idempotency_key: string | null;
   message_id: string | null;
   sent_at: string | null;
   processing_metadata: ProcessingMetadata | null;

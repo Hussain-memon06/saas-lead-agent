@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from saas_lead_agent.agents.provider_metadata import provider_usage_record
 from saas_lead_agent.schemas import CompanyProfile
 from saas_lead_agent.state import LeadState
+from saas_lead_agent.tools import capture_tool_results
 from saas_lead_agent.tools.scraper import scrape
 from saas_lead_agent.tools.web_search import web_search
 from saas_lead_agent.utils import _extract_json
@@ -142,10 +143,20 @@ async def company_researcher(state: LeadState) -> dict[str, Any]:
     agent = _get_researcher_agent()
     prompt = f"Research this company and return the JSON profile: {url}"
     invoke_started_at = perf_counter()
+    captured_tool_usage: list[dict[str, Any]] = []
 
     try:
-        result: dict[str, Any] = await agent.ainvoke({"messages": [HumanMessage(content=prompt)]})
+        with capture_tool_results(
+            node="company_researcher",
+            run_id=state.get("run_id"),
+            thread_id=f"lead:{state['domain']}",
+        ) as tool_usage:
+            result: dict[str, Any] = await agent.ainvoke(
+                {"messages": [HumanMessage(content=prompt)]}
+            )
     except Exception as exc:
+        if "tool_usage" in locals():
+            captured_tool_usage.extend(tool_usage)
         return {
             "provider_usage": [
                 provider_usage_record(
@@ -157,8 +168,10 @@ async def company_researcher(state: LeadState) -> dict[str, Any]:
                     error_type=type(exc).__name__,
                 )
             ],
+            "tool_usage": captured_tool_usage,
             "errors": [f"company_researcher: agent invocation failed: {exc}"],
         }
+    captured_tool_usage.extend(tool_usage)
 
     messages: list[Any] = result.get("messages", [])
     usage_record = provider_usage_record(
@@ -173,6 +186,7 @@ async def company_researcher(state: LeadState) -> dict[str, Any]:
         usage_record["status"] = "empty_response"
         return {
             "provider_usage": [usage_record],
+            "tool_usage": captured_tool_usage,
             "errors": ["company_researcher: agent returned no messages"],
         }
 
@@ -185,12 +199,14 @@ async def company_researcher(state: LeadState) -> dict[str, Any]:
         usage_record["status"] = "invalid_response"
         return {
             "provider_usage": [usage_record],
+            "tool_usage": captured_tool_usage,
             "errors": [f"company_researcher: JSON parse error — {exc}. Raw: {raw[:200]}"],
         }
     except ValueError as exc:
         usage_record["status"] = "invalid_response"
         return {
             "provider_usage": [usage_record],
+            "tool_usage": captured_tool_usage,
             "errors": [f"company_researcher: unexpected response shape — {exc}"],
         }
 
@@ -203,6 +219,11 @@ async def company_researcher(state: LeadState) -> dict[str, Any]:
         usage_record["status"] = "schema_validation_failed"
         return {
             "provider_usage": [usage_record],
+            "tool_usage": captured_tool_usage,
             "errors": [f"company_researcher: schema validation error — {exc}"],
         }
-    return {"company_profile": validated.model_dump(), "provider_usage": [usage_record]}
+    return {
+        "company_profile": validated.model_dump(),
+        "provider_usage": [usage_record],
+        "tool_usage": captured_tool_usage,
+    }

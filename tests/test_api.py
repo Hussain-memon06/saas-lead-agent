@@ -209,6 +209,8 @@ async def test_qualify_happy_path() -> None:
     metadata = body["processing_metadata"]
     assert metadata["run_id"] == body["run_id"]
     assert metadata["thread_id"] == body["thread_id"]
+    assert metadata["auth_mode"] == "anonymous_demo"
+    assert metadata["auth_user_present"] is False
     assert metadata["model_used"] == "gpt-4o-mini"
     assert metadata["total_tokens"] == 0
     assert metadata["estimated_cost_usd"] == 0.0
@@ -259,6 +261,27 @@ async def test_qualify_processing_metadata_aggregates_provider_usage() -> None:
                 "raw_prompt": "do not return prompt text",
                 "chunk_text": "do not return retrieved chunk text",
                 "embedding_vector": [0.1, 0.2],
+            }
+        ],
+        "tool_usage": [
+            {
+                "node": "company_researcher",
+                "run_id": "run-from-graph",
+                "thread_id": "lead:acme.example.com",
+                "request_id": "req-from-graph",
+                "tool_name": "web_search",
+                "category": "search",
+                "provider": "tavily",
+                "status": "completed",
+                "duration_ms": 4.25,
+                "attempt": 1,
+                "max_attempts": 1,
+                "timeout_ms": 15000,
+                "input_hash": "d" * 64,
+                "output_count": 2,
+                "raw_provider_payload": {"api_key": "secret"},
+                "output": [{"title": "raw result should not be returned"}],
+                "error_message": "raw provider error should not be returned",
             }
         ],
         "provider_usage": [
@@ -324,6 +347,8 @@ async def test_qualify_processing_metadata_aggregates_provider_usage() -> None:
     }
     assert metadata["timings_ms"]["node.company_researcher"] == 11.5
     assert metadata["timings_ms"]["node.dossier_writer"] == 7.0
+    assert metadata["auth_mode"] == "anonymous_demo"
+    assert metadata["auth_user_present"] is False
     assert metadata["retrieval_events"] == [
         {
             "event_id": "ret-1",
@@ -345,12 +370,37 @@ async def test_qualify_processing_metadata_aggregates_provider_usage() -> None:
             "tokens_selected": 125,
         }
     ]
+    assert metadata["tool_status"] == {"company_researcher.web_search": "completed"}
+    assert metadata["tool_events"] == [
+        {
+            "node": "company_researcher",
+            "run_id": "run-from-graph",
+            "thread_id": "lead:acme.example.com",
+            "request_id": "req-from-graph",
+            "tool_name": "web_search",
+            "category": "search",
+            "provider": "tavily",
+            "status": "completed",
+            "duration_ms": 4.25,
+            "attempt": 1,
+            "max_attempts": 1,
+            "timeout_ms": 15000,
+            "input_hash": "d" * 64,
+            "output_count": 2,
+        }
+    ]
+    assert metadata["timings_ms"]["tool.company_researcher.web_search"] == 4.25
 
     events = await store.list_events("lead:acme.example.com")
     assert events[0].metadata["total_tokens"] == 170
     assert events[0].metadata["provider_status"]["dossier_writer"] == "completed"
     assert events[0].metadata["retrieval_events"][0]["selected_chunk_ids"] == ["chunk-1"]
     assert "chunk_text" not in events[0].metadata["retrieval_events"][0]
+    assert events[0].metadata["tool_events"][0]["tool_name"] == "web_search"
+    assert events[0].metadata["tool_status"] == {"company_researcher.web_search": "completed"}
+    assert "raw_provider_payload" not in events[0].metadata["tool_events"][0]
+    assert "output" not in events[0].metadata["tool_events"][0]
+    assert "error_message" not in events[0].metadata["tool_events"][0]
 
 
 @pytest.mark.asyncio
@@ -394,6 +444,33 @@ async def test_get_lead_recovers_snapshot_after_qualify() -> None:
     assert artifacts.score_breakdown.score_confidence == "high"
     assert artifacts.outreach_draft is not None
     assert artifacts.outreach_draft.email_subject == "Quick question about Acme Corp"
+
+
+@pytest.mark.asyncio
+async def test_qualify_attaches_user_id_to_snapshot_and_lead_artifact() -> None:
+    store = InMemoryLeadRunRepository()
+    mock_graph = _make_graph_mock(_GRAPH_RESULT, next_nodes=("await_approval",))
+
+    with (
+        patch("saas_lead_agent.api.routes._graph", mock_graph),
+        patch("saas_lead_agent.api.routes._lead_store", store),
+    ):
+        async with await _client() as client:
+            resp = await client.post(
+                "/api/qualify",
+                json={"url": "https://acme.example.com"},
+                headers={"X-OLA-User-ID": "user-1"},
+            )
+
+    snapshot = await store.get_by_thread_id("lead:acme.example.com")
+    artifacts = await store.get_artifacts_by_thread_id("lead:acme.example.com")
+
+    assert resp.status_code == 200
+    assert "user_id" not in resp.json()
+    assert snapshot is not None
+    assert snapshot.result["user_id"] == "user-1"
+    assert artifacts is not None
+    assert artifacts.lead.user_id == "user-1"
 
 
 @pytest.mark.asyncio
@@ -471,6 +548,36 @@ async def test_list_leads_returns_recent_summary_without_dossier_body() -> None:
 
 
 @pytest.mark.asyncio
+async def test_list_leads_filters_snapshots_by_authenticated_owner() -> None:
+    store = InMemoryLeadRunRepository()
+    for thread_id, user_id in (
+        ("lead:mine.example.com", "user-1"),
+        ("lead:other.example.com", "user-2"),
+        ("lead:legacy.example.com", None),
+    ):
+        await store.save_snapshot(
+            LeadRunSnapshot(
+                run_id=f"run:{thread_id}",
+                thread_id=thread_id,
+                domain=thread_id.removeprefix("lead:"),
+                company_url=f"https://{thread_id.removeprefix('lead:')}",
+                status="completed",
+                result={
+                    "user_id": user_id,
+                    "company_profile": {"name": thread_id},
+                },
+            )
+        )
+
+    with patch("saas_lead_agent.api.routes._lead_store", store):
+        async with await _client() as client:
+            resp = await client.get("/api/leads", headers={"X-OLA-User-ID": "user-1"})
+
+    assert resp.status_code == 200
+    assert [lead["thread_id"] for lead in resp.json()["leads"]] == ["lead:mine.example.com"]
+
+
+@pytest.mark.asyncio
 async def test_get_lead_events_returns_sanitized_metadata() -> None:
     store = InMemoryLeadRunRepository()
     await store.save_snapshot(
@@ -512,6 +619,20 @@ async def test_get_lead_events_returns_sanitized_metadata() -> None:
                         "chunk_text": "raw retrieved text should not be returned",
                     }
                 ],
+                "tool_events": [
+                    {
+                        "tool_name": "web_search",
+                        "category": "search",
+                        "provider": "tavily",
+                        "status": "failed",
+                        "duration_ms": 4.25,
+                        "error_kind": "provider",
+                        "error_message": "raw provider error should not be returned",
+                        "raw_provider_payload": {"results": ["raw provider payload"]},
+                        "output": [{"title": "raw result should not be returned"}],
+                    }
+                ],
+                "tool_status": {"company_researcher.web_search": "failed"},
             },
         )
     )
@@ -540,12 +661,26 @@ async def test_get_lead_events_returns_sanitized_metadata() -> None:
             "tokens_selected": 125,
         }
     ]
+    assert metadata["tool_events"] == [
+        {
+            "tool_name": "web_search",
+            "category": "search",
+            "provider": "tavily",
+            "status": "failed",
+            "duration_ms": 4.25,
+            "error_kind": "provider",
+        }
+    ]
+    assert metadata["tool_status"] == {"company_researcher.web_search": "failed"}
     assert "error" not in metadata
     assert "raw_prompt" not in metadata
     assert "provider_payload" not in metadata
     assert "email_body" not in metadata
     assert "source_text" not in metadata
     assert "chunk_text" not in metadata["retrieval_events"][0]
+    assert "error_message" not in metadata["tool_events"][0]
+    assert "raw_provider_payload" not in metadata["tool_events"][0]
+    assert "output" not in metadata["tool_events"][0]
 
 
 @pytest.mark.asyncio
@@ -612,6 +747,7 @@ async def test_qualify_passes_correct_state_to_graph() -> None:
     assert state["outreach_quality"] is None
     assert state["retrieval_context"] is None
     assert state["retrieval_events"] == []
+    assert state["tool_usage"] == []
     assert state["provider_usage"] == []
     assert state["processing_metadata"] is None
     assert state["errors"] == []
@@ -813,7 +949,12 @@ async def test_approve_resumes_graph_with_true() -> None:
     """POST /api/leads/{thread_id}/approve calls ainvoke(Command(resume=True))."""
     from langgraph.types import Command
 
-    resumed_result = {**_GRAPH_RESULT, "email_approved": True, "send_result": "sent"}
+    resumed_result = {
+        **_GRAPH_RESULT,
+        "email_approved": True,
+        "send_result": "sent",
+        "delivery_idempotency_key": "delivery:test-key",
+    }
     mock_graph = _make_graph_mock(resumed_result, next_nodes=())
     store = InMemoryLeadRunRepository()
 
@@ -841,6 +982,7 @@ async def test_approve_resumes_graph_with_true() -> None:
     assert body["thread_id"] == "lead:acme.example.com"
     assert body["email_approved"] is True
     assert body["send_result"] == "sent"
+    assert body["delivery_idempotency_key"] == "delivery:test-key"
     assert body["interrupted"] is False
     assert body["processing_metadata"]["run_id"] == "run-existing"
     assert body["processing_metadata"]["timings_ms"]["graph"] >= 0
@@ -851,6 +993,7 @@ async def test_approve_resumes_graph_with_true() -> None:
     assert artifacts.decision.decision == "approved"
     assert artifacts.delivery_event is not None
     assert artifacts.delivery_event.send_result == "sent"
+    assert artifacts.delivery_event.delivery_idempotency_key == "delivery:test-key"
 
     # Verify Command(resume=True) was passed
     call_args = mock_graph.ainvoke.call_args

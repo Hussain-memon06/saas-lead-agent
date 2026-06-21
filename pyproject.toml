@@ -16,6 +16,7 @@ dependencies = [
     "fastapi>=0.115,<0.116",
     "uvicorn[standard]>=0.34,<0.35",
     "pydantic>=2.0,<3.0",
+    "PyJWT[crypto]>=2.10,<3.0",
     # Tools
     "httpx>=0.28,<0.29",
     "beautifulsoup4>=4.12,<5.0",

@@ -10,17 +10,41 @@ behavior.
 MCP, queues, durable job infrastructure, browser automation, code execution,
 and new provider dependencies are not implemented in this milestone.
 
+Implemented so far:
+
+- Typed tool contracts in `src/saas_lead_agent/tools/contracts.py`.
+- Scoped sanitized tool-result capture in
+  `src/saas_lead_agent/tools/recording.py`.
+- `web_search` returns the same LangChain list output to callers while
+  producing a typed `ToolResult` internally.
+- `scrape` returns the same LangChain string output to callers while producing
+  a typed `ToolResult` internally.
+- `hunt_contact` returns the same LangChain dict output to callers while
+  producing a typed `ToolResult` internally.
+- `company_researcher`, `contact_finder`, and `signal_detector` capture
+  sanitized tool metadata into `tool_usage`.
+- API processing metadata exposes additive `tool_events`, `tool_status`, and
+  `tool.<node>.<tool>` timing entries.
+- SendGrid delivery now has a typed `ToolResult` envelope, delivery
+  idempotency key propagation, and sanitized `sendgrid_delivery` tool metadata
+  for approved delivery attempts.
+- A local tool-spec registry lists the current Phase 5 tool surface for future
+  MCP, durable execution, and provider fallback work.
+
 ## Current Tool Surface
 
-- `web_search`: Tavily-backed search tool, external provider call, currently
-  raises `RuntimeError` on missing configuration or provider failure.
+- `web_search`: Tavily-backed search tool, external provider call, now wrapped
+  with typed `ToolResult` metadata while preserving existing `RuntimeError`
+  behavior for missing configuration or provider failure.
 - `scrape`: HTTP page fetch and clean-text extraction, external network call,
-  currently uses first-pass URL validation and a 15-second timeout.
-- `hunt_contact`: Hunter.io contact-finding tool, external provider call,
-  currently raises `RuntimeError` on missing configuration, HTTP errors, or
-  network errors.
+  now wrapped with typed `ToolResult` metadata while preserving existing
+  validation/network/HTTP failure behavior.
+- `hunt_contact`: Hunter.io contact-finding tool, external provider call, now
+  wrapped with typed `ToolResult` metadata while preserving existing
+  configuration/HTTP/network failure behavior.
 - Email delivery exists outside `src/saas_lead_agent/tools/` under the
-  SendGrid integration and remains human-in-the-loop through approval flow.
+  SendGrid integration, remains human-in-the-loop through approval flow, and
+  now exposes typed `sendgrid_delivery` metadata for approved attempts.
 
 ## Non-Goals For This Milestone
 
@@ -28,8 +52,8 @@ and new provider dependencies are not implemented in this milestone.
 - No queue, worker, or background-job dependency.
 - No vector database, embedding provider, or retrieval infrastructure changes.
 - No auth/session ownership changes.
-- No change to existing tool runtime behavior until wrappers are introduced in
-  a later Phase 5 milestone.
+- No change to existing SendGrid or durable runtime behavior until wrappers are
+  introduced in later Phase 5 milestones.
 
 ## Tool Interface Design
 
@@ -155,6 +179,17 @@ Email-delivery idempotency should be stricter:
 External actions must not be repeated automatically unless the idempotency key
 proves the previous attempt did not already succeed.
 
+Implemented planning helper:
+
+- `src/saas_lead_agent/email/idempotency.py` defines a deterministic
+  `delivery_idempotency_key()` for planned SendGrid delivery protection.
+- The key is based on run ID plus hashes of recipient, subject, and body.
+- Raw recipient email and raw email body must not be logged as part of the key.
+- The key is carried on approved delivery attempts and persisted on app-owned
+  delivery event records.
+- The helper is intentionally not wired into delivery retries yet; retries need
+  persisted delivery-event lookup first.
+
 ## Provider Fallback Strategy
 
 - Search: if Tavily fails, return a typed failed result and allow downstream
@@ -182,11 +217,27 @@ tool category:
 
 ## First Implementation Sequence
 
-1. Add typed tool contract models and focused tests.
+1. Add typed tool contract models and focused tests. Done.
 2. Document MCP-deferred decision, durable run-state model, retry/timeout,
-   idempotency, fallback, and sandboxing policy.
-3. Wrap one existing non-action tool with a `ToolResult` adapter while keeping
-   the graph response shape compatible.
-4. Persist sanitized tool-result metadata in run events.
+   idempotency, fallback, and sandboxing policy. Done.
+3. Wrap existing non-action tools with `ToolResult` adapters while keeping the
+   graph response shape compatible. Done for `web_search`, `scrape`, and
+   `hunt_contact`.
+4. Persist sanitized tool-result metadata in run events. Done for captured
+   `web_search`, `scrape`, and `hunt_contact` calls.
 5. Add idempotency planning for qualification and SendGrid delivery before
-   adding retries that could duplicate work.
+   adding retries that could duplicate work. Done for delivery-key generation
+   and recording; durable duplicate checks are still deferred.
+6. Add a typed SendGrid delivery envelope and local tool-spec registry. Done.
+
+## Phase 5 Closure
+
+The no-dependency Phase 5 implementation boundary is complete:
+
+- typed contracts exist for the current tool surface
+- search, scraper, contact-finding, and SendGrid delivery produce typed
+  envelopes internally
+- graph nodes expose sanitized tool metadata through run processing metadata
+- delivery idempotency keys are generated and recorded before any retry work
+- MCP, queues, durable job runners, external-action retries, and provider
+  fallback runtime remain deferred until explicitly approved

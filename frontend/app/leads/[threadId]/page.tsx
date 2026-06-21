@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@clerk/nextjs";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 
 import type { QualifyResponse } from "@/lib/types";
@@ -21,10 +22,12 @@ export default function LeadPage() {
   const params = useParams<{ threadId: string }>();
   const threadId = decodeURIComponent(params.threadId);
   const { configured: icpConfigured } = useIcp();
+  const { getToken, userId } = useAuth();
 
   const { data, isLoading, error } = useQuery<QualifyResponse, ApiError>({
-    queryKey: ["lead", threadId],
-    queryFn: () => getLead(threadId),
+    queryKey: ["lead", userId, threadId],
+    queryFn: async () => getLead(threadId, await getToken()),
+    enabled: Boolean(userId),
     staleTime: 30_000,
   });
 

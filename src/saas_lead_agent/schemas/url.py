@@ -1,10 +1,6 @@
-"""First-pass URL validation for server-side fetches.
+"""URL and resolved-address validation for public server-side fetches."""
 
-This is not the final SSRF layer. Phase 6 should add DNS resolution checks,
-redirect re-validation, and environment-specific allow/deny policy. This module
-blocks obvious unsafe inputs before any scraper or graph work begins.
-"""
-
+import socket
 from ipaddress import ip_address
 from urllib.parse import urlparse, urlunparse
 
@@ -66,3 +62,34 @@ def normalize_public_http_url(raw: str) -> str:
     if normalized.endswith("/") and not parsed.query and not parsed.fragment:
         normalized = normalized.rstrip("/")
     return normalized
+
+
+def validate_public_http_target(raw: str) -> str:
+    """Normalize a URL and reject hostnames resolving to non-public addresses."""
+    url, _ = resolve_public_http_target(raw)
+    return url
+
+
+def resolve_public_http_target(raw: str) -> tuple[str, tuple[str, ...]]:
+    """Return a normalized URL and the public IPs validated for connection."""
+    url = normalize_public_http_url(raw)
+    parsed = urlparse(url)
+    host = parsed.hostname
+    if host is None:
+        raise ValueError("url must include a hostname")
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise ValueError("url hostname could not be resolved") from exc
+    if not addresses:
+        raise ValueError("url hostname could not be resolved")
+    resolved_addresses: list[str] = []
+    for address in addresses:
+        resolved = ip_address(address[4][0].split("%", 1)[0])
+        if not resolved.is_global:
+            raise ValueError("url hostname resolves to a non-public IP address")
+        normalized_address = str(resolved)
+        if normalized_address not in resolved_addresses:
+            resolved_addresses.append(normalized_address)
+    return url, tuple(resolved_addresses)

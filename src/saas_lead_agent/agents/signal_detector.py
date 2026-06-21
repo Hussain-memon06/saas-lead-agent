@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from saas_lead_agent.agents.provider_metadata import provider_usage_record
 from saas_lead_agent.schemas import CompanySignal
 from saas_lead_agent.state import LeadState
+from saas_lead_agent.tools import capture_tool_results
 from saas_lead_agent.tools.web_search import web_search
 from saas_lead_agent.utils import _extract_json_list
 
@@ -132,10 +133,20 @@ async def signal_detector(state: LeadState) -> dict[str, Any]:
     agent = _get_signal_detector_agent()
     prompt = f"Find buying signals for company '{company_name}' (domain: {domain})"
     invoke_started_at = perf_counter()
+    captured_tool_usage: list[dict[str, Any]] = []
 
     try:
-        result: dict[str, Any] = await agent.ainvoke({"messages": [HumanMessage(content=prompt)]})
+        with capture_tool_results(
+            node="signal_detector",
+            run_id=state.get("run_id"),
+            thread_id=f"lead:{domain}",
+        ) as tool_usage:
+            result: dict[str, Any] = await agent.ainvoke(
+                {"messages": [HumanMessage(content=prompt)]}
+            )
     except Exception as exc:
+        if "tool_usage" in locals():
+            captured_tool_usage.extend(tool_usage)
         return {
             "provider_usage": [
                 provider_usage_record(
@@ -147,8 +158,10 @@ async def signal_detector(state: LeadState) -> dict[str, Any]:
                     error_type=type(exc).__name__,
                 )
             ],
+            "tool_usage": captured_tool_usage,
             "errors": [f"signal_detector: agent invocation failed: {exc}"],
         }
+    captured_tool_usage.extend(tool_usage)
 
     messages: list[Any] = result.get("messages", [])
     usage_record = provider_usage_record(
@@ -163,6 +176,7 @@ async def signal_detector(state: LeadState) -> dict[str, Any]:
         usage_record["status"] = "empty_response"
         return {
             "provider_usage": [usage_record],
+            "tool_usage": captured_tool_usage,
             "errors": ["signal_detector: agent returned no messages"],
         }
 
@@ -175,12 +189,14 @@ async def signal_detector(state: LeadState) -> dict[str, Any]:
         usage_record["status"] = "invalid_response"
         return {
             "provider_usage": [usage_record],
+            "tool_usage": captured_tool_usage,
             "errors": [f"signal_detector: JSON parse error — {exc}. Raw: {raw[:200]}"],
         }
     except ValueError as exc:
         usage_record["status"] = "invalid_response"
         return {
             "provider_usage": [usage_record],
+            "tool_usage": captured_tool_usage,
             "errors": [f"signal_detector: unexpected response shape — {exc}"],
         }
 
@@ -193,9 +209,11 @@ async def signal_detector(state: LeadState) -> dict[str, Any]:
         usage_record["status"] = "schema_validation_failed"
         return {
             "provider_usage": [usage_record],
+            "tool_usage": captured_tool_usage,
             "errors": [f"signal_detector: schema validation error — {exc}"],
         }
     return {
         "signals": [signal.model_dump() for signal in validated],
         "provider_usage": [usage_record],
+        "tool_usage": captured_tool_usage,
     }

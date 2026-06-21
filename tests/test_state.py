@@ -15,7 +15,7 @@ def _merge(a: LeadState, b: dict) -> LeadState:  # type: ignore[return]
             result["messages"] = add_messages(a.get("messages", []), val)
         elif key == "errors":
             result["errors"] = operator.add(a.get("errors", []), val)
-        elif key in {"provider_usage", "retrieval_events"}:
+        elif key in {"provider_usage", "retrieval_events", "tool_usage"}:
             result[key] = operator.add(a.get(key, []), val)
         else:
             result[key] = val
@@ -43,12 +43,14 @@ _BASE: LeadState = {
     "outreach_quality": None,
     "retrieval_context": None,
     "retrieval_events": [],
+    "tool_usage": [],
     "provider_usage": [],
     "processing_metadata": None,
     "email_subject": None,
     "email_body": None,
     "email_approved": None,
     "send_result": None,
+    "delivery_idempotency_key": None,
     "message_id": None,
     "sent_at": None,
     "errors": [],
@@ -100,6 +102,22 @@ def test_retrieval_events_reducer_concatenates() -> None:
     ]
 
 
+def test_tool_usage_reducer_concatenates() -> None:
+    state: LeadState = {
+        **_BASE,
+        "tool_usage": [{"node": "company_researcher", "tool_name": "web_search"}],
+    }
+    updated = _merge(
+        state,
+        {"tool_usage": [{"node": "signal_detector", "tool_name": "web_search"}]},
+    )
+
+    assert updated["tool_usage"] == [
+        {"node": "company_researcher", "tool_name": "web_search"},
+        {"node": "signal_detector", "tool_name": "web_search"},
+    ]
+
+
 def test_scalar_fields_overwrite() -> None:
     updated = _merge(
         _BASE,
@@ -122,12 +140,14 @@ def test_initial_state_is_valid() -> None:
     assert _BASE["outreach_quality"] is None
     assert _BASE["retrieval_context"] is None
     assert _BASE["retrieval_events"] == []
+    assert _BASE["tool_usage"] == []
     assert _BASE["provider_usage"] == []
     assert _BASE["processing_metadata"] is None
     assert _BASE["email_subject"] is None
     assert _BASE["email_body"] is None
     assert _BASE["email_approved"] is None
     assert _BASE["send_result"] is None
+    assert _BASE["delivery_idempotency_key"] is None
     assert _BASE["errors"] == []
 
 

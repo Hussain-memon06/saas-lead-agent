@@ -12,6 +12,8 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
+from saas_lead_agent.api.auth import public_auth_metadata, resolve_auth_context
+from saas_lead_agent.api.security import enforce_write_rate_limit
 from saas_lead_agent.api.schemas import (
     ApproveResponse,
     LeadListResponse,
@@ -28,8 +30,9 @@ from saas_lead_agent.persistence import (
     LeadRunSnapshot,
     RunEvent,
     RunStatus,
+    can_read_snapshot,
 )
-from saas_lead_agent.schemas import ProcessingMetadata
+from saas_lead_agent.schemas import AuthContext, ProcessingMetadata
 from saas_lead_agent.state import LeadState
 
 router = APIRouter()
@@ -106,6 +109,13 @@ def _retrieval_event_records(state: dict[str, Any]) -> list[dict[str, object]]:
     return [_public_retrieval_event(event) for event in retrieval_events if isinstance(event, dict)]
 
 
+def _tool_usage_records(state: dict[str, Any]) -> list[dict[str, object]]:
+    tool_usage = state.get("tool_usage")
+    if not isinstance(tool_usage, list):
+        return []
+    return [_public_tool_usage(record) for record in tool_usage if isinstance(record, dict)]
+
+
 def _public_retrieval_event(event: dict[str, Any]) -> dict[str, object]:
     allowed_keys = {
         "event_id",
@@ -126,6 +136,31 @@ def _public_retrieval_event(event: dict[str, Any]) -> dict[str, object]:
         "created_at",
     }
     return {key: event[key] for key in allowed_keys if key in event}
+
+
+def _public_tool_usage(record: dict[str, Any]) -> dict[str, object]:
+    allowed_keys = {
+        "node",
+        "run_id",
+        "thread_id",
+        "request_id",
+        "tool_name",
+        "category",
+        "provider",
+        "status",
+        "duration_ms",
+        "attempt",
+        "max_attempts",
+        "timeout_ms",
+        "input_hash",
+        "output_count",
+        "error_kind",
+        "retryable",
+        "provider_status_code",
+        "provider_error_code",
+        "has_idempotency_key",
+    }
+    return {key: record[key] for key in allowed_keys if key in record}
 
 
 def _aggregate_provider_usage(provider_usage: list[dict[str, Any]]) -> dict[str, Any]:
@@ -170,6 +205,31 @@ def _aggregate_provider_usage(provider_usage: list[dict[str, Any]]) -> dict[str,
         "cost_breakdown_usd": cost_breakdown,
         "provider_status": provider_status,
     }
+
+
+def _aggregate_tool_usage(tool_usage: list[dict[str, object]]) -> dict[str, Any]:
+    tool_status: dict[str, str] = {}
+    tool_timings: dict[str, float] = {}
+
+    for index, record in enumerate(tool_usage):
+        tool_name = str(record.get("tool_name") or f"unknown_{index}")
+        node = record.get("node")
+        timing_key = (
+            f"tool.{node}.{tool_name}"
+            if isinstance(node, str) and node
+            else f"tool.{tool_name}.{index}"
+        )
+        status_key = f"{node}.{tool_name}" if isinstance(node, str) and node else tool_name
+
+        status_value = record.get("status")
+        if isinstance(status_value, str) and status_value:
+            tool_status[status_key] = status_value
+
+        duration_ms = _nonnegative_float(record.get("duration_ms"))
+        if duration_ms is not None:
+            tool_timings[timing_key] = duration_ms
+
+    return {"tool_status": tool_status, "tool_timings": tool_timings}
 
 
 def _estimate_cost_usd(token_usage: dict[str, int]) -> tuple[float, dict[str, float]]:
@@ -273,11 +333,16 @@ def _processing_metadata(
     errors: list[str],
     provider_usage: list[dict[str, Any]] | None = None,
     retrieval_events: list[dict[str, object]] | None = None,
+    tool_usage: list[dict[str, object]] | None = None,
+    auth_metadata: dict[str, object] | None = None,
 ) -> dict[str, Any]:
     provider_summary = _aggregate_provider_usage(provider_usage or [])
+    public_tool_usage = tool_usage or []
+    tool_summary = _aggregate_tool_usage(public_tool_usage)
     combined_timings = {
         **timings_ms,
         **provider_summary["timings_ms"],
+        **tool_summary["tool_timings"],
     }
     metadata = ProcessingMetadata(
         run_id=run_id,
@@ -289,7 +354,10 @@ def _processing_metadata(
         token_usage=provider_summary["token_usage"],
         cost_breakdown_usd=provider_summary["cost_breakdown_usd"],
         provider_status=provider_summary["provider_status"],
+        **(auth_metadata or {}),
         retrieval_events=retrieval_events or [],
+        tool_events=public_tool_usage,
+        tool_status=tool_summary["tool_status"],
         duration_seconds=max((completed_at - started_at).total_seconds(), 0.0),
         steps_completed=steps_completed,
         errors=errors,
@@ -329,6 +397,7 @@ def _response_from_state(
         email_body=state.get("email_body"),
         email_approved=state.get("email_approved"),
         send_result=state.get("send_result"),
+        delivery_idempotency_key=state.get("delivery_idempotency_key"),
         message_id=state.get("message_id"),
         sent_at=state.get("sent_at"),
         interrupted=interrupted,
@@ -370,13 +439,18 @@ def _public_event_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
         "status",
         "interrupted",
         "send_result",
+        "delivery_idempotency_key",
         "timings_ms",
         "total_tokens",
         "estimated_cost_usd",
         "token_usage",
         "cost_breakdown_usd",
         "provider_status",
+        "auth_mode",
+        "auth_user_present",
         "retrieval_events",
+        "tool_events",
+        "tool_status",
         "error_type",
     }
     public: dict[str, Any] = {}
@@ -386,6 +460,11 @@ def _public_event_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
         if key == "retrieval_events" and isinstance(metadata[key], list):
             public[key] = [
                 _public_retrieval_event(event) for event in metadata[key] if isinstance(event, dict)
+            ]
+            continue
+        if key == "tool_events" and isinstance(metadata[key], list):
+            public[key] = [
+                _public_tool_usage(record) for record in metadata[key] if isinstance(record, dict)
             ]
             continue
         public[key] = metadata[key]
@@ -409,7 +488,11 @@ async def _save_snapshot(
     company_url: str,
     domain: str,
     status_value: RunStatus,
+    owner_user_id: str | None = None,
 ) -> None:
+    result = response.model_dump()
+    if owner_user_id is not None:
+        result["user_id"] = owner_user_id
     await _lead_store.save_snapshot(
         LeadRunSnapshot(
             run_id=response.run_id or str(uuid4()),
@@ -418,7 +501,7 @@ async def _save_snapshot(
             company_url=company_url,
             status=status_value,
             request_id=response.request_id,
-            result=response.model_dump(),
+            result=result,
         )
     )
 
@@ -470,12 +553,14 @@ def _initial_state(
         "outreach_quality": None,
         "retrieval_context": None,
         "retrieval_events": [],
+        "tool_usage": [],
         "provider_usage": [],
         "processing_metadata": None,
         "email_subject": None,
         "email_body": None,
         "email_approved": None,
         "send_result": None,
+        "delivery_idempotency_key": None,
         "message_id": None,
         "sent_at": None,
         "errors": [],
@@ -492,6 +577,9 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
     domain = _domain_from_url(body.url)
     thread_id = f"lead:{domain}"
     request_id = _request_id(request)
+    auth = await resolve_auth_context(request)
+    await enforce_write_rate_limit(action="qualify", auth=auth, request=request)
+    auth_metadata = public_auth_metadata(auth)
     run_id = str(uuid4())
     started_at = datetime.now(UTC)
     api_start = perf_counter()
@@ -533,6 +621,7 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
             },
             steps_completed=[],
             errors=[f"Graph execution failed: {exc}"],
+            auth_metadata=auth_metadata,
         )
         failed_response = _response_from_state(
             state={
@@ -549,6 +638,7 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
             company_url=body.url,
             domain=domain,
             status_value="failed",
+            owner_user_id=auth.user_id,
         )
         await _record_event(
             run_id=run_id,
@@ -557,6 +647,7 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
             request_id=request_id,
             metadata={
                 "error_type": type(exc).__name__,
+                **auth_metadata,
                 "timings_ms": processing_metadata["timings_ms"],
             },
         )
@@ -595,6 +686,8 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
         errors=[str(error) for error in result.get("errors", [])],
         provider_usage=_provider_usage_records(result),
         retrieval_events=_retrieval_event_records(result),
+        tool_usage=_tool_usage_records(result),
+        auth_metadata=auth_metadata,
     )
     result = {**result, "processing_metadata": processing_metadata}
     response = _response_from_state(
@@ -610,6 +703,7 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
         company_url=body.url,
         domain=domain,
         status_value=status_value,
+        owner_user_id=auth.user_id,
     )
     await _record_event(
         run_id=response.run_id or run_id,
@@ -625,7 +719,11 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
             "token_usage": processing_metadata["token_usage"],
             "cost_breakdown_usd": processing_metadata["cost_breakdown_usd"],
             "provider_status": processing_metadata["provider_status"],
+            "auth_mode": processing_metadata["auth_mode"],
+            "auth_user_present": processing_metadata["auth_user_present"],
             "retrieval_events": processing_metadata["retrieval_events"],
+            "tool_events": processing_metadata["tool_events"],
+            "tool_status": processing_metadata["tool_status"],
         },
     )
     logger.info(
@@ -653,10 +751,14 @@ async def list_leads(
     limit: int = Query(default=20, ge=1, le=100),
 ) -> LeadListResponse:
     """Return recent app-owned lead summaries without draft/contact PII."""
-    snapshots = await _lead_store.list_snapshots(limit)
+    auth = await resolve_auth_context(request)
+    if "admin" in auth.roles:
+        visible_snapshots = await _lead_store.list_snapshots(limit)
+    else:
+        visible_snapshots = await _lead_store.list_snapshots_for_owner(auth.user_id, limit)
     return LeadListResponse(
         request_id=_request_id(request),
-        leads=[_lead_summary_from_snapshot(snapshot) for snapshot in snapshots],
+        leads=[_lead_summary_from_snapshot(snapshot) for snapshot in visible_snapshots],
     )
 
 
@@ -667,8 +769,9 @@ async def list_leads(
 )
 async def get_lead(thread_id: str, request: Request) -> QualifyResponse:
     """Recover the latest app-owned lead snapshot by LangGraph thread ID."""
+    auth = await resolve_auth_context(request)
     snapshot = await _lead_store.get_by_thread_id(thread_id)
-    if snapshot is None:
+    if snapshot is None or not can_read_snapshot(auth, snapshot).allowed:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No stored lead run found for thread_id={thread_id}",
@@ -690,8 +793,9 @@ async def get_lead(thread_id: str, request: Request) -> QualifyResponse:
 )
 async def get_lead_events(thread_id: str, request: Request) -> RunEventsResponse:
     """Return sanitized lifecycle events for the stored lead thread."""
+    auth = await resolve_auth_context(request)
     snapshot = await _lead_store.get_by_thread_id(thread_id)
-    if snapshot is None:
+    if snapshot is None or not can_read_snapshot(auth, snapshot).allowed:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No stored lead run found for thread_id={thread_id}",
@@ -704,9 +808,24 @@ async def get_lead_events(thread_id: str, request: Request) -> RunEventsResponse
     )
 
 
-async def _resume(thread_id: str, decision: bool, request_id: str | None = None) -> ApproveResponse:
+async def _resume(
+    thread_id: str,
+    decision: bool,
+    request_id: str | None = None,
+    auth: AuthContext | None = None,
+) -> ApproveResponse:
     """Shared logic for /approve and /reject: resume the graph with a bool."""
+    auth = auth or AuthContext()
     snapshot = await _lead_store.get_by_thread_id(thread_id)
+    if snapshot is None or not can_read_snapshot(auth, snapshot).allowed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No stored lead run found for thread_id={thread_id}",
+        )
+    auth_metadata = public_auth_metadata(auth)
+    owner_user_id = auth.user_id
+    if snapshot is not None and isinstance(snapshot.result.get("user_id"), str):
+        owner_user_id = snapshot.result["user_id"]
     run_id = snapshot.run_id if snapshot is not None else str(uuid4())
     started_at = datetime.now(UTC)
     api_start = perf_counter()
@@ -770,6 +889,8 @@ async def _resume(thread_id: str, decision: bool, request_id: str | None = None)
         errors=[str(error) for error in result.get("errors", [])],
         provider_usage=_provider_usage_records(result),
         retrieval_events=_retrieval_event_records(result),
+        tool_usage=_tool_usage_records(result),
+        auth_metadata=auth_metadata,
     )
     result = {**result, "processing_metadata": processing_metadata}
     response_state = _response_from_state(
@@ -794,6 +915,7 @@ async def _resume(thread_id: str, decision: bool, request_id: str | None = None)
             company_url=company_url,
             domain=domain,
             status_value=status_value,
+            owner_user_id=owner_user_id,
         )
 
     await _record_event(
@@ -804,6 +926,7 @@ async def _resume(thread_id: str, decision: bool, request_id: str | None = None)
         metadata={
             "status": status_value,
             "send_result": result.get("send_result"),
+            "delivery_idempotency_key": result.get("delivery_idempotency_key"),
             "interrupted": interrupted,
             "timings_ms": processing_metadata["timings_ms"],
             "total_tokens": processing_metadata["total_tokens"],
@@ -811,7 +934,11 @@ async def _resume(thread_id: str, decision: bool, request_id: str | None = None)
             "token_usage": processing_metadata["token_usage"],
             "cost_breakdown_usd": processing_metadata["cost_breakdown_usd"],
             "provider_status": processing_metadata["provider_status"],
+            "auth_mode": processing_metadata["auth_mode"],
+            "auth_user_present": processing_metadata["auth_user_present"],
             "retrieval_events": processing_metadata["retrieval_events"],
+            "tool_events": processing_metadata["tool_events"],
+            "tool_status": processing_metadata["tool_status"],
         },
     )
     logger.info(
@@ -834,6 +961,7 @@ async def _resume(thread_id: str, decision: bool, request_id: str | None = None)
         thread_id=thread_id,
         email_approved=result.get("email_approved"),
         send_result=result.get("send_result"),
+        delivery_idempotency_key=result.get("delivery_idempotency_key"),
         message_id=result.get("message_id"),
         sent_at=result.get("sent_at"),
         processing_metadata=result.get("processing_metadata"),
@@ -849,7 +977,14 @@ async def _resume(thread_id: str, decision: bool, request_id: str | None = None)
 )
 async def approve(thread_id: str, request: Request) -> ApproveResponse:
     """Resume an interrupted graph with ``Command(resume=True)``."""
-    return await _resume(thread_id, True, _request_id(request))
+    auth = await resolve_auth_context(request)
+    await enforce_write_rate_limit(action="decision", auth=auth, request=request)
+    return await _resume(
+        thread_id,
+        True,
+        _request_id(request),
+        auth,
+    )
 
 
 @router.post(
@@ -859,4 +994,11 @@ async def approve(thread_id: str, request: Request) -> ApproveResponse:
 )
 async def reject(thread_id: str, request: Request) -> ApproveResponse:
     """Resume an interrupted graph with ``Command(resume=False)``."""
-    return await _resume(thread_id, False, _request_id(request))
+    auth = await resolve_auth_context(request)
+    await enforce_write_rate_limit(action="decision", auth=auth, request=request)
+    return await _resume(
+        thread_id,
+        False,
+        _request_id(request),
+        auth,
+    )

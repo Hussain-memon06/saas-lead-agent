@@ -62,7 +62,7 @@ export default function HomePage() {
           </div>
 
           <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-muted-foreground">
-            Typically takes 60-90 seconds. No account required.
+            Typically takes 60-90 seconds. Sign in is required to keep leads private.
           </p>
         </div>
       </section>

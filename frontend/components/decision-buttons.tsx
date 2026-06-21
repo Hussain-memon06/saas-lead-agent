@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/nextjs";
 import { Check, X, CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -46,11 +47,12 @@ const OUTCOME_COPY: Record<
 
 export function DecisionButtons({ threadId, state }: Props) {
   const queryClient = useQueryClient();
+  const { getToken, userId } = useAuth();
 
   function applyResume(data: ApproveResponse) {
     // Merge resume result into the cached qualify response so the page
     // reflects the new send_result / message_id without a refetch.
-    queryClient.setQueryData<QualifyResponse>(["lead", threadId], (prev) =>
+    queryClient.setQueryData<QualifyResponse>(["lead", userId, threadId], (prev) =>
       prev
         ? {
             ...prev,
@@ -68,12 +70,12 @@ export function DecisionButtons({ threadId, state }: Props) {
   }
 
   const approveMutation = useMutation<ApproveResponse, ApiError, void>({
-    mutationFn: () => approve(threadId),
+    mutationFn: async () => approve(threadId, await getToken()),
     onSuccess: applyResume,
   });
 
   const rejectMutation = useMutation<ApproveResponse, ApiError, void>({
-    mutationFn: () => reject(threadId),
+    mutationFn: async () => reject(threadId, await getToken()),
     onSuccess: applyResume,
   });
 

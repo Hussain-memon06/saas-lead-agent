@@ -1,16 +1,37 @@
 """Hunter.io Domain Search tool — finds the top decision-maker email for a domain."""
 
+import hashlib
+import json
 import os
+from time import perf_counter
 from typing import Any
 
 import httpx
 from langchain_core.tools import tool
+
+from saas_lead_agent.tools.contracts import (
+    ToolCallContext,
+    ToolResult,
+    ToolSpec,
+    ToolTimeoutPolicy,
+    completed_tool_result,
+    failed_tool_result,
+)
+from saas_lead_agent.tools.recording import record_tool_result
 
 _BASE_URL = "https://api.hunter.io/v2/domain-search"
 
 # Seniority levels and departments that indicate decision-making authority.
 _TARGET_SENIORITY = {"senior", "executive"}
 _TARGET_DEPARTMENTS = {"executive", "it", "engineering", "management"}
+
+HUNT_CONTACT_SPEC = ToolSpec(
+    name="hunt_contact",
+    category="contact_finding",
+    provider="hunter",
+    description="Find a likely decision-maker contact for a company domain.",
+    timeout_policy=ToolTimeoutPolicy(timeout_ms=15_000, max_attempts=1),
+)
 
 
 def _pick_best(emails: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -57,9 +78,32 @@ def hunt_contact(domain: str) -> dict[str, Any]:
         RuntimeError: If HUNTER_API_KEY is not set, the request fails with a
             non-2xx status, or a network error occurs.
     """
+    result = run_hunt_contact(domain)
+    record_tool_result(result)
+
+    if result.metadata.status == "completed" and isinstance(result.output, dict):
+        return result.output
+
+    if result.error is not None:
+        raise RuntimeError(result.error.message)
+
+    raise RuntimeError("Unknown Hunter.io failure")
+
+
+def run_hunt_contact(domain: str) -> ToolResult:
+    """Search Hunter.io and return a typed tool-result envelope."""
+    context = ToolCallContext(input_hash=_input_hash(domain=domain))
+    started_at = perf_counter()
+
     api_key = os.environ.get("HUNTER_API_KEY")
     if not api_key:
-        raise RuntimeError("HUNTER_API_KEY environment variable is not set")
+        return failed_tool_result(
+            spec=HUNT_CONTACT_SPEC,
+            context=context,
+            error_kind="configuration",
+            error_message="HUNTER_API_KEY environment variable is not set",
+            duration_ms=_elapsed_ms(started_at),
+        )
 
     try:
         response = httpx.get(
@@ -74,22 +118,40 @@ def hunt_contact(domain: str) -> dict[str, Any]:
         )
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
-        raise RuntimeError(
-            f"Hunter.io API error {exc.response.status_code} for domain '{domain}'"
-        ) from exc
-    except httpx.RequestError as exc:
-        raise RuntimeError(
-            f"Network error contacting Hunter.io for domain '{domain}': {exc}"
-        ) from exc
+        status_code = exc.response.status_code
+        return failed_tool_result(
+            spec=HUNT_CONTACT_SPEC,
+            context=context,
+            status="rate_limited" if status_code == 429 else "failed",
+            error_kind="rate_limit" if status_code == 429 else "http_status",
+            error_message=f"Hunter.io API error {status_code} for domain '{domain}'",
+            retryable=status_code in {408, 409, 425, 429, 500, 502, 503, 504},
+            duration_ms=_elapsed_ms(started_at),
+            provider_status_code=status_code,
+        )
+    except httpx.RequestError:
+        return failed_tool_result(
+            spec=HUNT_CONTACT_SPEC,
+            context=context,
+            error_kind="network",
+            error_message=f"Network error contacting Hunter.io for domain '{domain}'",
+            retryable=True,
+            duration_ms=_elapsed_ms(started_at),
+        )
 
     payload: dict[str, Any] = response.json()
     emails: list[dict[str, Any]] = payload.get("data", {}).get("emails", [])
     best = _pick_best(emails)
 
     if best is None:
-        return {}
+        return completed_tool_result(
+            spec=HUNT_CONTACT_SPEC,
+            context=context,
+            output={},
+            duration_ms=_elapsed_ms(started_at),
+        )
 
-    return {
+    output = {
         "value": best.get("value"),
         "first_name": best.get("first_name"),
         "last_name": best.get("last_name"),
@@ -99,3 +161,18 @@ def hunt_contact(domain: str) -> dict[str, Any]:
         "confidence": best.get("confidence"),
         "linkedin": best.get("linkedin"),
     }
+    return completed_tool_result(
+        spec=HUNT_CONTACT_SPEC,
+        context=context,
+        output=output,
+        duration_ms=_elapsed_ms(started_at),
+    )
+
+
+def _input_hash(*, domain: str) -> str:
+    raw = json.dumps({"domain": domain}, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _elapsed_ms(started_at: float) -> float:
+    return round((perf_counter() - started_at) * 1000, 3)

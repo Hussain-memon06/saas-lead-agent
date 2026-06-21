@@ -203,6 +203,7 @@ async def test_postgres_checkpointer_helper() -> None:
                     "outreach_quality": None,
                     "retrieval_context": None,
                     "retrieval_events": [],
+                    "tool_usage": [],
                     "provider_usage": [],
                     "processing_metadata": None,
                     "email_subject": None,

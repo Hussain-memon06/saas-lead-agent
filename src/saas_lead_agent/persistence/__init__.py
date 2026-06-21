@@ -1,5 +1,13 @@
 """App-owned persistence repositories."""
 
+from saas_lead_agent.persistence.access import (
+    artifacts_owner_id,
+    can_read_artifacts,
+    can_read_snapshot,
+    filter_artifacts_for_auth,
+    filter_snapshots_for_auth,
+    snapshot_owner_id,
+)
 from saas_lead_agent.persistence.lead_artifacts import (
     CompanySignalRecord,
     ContactRecord,
@@ -41,5 +49,11 @@ __all__ = [
     "SourceRecord",
     "UserRecord",
     "build_lead_artifacts",
+    "artifacts_owner_id",
+    "can_read_artifacts",
+    "can_read_snapshot",
     "create_lead_run_repository",
+    "filter_artifacts_for_auth",
+    "filter_snapshots_for_auth",
+    "snapshot_owner_id",
 ]

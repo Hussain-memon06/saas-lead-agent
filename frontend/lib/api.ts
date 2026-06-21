@@ -28,6 +28,14 @@ import type {
 
 const QUALIFY_TIMEOUT_MS = 120_000;
 const RESUME_TIMEOUT_MS = 60_000;
+type AuthToken = string | null;
+
+function requestHeaders(token: AuthToken, jsonBody = false): HeadersInit {
+  const headers: Record<string, string> = {};
+  if (jsonBody) headers["Content-Type"] = "application/json";
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
 
 /** Thrown when the backend returns a non-2xx response. */
 export class ApiError extends Error {
@@ -48,6 +56,7 @@ async function postJson<TResponse>(
   path: string,
   body: unknown,
   timeoutMs: number,
+  token: AuthToken,
 ): Promise<TResponse> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -56,7 +65,7 @@ async function postJson<TResponse>(
   try {
     response = await fetch(apiUrl(path), {
       method: "POST",
-      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      headers: requestHeaders(token, body !== undefined),
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: ctrl.signal,
     });
@@ -111,6 +120,7 @@ async function postJson<TResponse>(
 async function getJson<TResponse>(
   path: string,
   timeoutMs: number,
+  token: AuthToken,
 ): Promise<TResponse> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -119,6 +129,7 @@ async function getJson<TResponse>(
   try {
     response = await fetch(apiUrl(path), {
       method: "GET",
+      headers: requestHeaders(token),
       signal: ctrl.signal,
     });
   } catch (err) {
@@ -154,7 +165,7 @@ async function getJson<TResponse>(
   return (await response.json()) as TResponse;
 }
 
-export async function qualify(req: QualifyRequest): Promise<QualifyResponse> {
+export async function qualify(req: QualifyRequest, token: AuthToken): Promise<QualifyResponse> {
   // Always read the latest ICP from localStorage at call time so the user
   // doesn't have to refresh after editing settings.  An unconfigured ICP
   // is sent as `null` — the backend prompt branches on presence.
@@ -164,38 +175,44 @@ export async function qualify(req: QualifyRequest): Promise<QualifyResponse> {
     "/api/qualify",
     { ...req, icp_context },
     QUALIFY_TIMEOUT_MS,
+    token,
   );
 }
 
-export async function getLead(threadId: string): Promise<QualifyResponse> {
+export async function getLead(threadId: string, token: AuthToken): Promise<QualifyResponse> {
   const encoded = encodeURIComponent(threadId);
-  return getJson<QualifyResponse>(`/api/leads/${encoded}`, RESUME_TIMEOUT_MS);
+  return getJson<QualifyResponse>(`/api/leads/${encoded}`, RESUME_TIMEOUT_MS, token);
 }
 
-export async function listLeads(limit = 20): Promise<LeadListResponse> {
+export async function listLeads(token: AuthToken, limit = 20): Promise<LeadListResponse> {
   const params = new URLSearchParams({ limit: String(limit) });
-  return getJson<LeadListResponse>(`/api/leads?${params.toString()}`, RESUME_TIMEOUT_MS);
+  return getJson<LeadListResponse>(`/api/leads?${params.toString()}`, RESUME_TIMEOUT_MS, token);
 }
 
-export async function getLeadEvents(threadId: string): Promise<RunEventsResponse> {
+export async function getLeadEvents(
+  threadId: string,
+  token: AuthToken,
+): Promise<RunEventsResponse> {
   const encoded = encodeURIComponent(threadId);
-  return getJson<RunEventsResponse>(`/api/leads/${encoded}/events`, RESUME_TIMEOUT_MS);
+  return getJson<RunEventsResponse>(`/api/leads/${encoded}/events`, RESUME_TIMEOUT_MS, token);
 }
 
-export async function approve(threadId: string): Promise<ApproveResponse> {
+export async function approve(threadId: string, token: AuthToken): Promise<ApproveResponse> {
   const encoded = encodeURIComponent(threadId);
   return postJson<ApproveResponse>(
     `/api/leads/${encoded}/approve`,
     undefined,
     RESUME_TIMEOUT_MS,
+    token,
   );
 }
 
-export async function reject(threadId: string): Promise<ApproveResponse> {
+export async function reject(threadId: string, token: AuthToken): Promise<ApproveResponse> {
   const encoded = encodeURIComponent(threadId);
   return postJson<ApproveResponse>(
     `/api/leads/${encoded}/reject`,
     undefined,
     RESUME_TIMEOUT_MS,
+    token,
   );
 }

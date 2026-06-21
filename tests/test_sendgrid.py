@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from saas_lead_agent.email.sendgrid_client import send_email_via_sendgrid
+from saas_lead_agent.email.sendgrid_client import run_sendgrid_delivery, send_email_via_sendgrid
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -89,6 +89,32 @@ async def test_send_email_via_sendgrid_missing_message_id_header() -> None:
     assert result["message_id"] is None
 
 
+@pytest.mark.asyncio
+async def test_run_sendgrid_delivery_returns_typed_success() -> None:
+    response = _mock_response(status_code=202, message_id="msg-typed")
+    with (
+        patch.dict(os.environ, {
+            "SENDGRID_API_KEY": "SG.test",
+            "SENDGRID_FROM_EMAIL": "sales@acme.test",
+        }),
+        _patch_client(send_return=response),
+    ):
+        result = await run_sendgrid_delivery(
+            to="alice@example.com",
+            subject="Hello",
+            body="Hi Alice",
+            idempotency_key="delivery:test-key",
+        )
+
+    assert result.metadata.tool_name == "sendgrid_delivery"
+    assert result.metadata.category == "email_delivery"
+    assert result.metadata.provider == "sendgrid"
+    assert result.metadata.status == "completed"
+    assert result.context.idempotency_key == "delivery:test-key"
+    assert result.context.input_hash is not None
+    assert result.output["message_id"] == "msg-typed"
+
+
 # ---------------------------------------------------------------------------
 # Env-var preconditions
 # ---------------------------------------------------------------------------
@@ -108,6 +134,18 @@ async def test_send_email_raises_when_from_email_missing() -> None:
         os.environ.pop("SENDGRID_FROM_EMAIL", None)
         with pytest.raises(RuntimeError, match="SENDGRID_FROM_EMAIL"):
             await send_email_via_sendgrid(to="x@y.com", subject="s", body="b")
+
+
+@pytest.mark.asyncio
+async def test_run_sendgrid_delivery_returns_typed_config_failure() -> None:
+    with patch.dict(os.environ, {"SENDGRID_FROM_EMAIL": "sales@acme.test"}, clear=False):
+        os.environ.pop("SENDGRID_API_KEY", None)
+        result = await run_sendgrid_delivery(to="x@y.com", subject="s", body="b")
+
+    assert result.metadata.status == "failed"
+    assert result.error is not None
+    assert result.error.kind == "configuration"
+    assert result.error.retryable is False
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +168,25 @@ async def test_send_email_raises_on_non_2xx() -> None:
             await send_email_via_sendgrid(
                 to="x@y.com", subject="s", body="b"
             )
+
+
+@pytest.mark.asyncio
+async def test_run_sendgrid_delivery_returns_typed_http_failure() -> None:
+    response = _mock_response(status_code=500, message_id=None)
+    with (
+        patch.dict(os.environ, {
+            "SENDGRID_API_KEY": "SG.test",
+            "SENDGRID_FROM_EMAIL": "sales@acme.test",
+        }),
+        _patch_client(send_return=response),
+    ):
+        result = await run_sendgrid_delivery(to="x@y.com", subject="s", body="b")
+
+    assert result.metadata.status == "failed"
+    assert result.error is not None
+    assert result.error.kind == "http_status"
+    assert result.error.retryable is True
+    assert result.error.provider_status_code == 500
 
 
 @pytest.mark.asyncio

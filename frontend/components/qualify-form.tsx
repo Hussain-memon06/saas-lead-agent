@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -39,6 +40,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function QualifyForm() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { getToken, userId } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -49,10 +51,10 @@ export function QualifyForm() {
   const submittedUrl = form.watch("url");
 
   const mutation = useMutation<QualifyResponse, ApiError, FormValues>({
-    mutationFn: ({ url }) => qualify({ url }),
+    mutationFn: async ({ url }) => qualify({ url }, await getToken()),
     onSuccess: (data) => {
       // Seed the cache so the dossier page reads without a refetch.
-      queryClient.setQueryData(["lead", data.thread_id], data);
+      queryClient.setQueryData(["lead", userId, data.thread_id], data);
       router.push(`/leads/${encodeURIComponent(data.thread_id)}`);
     },
   });

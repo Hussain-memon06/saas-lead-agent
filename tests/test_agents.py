@@ -18,7 +18,9 @@ from saas_lead_agent.agents.contact_finder import contact_finder
 from saas_lead_agent.agents.dossier_writer import dossier_writer
 from saas_lead_agent.agents.send_email import send_email
 from saas_lead_agent.agents.signal_detector import signal_detector
+from saas_lead_agent.email.sendgrid_client import SENDGRID_DELIVERY_SPEC
 from saas_lead_agent.state import LeadState
+from saas_lead_agent.tools.contracts import completed_tool_result, failed_tool_result
 from saas_lead_agent.utils import _extract_json, _extract_json_list
 
 # ---------------------------------------------------------------------------
@@ -49,8 +51,10 @@ _BASE_STATE: LeadState = {
     "outreach_quality": None,
     "retrieval_context": None,
     "retrieval_events": [],
+    "tool_usage": [],
     "provider_usage": [],
     "processing_metadata": None,
+    "delivery_idempotency_key": None,
     "errors": [],
 }
 
@@ -190,6 +194,43 @@ async def test_company_researcher_happy_path() -> None:
     assert profile["name"] == "Acme Corp"
     assert profile["funding_stage"] == "Series A"
     assert "errors" not in result
+
+
+@pytest.mark.asyncio
+async def test_company_researcher_records_web_search_tool_usage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock_client = MagicMock()
+    mock_client.search.return_value = {
+        "results": [{"title": "Acme", "url": "https://acme.example.com"}]
+    }
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test")
+
+    mock_agent = MagicMock()
+
+    async def _ainvoke(_payload: dict[str, Any]) -> dict[str, Any]:
+        from saas_lead_agent.tools.web_search import web_search
+
+        web_search.invoke({"query": "Acme Corp", "max_results": 1})
+        return {"messages": [AIMessage(content=json.dumps(_PROFILE))]}
+
+    mock_agent.ainvoke = AsyncMock(side_effect=_ainvoke)
+
+    with (
+        patch("saas_lead_agent.tools.web_search.TavilyClient", return_value=mock_client),
+        patch(
+            "saas_lead_agent.agents.company_researcher._get_researcher_agent",
+            return_value=mock_agent,
+        ),
+    ):
+        result = await company_researcher(_BASE_STATE)
+
+    assert result["company_profile"]["name"] == "Acme Corp"
+    assert result["tool_usage"][0]["node"] == "company_researcher"
+    assert result["tool_usage"][0]["tool_name"] == "web_search"
+    assert result["tool_usage"][0]["status"] == "completed"
+    assert result["tool_usage"][0]["output_count"] == 1
+    assert "output" not in result["tool_usage"][0]
 
 
 @pytest.mark.asyncio
@@ -988,7 +1029,8 @@ async def test_send_email_stub_mode_when_no_api_key() -> None:
     with patch.dict(_os.environ, {"SENDGRID_STUB_ENABLED": "true"}, clear=False):
         _os.environ.pop("SENDGRID_API_KEY", None)
         result = await send_email(_APPROVED_STATE)  # type: ignore[arg-type]
-    assert result == {"send_result": "stubbed"}
+    assert result["send_result"] == "stubbed"
+    assert str(result["delivery_idempotency_key"]).startswith("delivery:")
 
 
 @pytest.mark.asyncio
@@ -1002,6 +1044,7 @@ async def test_send_email_fails_closed_when_no_api_key_and_stub_not_enabled() ->
         result = await send_email(_APPROVED_STATE)  # type: ignore[arg-type]
 
     assert result["send_result"] == "failed"
+    assert str(result["delivery_idempotency_key"]).startswith("delivery:")
     assert "SENDGRID_API_KEY is not set" in result["errors"][0]
 
 
@@ -1010,14 +1053,17 @@ async def test_send_email_calls_sendgrid_on_success() -> None:
     """Approved + key set → calls send_email_via_sendgrid, returns delivery metadata."""
     import os as _os
 
-    fake_result = {
-        "status_code": 202,
-        "message_id": "msg-real-123",
-        "sent_at": "2026-04-25T12:00:00+00:00",
-    }
+    fake_result = completed_tool_result(
+        spec=SENDGRID_DELIVERY_SPEC,
+        output={
+            "status_code": 202,
+            "message_id": "msg-real-123",
+            "sent_at": "2026-04-25T12:00:00+00:00",
+        },
+    )
     with patch.dict(_os.environ, {"SENDGRID_API_KEY": "SG.test"}, clear=False):
         with patch(
-            "saas_lead_agent.agents.send_email.send_email_via_sendgrid",
+            "saas_lead_agent.agents.send_email.run_sendgrid_delivery",
             new=AsyncMock(return_value=fake_result),
         ) as mock_send:
             result = await send_email(_APPROVED_STATE)  # type: ignore[arg-type]
@@ -1026,10 +1072,15 @@ async def test_send_email_calls_sendgrid_on_success() -> None:
         to="alice@acme.example.com",
         subject="Quick question",
         body="Hi Alice,",
+        idempotency_key=result["delivery_idempotency_key"],
     )
     assert result["send_result"] == "sent"
+    assert str(result["delivery_idempotency_key"]).startswith("delivery:")
     assert result["message_id"] == "msg-real-123"
     assert result["sent_at"] == "2026-04-25T12:00:00+00:00"
+    assert result["tool_usage"][0]["node"] == "send_email"
+    assert result["tool_usage"][0]["tool_name"] == "sendgrid_delivery"
+    assert result["tool_usage"][0]["status"] == "completed"
 
 
 @pytest.mark.asyncio
@@ -1039,10 +1090,21 @@ async def test_send_email_records_failure_on_sendgrid_error() -> None:
 
     with patch.dict(_os.environ, {"SENDGRID_API_KEY": "SG.test"}, clear=False):
         with patch(
-            "saas_lead_agent.agents.send_email.send_email_via_sendgrid",
-            new=AsyncMock(side_effect=RuntimeError("non-2xx status 500")),
+            "saas_lead_agent.agents.send_email.run_sendgrid_delivery",
+            new=AsyncMock(
+                return_value=failed_tool_result(
+                    spec=SENDGRID_DELIVERY_SPEC,
+                    error_kind="http_status",
+                    error_message="non-2xx status 500",
+                    provider_status_code=500,
+                )
+            ),
         ):
             result = await send_email(_APPROVED_STATE)  # type: ignore[arg-type]
 
     assert result["send_result"] == "failed"
+    assert str(result["delivery_idempotency_key"]).startswith("delivery:")
+    assert result["tool_usage"][0]["tool_name"] == "sendgrid_delivery"
+    assert result["tool_usage"][0]["status"] == "failed"
+    assert result["tool_usage"][0]["error_kind"] == "http_status"
     assert any("non-2xx status 500" in err for err in result["errors"])

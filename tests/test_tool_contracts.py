@@ -11,6 +11,8 @@ from saas_lead_agent.tools import (
     ToolTimeoutPolicy,
     completed_tool_result,
     failed_tool_result,
+    get_tool_spec,
+    list_tool_specs,
 )
 
 
@@ -147,3 +149,19 @@ def test_external_action_tools_require_human_approval() -> None:
         requires_human_approval=True,
     )
     assert spec.external_action is True
+
+
+def test_tool_registry_lists_current_phase_5_specs() -> None:
+    specs = {spec.name: spec for spec in list_tool_specs()}
+
+    assert set(specs) == {
+        "hunt_contact",
+        "scrape",
+        "sendgrid_delivery",
+        "web_search",
+    }
+    assert specs["sendgrid_delivery"].external_action is True
+    assert specs["sendgrid_delivery"].requires_human_approval is True
+    assert specs["sendgrid_delivery"].supports_idempotency is True
+    assert get_tool_spec("web_search") == specs["web_search"]
+    assert get_tool_spec("missing") is None

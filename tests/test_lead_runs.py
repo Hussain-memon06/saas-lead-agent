@@ -76,6 +76,7 @@ def _snapshot(result: dict[str, object] | None = None) -> LeadRunSnapshot:
             "email_body": "Hi Alice, congrats on the Series A.",
             "email_approved": True,
             "send_result": "sent",
+            "delivery_idempotency_key": "delivery:test-key",
             "message_id": "msg-123",
             "sent_at": "2026-01-16T00:00:00Z",
         },
@@ -98,6 +99,7 @@ async def test_build_lead_artifacts_extracts_current_state_records() -> None:
     assert artifacts.decision.decision == "approved"
     assert artifacts.delivery_event is not None
     assert artifacts.delivery_event.message_id == "msg-123"
+    assert artifacts.delivery_event.delivery_idempotency_key == "delivery:test-key"
     assert {source.source_type for source in artifacts.sources} == {
         "company_profile",
         "company_signal",
@@ -157,6 +159,7 @@ async def test_in_memory_repository_saves_artifacts_with_snapshot() -> None:
     assert artifacts.company_signals[0].details == "Acme announced Series A funding."
     assert artifacts.delivery_event is not None
     assert artifacts.delivery_event.send_result == "sent"
+    assert artifacts.delivery_event.delivery_idempotency_key == "delivery:test-key"
 
     await repo.save_snapshot(
         _snapshot(
@@ -214,6 +217,27 @@ async def test_in_memory_repository_lists_recent_snapshots_newest_first() -> Non
     snapshots = await repo.list_snapshots(limit=1)
 
     assert [snapshot.thread_id for snapshot in snapshots] == ["lead:newer.example.com"]
+
+
+async def test_in_memory_repository_filters_owner_before_limit() -> None:
+    repo = InMemoryLeadRunRepository()
+    for index, user_id in enumerate(("user-2", "user-2", "user-1")):
+        snapshot = _snapshot(
+            {
+                "user_id": user_id,
+                "company_profile": {"name": f"Lead {index}", "sources": []},
+            }
+        ).model_copy(
+            update={
+                "thread_id": f"lead:{index}.example.com",
+                "updated_at": datetime(2026, 1, 3 - index, tzinfo=UTC),
+            }
+        )
+        await repo.save_snapshot(snapshot)
+
+    snapshots = await repo.list_snapshots_for_owner("user-1", limit=1)
+
+    assert [snapshot.thread_id for snapshot in snapshots] == ["lead:2.example.com"]
 
 
 async def test_in_memory_repository_records_run_events() -> None:

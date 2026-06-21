@@ -110,7 +110,9 @@ Optional Platform Services
 
 ### Production Gaps
 
-- No authentication or authorization.
+- Clerk authentication, backend JWT verification, and owner-scoped lead access
+  are implemented for the current route surface. A richer RBAC/admin model is
+  not needed by the current single-user-role product flow.
 - App-owned run snapshots, run events, normalized lead artifacts, summary
   history, sanitized run-event retrieval, provider token metadata capture, and
   node-level timing/status aggregation now exist, but auth-backed users, formal
@@ -154,10 +156,12 @@ Optional Platform Services
 - No MCP server/client/tool abstraction for standardizing external tool access.
 - No durable execution abstraction beyond current LangGraph checkpointing.
 - No retry policy, circuit breaker, queue, or long-running job abstraction.
-- No rate limiting.
-- Server-side scraper has first-pass URL validation, but deeper SSRF hardening
-  for redirects, DNS rebinding, and resolved private IPs remains pending.
-- CORS is currently broad.
+- Dependency-free per-process write rate limiting is implemented; distributed
+  enforcement across multiple backend replicas remains an operations concern.
+- Server-side scraping revalidates bounded redirects, rejects non-public DNS
+  results, and pins each connection to the validated address while preserving
+  the original HTTP Host and TLS SNI.
+- Production CORS requires an explicit allowlist.
 - Production email configuration still needs startup fail-fast policy.
 - No CI/CD workflow in the repository.
 - No first-class eval framework, golden dataset, or regression harness for
@@ -599,6 +603,16 @@ pytest tests/test_graph.py -q
 
 ## Phase 6: Authentication, Authorization & Compliance
 
+Status: complete for the current Phase 6 milestone. Clerk protects the existing
+Next.js routes; FastAPI verifies Clerk JWTs and enforces owner-scoped lead
+access and approval actions. Production CORS and critical-secret checks fail
+closed, request and ICP payload limits are enforced, authenticated write
+operations return explicit 429 responses when throttled, and scraper fetches
+use bounded redirect revalidation plus validated-IP connection pinning. The
+current limiter is per process; distributed rate limiting belongs to Phase 8
+if the backend scales to multiple replicas. Legacy unowned demo records remain
+isolated rather than automatically backfilled.
+
 ### Goal
 
 Make the application safe to expose beyond private demos.
@@ -852,9 +866,23 @@ release-candidate checks only unless explicitly requested.
 ### Change Discipline
 
 - Keep each milestone small enough to review.
+- Work in small, targeted changes.
+- Do not scan the whole repository unless explicitly requested.
+- Before editing, explain which files need inspection, why those files are
+  needed, and what exact change will be made.
+- Prefer minimal diffs.
 - Prefer schema additions before breaking renames.
 - Avoid unrelated refactors during production hardening.
-- Update tests and docs with the code they describe.
+- Do not refactor unrelated code.
+- Do not rewrite large files unnecessarily.
+- Do not touch unrelated docs.
+- Do not update documentation unless requested or required by the behavior
+  change.
+- Ask before expanding scope.
+- If a command fails, stop and explain the failure.
+- Do not start long retry loops without permission.
+- Suggest targeted verification commands instead of automatically running broad
+  verification.
 - Do not send real emails during development.
 - Do not commit secrets or `.env` files.
 - Do not modify dependencies without explicit approval.
@@ -882,6 +910,52 @@ release-candidate checks only unless explicitly requested.
 - If verification is skipped, Codex should clearly state what changed, what was
   not verified, and which targeted verification command the user can run
   manually.
+
+### Low-Credit Codex Rules
+
+Codex should preserve usage by default.
+
+Do:
+
+- Work on one specific task at a time.
+- Inspect only files required for the task.
+- Make small, focused edits.
+- Prefer targeted commands.
+- Stop after a failed command and explain.
+- Ask before expanding scope.
+
+Do not:
+
+- Scan the whole repository by default.
+- Run full test suites automatically.
+- Run full lint/type/build verification automatically.
+- Retry commands repeatedly without permission.
+- Refactor unrelated code.
+- Rewrite large files unnecessarily.
+- Modify unrelated documentation.
+
+### When I Ask for Production-Grade Work
+
+Do not interpret “production grade” as permission to change the entire
+repository.
+
+Break production work into small tasks, such as:
+
+1. Authentication only
+2. Rate limiting only
+3. SSRF protection only
+4. Schema/database changes only
+5. API versioning only
+6. Tests for one specific feature only
+7. Frontend recovery for one flow only
+
+For each task:
+
+- State the exact scope.
+- Inspect only relevant files.
+- Make minimal changes.
+- Suggest targeted verification.
+- Do not run full verification unless explicitly requested.
 
 ### Verification Strategy
 
@@ -931,15 +1005,24 @@ pytest tests/test_url_validation.py -q
 
 #### Tier 3: Full Release Verification
 
-Run full checks only for release candidates, pre-merge validation, or when the
-user explicitly asks for "full verification" or "release verification":
+Full verification must not run automatically. Run full checks only for release
+candidates, pre-merge validation, or when the user explicitly asks for "full
+verification" or "release verification":
 
 ```bash
 uv run ruff check src/ tests/
 uv run ruff format --check src/ tests/
 uv run mypy src/
 uv run pytest -x --ff
-cd frontend && npm run build
+npm run build
+```
+
+For normal fixes, use targeted verification only. Examples:
+
+```bash
+uv run ruff check src/specific_file.py
+uv run pytest tests/test_specific_file.py -q
+npm run lint -- --file app/specific-file.tsx
 ```
 
 Infrastructure-gated checks, such as real Postgres persistence tests, Docker
@@ -949,8 +1032,30 @@ documented with their outputs.
 
 ## Immediate Next Step
 
-Phase 5 has started with the no-dependency tooling foundation. Continue with a
-narrow milestone that adapts one existing non-action provider tool to the typed
-tool-result envelope while preserving current graph/API behavior. Do not add
-MCP, queues, durable job infrastructure, auth, evals, vector DB, embeddings, or
-new provider dependencies without explicit approval.
+Phase 5 has started with the no-dependency tooling foundation, and
+`web_search`, `scrape`, and `hunt_contact` are adapted to typed tool-result
+envelopes with sanitized tool metadata in run processing metadata, and a
+delivery-idempotency key is now carried through approved send attempts and
+app-owned delivery event records for future SendGrid retry protection. SendGrid
+delivery now has a typed result envelope, and a local tool-spec registry lists
+the current tool surface. Phase 5's no-dependency implementation boundary is
+complete; MCP, queues, durable job infrastructure, external-action retries,
+provider fallback runtime, auth, evals, vector DB, embeddings, and new provider
+dependencies remain deferred without explicit approval. Begin Phase 6 only with
+a narrow auth/compliance planning milestone. The Phase 6 planning milestone now
+lives in `specs/in-progress/phase-6-auth-compliance-plan.md`; do not implement
+auth dependencies, session storage, production CORS changes, rate limiting, or
+deeper SSRF enforcement until a small Phase 6 implementation scope is approved.
+The first no-dependency Phase 6 slice now exists as auth context and
+protected-route policy contracts. User-owned access model contracts now exist
+for app-owned entities and retrieval context. Compliance configuration
+contracts now document CORS, request limits, critical secrets, redaction, and
+audit events. SSRF hardening contracts now document redirect, DNS rebinding,
+post-resolution, private/link-local, localhost, and dangerous-port policy;
+Clerk now protects the existing Next.js route surface, existing frontend API
+calls send Clerk JWTs, and FastAPI verifies those tokens before protected API
+work. Lead list/detail/events/approve/reject access is owner-scoped. Plain
+identity headers require explicit non-production bypass and are never trusted
+in production. Production auth and CORS configuration fail closed. Remaining
+Phase 6 runtime controls are rate limiting, request-size middleware, and deeper
+redirect/DNS SSRF enforcement.

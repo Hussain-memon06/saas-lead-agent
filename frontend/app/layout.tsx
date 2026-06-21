@@ -1,4 +1,5 @@
-﻿import type { Metadata } from "next";
+﻿import { ClerkProvider } from "@clerk/nextjs";
+import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/lib/query-client";
@@ -18,7 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <ClerkProvider>
+      <html lang="en" className={inter.variable}>
       <body className="min-h-screen bg-background text-foreground font-sans antialiased">
         <Providers>
           <a
@@ -31,6 +33,7 @@ export default function RootLayout({
           <main id="main-content">{children}</main>
         </Providers>
       </body>
-    </html>
+      </html>
+    </ClerkProvider>
   );
 }

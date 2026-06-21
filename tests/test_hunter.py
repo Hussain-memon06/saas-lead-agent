@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from saas_lead_agent.tools.hunter import _pick_best, hunt_contact
+from saas_lead_agent.tools import capture_tool_results
+from saas_lead_agent.tools.hunter import _pick_best, hunt_contact, run_hunt_contact
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -163,6 +164,77 @@ def test_hunt_contact_all_fields_present(monkeypatch: pytest.MonkeyPatch) -> Non
     for field in ("value", "first_name", "last_name", "position", "seniority",
                   "department", "confidence", "linkedin"):
         assert field in result, f"missing field: {field}"
+
+
+def test_run_hunt_contact_returns_typed_success_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HUNTER_API_KEY", "test-key")
+
+    with patch(
+        "saas_lead_agent.tools.hunter.httpx.get",
+        return_value=_mock_response([_EMAIL_EXECUTIVE]),
+    ):
+        result = run_hunt_contact("acme.com")
+
+    assert result.metadata.tool_name == "hunt_contact"
+    assert result.metadata.category == "contact_finding"
+    assert result.metadata.provider == "hunter"
+    assert result.metadata.status == "completed"
+    assert result.context.input_hash is not None
+    assert len(result.context.input_hash) == 64
+    assert isinstance(result.output, dict)
+    assert result.output["value"] == "ceo@acme.com"
+    assert result.error is None
+
+
+def test_run_hunt_contact_returns_typed_configuration_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("HUNTER_API_KEY", raising=False)
+
+    result = run_hunt_contact("acme.com")
+
+    assert result.metadata.status == "failed"
+    assert result.error is not None
+    assert result.error.kind == "configuration"
+    assert result.error.retryable is False
+    assert result.output is None
+
+
+def test_hunt_contact_records_sanitized_tool_usage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HUNTER_API_KEY", "test-key")
+
+    with (
+        patch(
+            "saas_lead_agent.tools.hunter.httpx.get",
+            return_value=_mock_response([_EMAIL_EXECUTIVE]),
+        ),
+        capture_tool_results(node="contact_finder", run_id="run-1") as records,
+    ):
+        result = hunt_contact.invoke({"domain": "acme.com"})
+
+    assert result["value"] == "ceo@acme.com"
+    assert records == [
+        {
+            "tool_name": "hunt_contact",
+            "category": "contact_finding",
+            "provider": "hunter",
+            "status": "completed",
+            "duration_ms": records[0]["duration_ms"],
+            "attempt": 1,
+            "max_attempts": 1,
+            "timeout_ms": 15_000,
+            "node": "contact_finder",
+            "run_id": "run-1",
+            "input_hash": records[0]["input_hash"],
+            "output_count": 8,
+        }
+    ]
+    assert "ceo@acme.com" not in str(records)
+    assert "output" not in records[0]
 
 
 # ---------------------------------------------------------------------------

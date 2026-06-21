@@ -35,9 +35,11 @@ approval before implementation.
 
 Phase 5 has started with a no-dependency tooling foundation.
 Typed tool contracts and a durable-execution/MCP design note exist, but existing
-runtime tools are not wrapped yet and there is no MCP server/client, queue,
-durable job runner, retry/circuit-breaker runtime, or provider fallback
-abstraction.
+runtime tools are partially wrapped. `web_search`, `scrape`, and
+`hunt_contact` now have typed `ToolResult` adapters and sanitized tool-event
+capture, but SendGrid, MCP server/client, queue, durable job runner,
+retry/circuit-breaker runtime, and provider fallback abstraction are not
+implemented yet.
 
 ## What We Completed
 
@@ -424,17 +426,169 @@ milestone:
   extra-field rejection, result-shape validation, attempt-budget validation,
   and human-approval requirements for external-action tools.
 - Exported the tool contracts from `src/saas_lead_agent/tools/__init__.py`.
+- Added `src/saas_lead_agent/tools/recording.py` for scoped, sanitized
+  tool-result capture during graph node execution.
+- Adapted `src/saas_lead_agent/tools/web_search.py` so Tavily calls produce a
+  typed `ToolResult` internally while preserving the existing LangChain tool
+  return shape and error behavior.
+- Adapted `src/saas_lead_agent/tools/scraper.py` so HTTP scrape calls produce a
+  typed `ToolResult` internally while preserving the existing LangChain tool
+  string output and error behavior.
+- Adapted `src/saas_lead_agent/tools/hunter.py` so Hunter.io contact-finding
+  calls produce a typed `ToolResult` internally while preserving the existing
+  LangChain tool dict output and error behavior.
+- Added `tool_usage` to `LeadState` and capture scopes in:
+  - `company_researcher`
+  - `contact_finder`
+  - `signal_detector`
+- Added processing metadata fields for:
+  - sanitized `tool_events`
+  - aggregate `tool_status`
+  - `tool.<node>.<tool>` timing entries
+- Added API/run-event sanitization so raw provider payloads, tool outputs, and
+  raw error messages are not exposed through run events.
+- Added `src/saas_lead_agent/email/idempotency.py` with deterministic
+  delivery-idempotency key helpers for future SendGrid retry protection without
+  logging raw recipient/body data.
+- Wired `delivery_idempotency_key` into approved delivery attempts so stubbed,
+  failed, and sent SendGrid paths carry the key through API responses,
+  sanitized run-event metadata, and app-owned delivery event records.
+- Added typed SendGrid delivery envelopes for approved send attempts and a
+  local tool-spec registry for `web_search`, `scrape`, `hunt_contact`, and
+  `sendgrid_delivery`.
 
-Existing runtime tools are not wrapped yet. The graph and API behavior are
-unchanged by this milestone.
+The graph and API remain backward-compatible for existing consumers; the
+additional metadata is additive.
 
-### Next Phase 5 Milestone
+### Phase 5 Closure
 
-Adapt one existing non-action provider tool, likely `web_search` or `scrape`,
-to produce the typed `ToolResult` envelope internally while preserving current
-graph/API behavior. Then persist sanitized tool-result metadata in run events.
-Do not add MCP, queues, durable job infrastructure, new provider dependencies,
-or external-action retries without explicit approval.
+Phase 5's no-dependency milestone set is complete. The project now has typed
+tool contracts, typed wrappers for the current tool surface, sanitized
+tool-event metadata, delivery idempotency-key recording, and a local tool
+registry. MCP runtime, queues, durable job infrastructure, new provider
+dependencies, provider fallback runtime, and external-action retries remain
+deferred until explicitly approved.
+
+### Next Phase Milestone
+
+Started Phase 6 with a narrow planning milestone in
+`specs/in-progress/phase-6-auth-compliance-plan.md`. Do not add auth
+dependencies, session storage, production CORS changes, rate limiting, or
+deeper SSRF enforcement without a small approved Phase 6 implementation scope.
+
+### Next Phase 6 Milestone
+
+Started the first Phase 6 implementation slice with no-dependency auth context
+and protected-route policy contracts in `src/saas_lead_agent/schemas/auth.py`.
+Current unauthenticated runtime behavior is unchanged.
+
+Added Milestone 6.2 user-owned access model contracts for lead runs, sources,
+contacts, company signals, score breakdowns, outreach drafts, decisions,
+delivery events, and retrieval context. Existing unauthenticated records remain
+modeled as legacy anonymous-demo resources until auth enforcement is approved.
+
+Next: choose either an auth provider/session decision record or Milestone 6.3's
+critical compliance configuration contracts. Do not enforce auth, add
+dependencies, or alter CORS without a narrow approved scope.
+
+Added Milestone 6.3 compliance configuration contracts for environment CORS
+intent, request-size limits, startup critical-secret expectations, trace/log
+redaction fields, and audit event categories. Runtime CORS, request-limit,
+startup-secret, redaction, and audit-log enforcement remain deferred.
+
+Next: choose either an auth provider/session decision record or Milestone 6.4's
+SSRF hardening design contracts. Do not enforce auth, add dependencies, alter
+CORS, or change scraper behavior without a narrow approved scope.
+
+Added Milestone 6.4 SSRF hardening contracts for redirect revalidation, DNS
+rebinding checks, post-resolution validation, private/link-local ranges,
+localhost aliases, and dangerous ports. Scraper behavior is unchanged.
+
+Next: document the auth provider/session decision or request approval for one
+narrow Phase 6 runtime enforcement slice.
+
+Added `specs/in-progress/phase-6-auth-provider-session-decision.md`. Provider
+choice remains deferred; the approved next runtime shape is dependency-free
+auth context resolution with anonymous-demo behavior preserved.
+
+Added dependency-free request auth context plumbing in
+`src/saas_lead_agent/api/auth.py`. It records sanitized auth mode/user-presence
+metadata while preserving anonymous-demo behavior and avoiding route
+enforcement.
+
+Next: request approval for the next narrow runtime slice, likely attaching
+`user_id` to new run snapshots and app-owned records without read enforcement.
+
+Added ownership propagation for new authenticated qualification runs: resolved
+`user_id` is persisted in run snapshots and normalized lead records while
+remaining absent from public API responses. Read enforcement and child artifact
+ownership remain deferred.
+
+Next: add repository-level owner filtering contracts or propagate ownership to
+child artifacts, without enforcing routes yet.
+
+Added pure owner-aware persistence helpers in
+`src/saas_lead_agent/persistence/access.py` for snapshot owner extraction,
+read decisions, and list filtering. API routes and repository methods do not
+enforce these helpers yet.
+
+Next: either propagate ownership to normalized child artifacts or request
+approval to wire owner filtering into one read endpoint.
+
+Extended the pure persistence access layer to normalized `LeadArtifacts`
+aggregates using `lead.user_id`. Snapshot and artifact aggregate filtering are
+now centralized, but repository methods and routes still do not enforce them.
+
+Next: request approval to enforce ownership on one read endpoint, or undertake
+the larger child-artifact ownership/schema migration separately.
+
+Enforced owner-aware listing on `GET /api/leads`. Filtering now occurs inside
+both repository implementations before pagination. Authenticated users see
+their snapshots; anonymous-demo requests see legacy unowned snapshots. Admin
+contexts retain the all-records path.
+
+Next: enforce ownership on `GET /api/leads/{thread_id}` as a separate slice.
+Events and approve/reject must remain unchanged until their own milestones.
+
+Implemented Clerk authentication for the existing route surface:
+
+- `ClerkProvider` wraps the Next.js app.
+- Clerk middleware protects `/`, `/settings`, and `/leads/*`.
+- Existing qualification, dossier, approve, and reject calls send Clerk JWTs.
+- FastAPI verifies Clerk JWT signature/issuer/expiry/subject plus optional
+  audience and authorized-party constraints.
+- Plain identity headers are disabled unless explicit non-production bypass is
+  enabled.
+- Lead list/detail/events/approve/reject enforce snapshot ownership.
+- Production requires Clerk issuer and CORS configuration; Chainlit is not
+  mounted in production.
+
+Phase 6 is complete for the current roadmap milestone:
+
+- Request bodies are capped at 128 KB and ICP JSON at 32 KB.
+- Qualification is limited to 10 requests per authenticated user per minute;
+  approve/reject share a 30-per-minute decision limit.
+- Production startup requires Clerk configuration, an explicit CORS allowlist,
+  and `OPENAI_API_KEY`.
+- Scraper redirects are followed manually for at most three hops. Every target
+  is normalized, resolved, checked for non-public addresses, and connected by
+  validated IP while preserving the original HTTP Host and TLS SNI.
+- Security metadata remains allowlisted and excludes raw identity, credentials,
+  contact email, outreach bodies, and scraped/retrieved text.
+- Focused tests were added for JWT behavior, ownership, request limits, rate
+  limiting, production startup validation, redirect revalidation, private DNS,
+  and pinned TLS/Host behavior.
+
+Operational notes: rate limiting is currently per backend process, and legacy
+unowned demo records are isolated rather than backfilled. Distributed limiting
+and migration operations belong to Phase 8 if deployment topology requires
+them.
+
+### Next Phase Milestone
+
+Begin Phase 7 with a narrow evaluation-contract and dataset-design milestone.
+Do not start broad eval runs or external LLM-as-judge calls without explicit
+approval.
 
 ## Phase 5 Guardrails
 
@@ -446,7 +600,7 @@ or external-action retries without explicit approval.
 - External-action tools, especially email delivery, must require human approval
   unless a later approved phase explicitly changes that policy.
 - Do not add retries that can duplicate email delivery or expensive provider
-  work before idempotency is implemented.
+  work before idempotency is checked against durable delivery records.
 - No MCP, queue, durable-job, browser-automation, or provider dependencies
   without explicit approval.
 
@@ -484,6 +638,26 @@ uv run python -m ruff check <changed-python-files>
 uv run python -m ruff format --check <changed-python-files>
 uv run python -m pytest tests\test_tool_contracts.py -q
 uv run python -m pytest tests\test_tools.py -q
+uv run python -m pytest tests\test_email_idempotency.py -q
+uv run python -m pytest tests\test_sendgrid.py -q
+uv run python -m pytest tests\test_agents.py tests\test_lead_runs.py -q
+uv run python -m pytest tests\test_agents.py tests\test_api.py tests\test_state.py tests\test_schemas.py -q
+```
+
+## Useful Targeted Verification For Phase 6
+
+Run only checks related to the Phase 6 boundary being reviewed:
+
+```bash
+uv run python -m ruff check <changed-python-files>
+uv run python -m ruff format --check <changed-python-files>
+uv run python -m pytest tests\test_auth_context.py -q
+uv run python -m pytest tests\test_access_policy.py -q
+uv run python -m pytest tests\test_auth_policy.py -q
+uv run python -m pytest tests\test_api_auth.py tests\test_api.py -q
+uv run python -m pytest tests\test_compliance_policy.py -q
+uv run python -m pytest tests\test_ssrf_policy.py -q
+uv run python -m pytest tests\test_api_security.py tests\test_tools.py -q
 ```
 
 Latest Phase 3 targeted verification:
@@ -510,6 +684,7 @@ Latest Phase 4 targeted verification:
 Latest Phase 5 targeted verification:
 
 - tool contract slice: `8 passed`
+- web-search tool-event metadata slice: `167 passed`
 - changed-file Ruff checks passed
 - changed-file Ruff format checks passed
 - `git diff --check` passed
@@ -527,5 +702,5 @@ policy.
 - Whether normalized artifacts beyond summary snapshots should get query/list
   API endpoints during Phase 3 or remain internal until auth and user-owned
   access checks exist.
-- Whether the first runtime tool wrapper should adapt `web_search` or `scrape`
-  before tool-result metadata is persisted in run events.
+- Whether SendGrid should get a typed delivery envelope before the first
+  durable run-status model.

@@ -119,13 +119,20 @@ git clone https://github.com/Hussain-memon06/saas-lead-agent.git
 cd saas-lead-agent
 cp .env.example .env
 # fill in OPENAI_API_KEY, TAVILY_API_KEY, HUNTER_API_KEY at minimum
+cp frontend/.env.local.example frontend/.env.local
+# add your Clerk publishable and secret keys to frontend/.env.local
 ```
+
+Clerk protects `/`, `/settings`, and `/leads/*`. The frontend sends its Clerk
+session JWT to FastAPI, which verifies the signature and issuer through Clerk's
+JWKS endpoint. Local header bypass requires `AUTH_DEV_BYPASS_ENABLED=true` and
+is always disabled when `APP_ENV=production`.
 
 ### Run the backend
 
 ```bash
 uv sync
-uv run uvicorn src.saas_lead_agent.api.main:app --reload --port 8080 --timeout-keep-alive 120
+uv run uvicorn src.saas_lead_agent.api.main:app --env-file .env --reload --port 8080 --timeout-keep-alive 120
 ```
 
 Backend listens on `http://localhost:8080`. The Chainlit UI is at `/chainlit`, the OpenAPI docs at `/docs`.
@@ -155,6 +162,17 @@ Open `http://localhost:3000`. Next.js proxies `/api/*` to `localhost:8080` via a
 | `POSTGRES_URL` | No | Durable HITL resume; InMemorySaver fallback when unset | Yes (Supabase free tier) |
 | `LANGFUSE_PUBLIC_KEY` | No | Per-node tracing; tracing disabled when unset | Yes (50k events/mo) |
 | `LANGFUSE_SECRET_KEY` | No | Paired with the public key | Yes |
+| `CLERK_ISSUER` | Production | Clerk issuer/Frontend API URL used for backend JWT verification | â€” |
+| `CLERK_AUDIENCE` | No | Expected JWT audience when configured in Clerk | â€” |
+| `CLERK_AUTHORIZED_PARTIES` | Recommended | Comma-separated allowed frontend origins checked against `azp` | â€” |
+| `CORS_ALLOWED_ORIGINS` | Production | Comma-separated frontend origins; wildcard is not used in production | â€” |
+| `MAX_REQUEST_BODY_BYTES` | No | Maximum API request body size; defaults to 128000 bytes | â€” |
+| `RATE_LIMIT_ENABLED` | No | Enables write-operation rate limiting; defaults on outside tests | â€” |
+| `QUALIFY_RATE_LIMIT_PER_MINUTE` | No | Per-user qualification limit; defaults to 10 | â€” |
+| `DECISION_RATE_LIMIT_PER_MINUTE` | No | Per-user approve/reject limit; defaults to 30 | â€” |
+
+Frontend/Vercel also requires `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and
+`CLERK_SECRET_KEY`.
 
 ### Tests, lint, types
 
@@ -166,7 +184,8 @@ uv run python -m pytest <targeted-test-files> -q
 
 Full pytest, full mypy, frontend production builds, Docker builds, evals, and
 external API checks are release-only unless explicitly requested. See
-`PLANS.md` for the current verification strategy.
+`AGENTS.md` and `PLANS.md` for the current low-credit Codex workflow and
+verification strategy. Full verification must not run automatically.
 
 ---
 

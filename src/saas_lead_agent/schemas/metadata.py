@@ -17,7 +17,11 @@ class ProcessingMetadata(StrictBaseModel):
     token_usage: dict[str, int] = Field(default_factory=dict)
     cost_breakdown_usd: dict[str, float] = Field(default_factory=dict)
     provider_status: dict[str, str] = Field(default_factory=dict)
+    auth_mode: str | None = Field(default=None, max_length=50)
+    auth_user_present: bool = False
     retrieval_events: list[dict[str, object]] = Field(default_factory=list)
+    tool_events: list[dict[str, object]] = Field(default_factory=list)
+    tool_status: dict[str, str] = Field(default_factory=dict)
     duration_seconds: float = Field(default=0.0, ge=0)
     steps_completed: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)

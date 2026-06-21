@@ -131,6 +131,7 @@ class DeliveryEventRecord(StrictBaseModel):
     thread_id: str = Field(min_length=1, max_length=500)
     run_id: str = Field(min_length=1, max_length=200)
     send_result: str = Field(min_length=1, max_length=100)
+    delivery_idempotency_key: str | None = Field(default=None, max_length=300)
     message_id: str | None = Field(default=None, max_length=500)
     sent_at: str | None = Field(default=None, max_length=100)
     request_id: str | None = Field(default=None, max_length=200)
@@ -414,6 +415,10 @@ def _build_delivery_event(
         thread_id=snapshot.thread_id,
         run_id=snapshot.run_id,
         send_result=send_result,
+        delivery_idempotency_key=_optional_string(
+            result.get("delivery_idempotency_key"),
+            max_length=300,
+        ),
         message_id=_optional_string(result.get("message_id")),
         sent_at=_optional_string(result.get("sent_at")),
         request_id=snapshot.request_id,

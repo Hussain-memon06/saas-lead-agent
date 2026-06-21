@@ -35,6 +35,14 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+def _snapshot_owner_id(snapshot: "LeadRunSnapshot") -> str | None:
+    value = snapshot.result.get("user_id")
+    if not isinstance(value, str):
+        return None
+    clean = value.strip()
+    return clean or None
+
+
 class LeadRunSnapshot(StrictBaseModel):
     run_id: str = Field(min_length=1, max_length=200)
     thread_id: str = Field(min_length=1, max_length=500)
@@ -71,6 +79,13 @@ class LeadRunRepository(Protocol):
 
     async def list_snapshots(self, limit: int = 20) -> list[LeadRunSnapshot]:
         """Return recent product-facing states, newest first."""
+
+    async def list_snapshots_for_owner(
+        self,
+        owner_user_id: str | None,
+        limit: int = 20,
+    ) -> list[LeadRunSnapshot]:
+        """Return recent snapshots for one owner, or legacy unowned records."""
 
     async def save_artifacts(self, artifacts: LeadArtifacts) -> None:
         """Persist normalized app-owned records derived from a snapshot."""
@@ -117,6 +132,22 @@ class InMemoryLeadRunRepository:
             key=lambda snapshot: snapshot.updated_at,
             reverse=True,
         )[:limit]
+
+    async def list_snapshots_for_owner(
+        self,
+        owner_user_id: str | None,
+        limit: int = 20,
+    ) -> list[LeadRunSnapshot]:
+        snapshots = sorted(
+            self._snapshots.values(),
+            key=lambda snapshot: snapshot.updated_at,
+            reverse=True,
+        )
+        return [
+            snapshot
+            for snapshot in snapshots
+            if _snapshot_owner_id(snapshot) == owner_user_id
+        ][:limit]
 
     async def save_artifacts(self, artifacts: LeadArtifacts) -> None:
         self._artifacts[artifacts.lead.thread_id] = artifacts
@@ -344,11 +375,18 @@ class PostgresLeadRunRepository:
                     thread_id TEXT PRIMARY KEY,
                     run_id TEXT NOT NULL,
                     send_result TEXT NOT NULL,
+                    delivery_idempotency_key TEXT,
                     message_id TEXT,
                     sent_at TEXT,
                     request_id TEXT,
                     created_at TIMESTAMPTZ NOT NULL
                 )
+                """
+            )
+            await conn.execute(
+                """
+                ALTER TABLE app_delivery_events
+                ADD COLUMN IF NOT EXISTS delivery_idempotency_key TEXT
                 """
             )
 
@@ -419,6 +457,38 @@ class PostgresLeadRunRepository:
                 """,
                 limit,
             )
+        return [self._snapshot_from_row(row) for row in rows]
+
+    async def list_snapshots_for_owner(
+        self,
+        owner_user_id: str | None,
+        limit: int = 20,
+    ) -> list[LeadRunSnapshot]:
+        pool = self._require_pool()
+        async with pool.acquire() as conn:
+            if owner_user_id is None:
+                rows = await conn.fetch(
+                    """
+                    SELECT *
+                    FROM app_lead_runs
+                    WHERE NULLIF(BTRIM(result->>'user_id'), '') IS NULL
+                    ORDER BY updated_at DESC, created_at DESC
+                    LIMIT $1
+                    """,
+                    limit,
+                )
+            else:
+                rows = await conn.fetch(
+                    """
+                    SELECT *
+                    FROM app_lead_runs
+                    WHERE result->>'user_id' = $1
+                    ORDER BY updated_at DESC, created_at DESC
+                    LIMIT $2
+                    """,
+                    owner_user_id,
+                    limit,
+                )
         return [self._snapshot_from_row(row) for row in rows]
 
     async def save_artifacts(self, artifacts: LeadArtifacts) -> None:
@@ -756,15 +826,17 @@ class PostgresLeadRunRepository:
                             thread_id,
                             run_id,
                             send_result,
+                            delivery_idempotency_key,
                             message_id,
                             sent_at,
                             request_id,
                             created_at
                         )
-                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                         ON CONFLICT (thread_id) DO UPDATE SET
                             run_id = EXCLUDED.run_id,
                             send_result = EXCLUDED.send_result,
+                            delivery_idempotency_key = EXCLUDED.delivery_idempotency_key,
                             message_id = EXCLUDED.message_id,
                             sent_at = EXCLUDED.sent_at,
                             request_id = EXCLUDED.request_id,
@@ -773,6 +845,7 @@ class PostgresLeadRunRepository:
                         delivery.thread_id,
                         delivery.run_id,
                         delivery.send_result,
+                        delivery.delivery_idempotency_key,
                         delivery.message_id,
                         delivery.sent_at,
                         delivery.request_id,
@@ -1038,6 +1111,7 @@ class PostgresLeadRunRepository:
             thread_id=row["thread_id"],
             run_id=row["run_id"],
             send_result=row["send_result"],
+            delivery_idempotency_key=row["delivery_idempotency_key"],
             message_id=row["message_id"],
             sent_at=row["sent_at"],
             request_id=row["request_id"],

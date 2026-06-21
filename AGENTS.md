@@ -32,13 +32,31 @@ Follow this file together with `PLANS.md`.
   no-provider graph retrieval nodes, retrieved-context dossier drafting, and
   basic retrieval-quality metrics. Future vector or embedding work requires
   explicit approval.
-- Current phase: Phase 5 MCP, tooling abstraction, and durable agent execution.
+- Implemented Phase 5 no-dependency foundation: MCP, tooling abstraction, and
+  durable agent execution planning.
   Started with a no-dependency design note plus typed tool contracts for tool
   specs, timeout policies, call context, execution metadata, error envelopes,
-  and result envelopes. MCP, queues, durable jobs, provider fallback runtime,
-  and new dependencies are not implemented yet.
-- Planned: model/provider abstraction, durable execution runtime,
-  auth/compliance, evals, and production operations.
+  and result envelopes. The `web_search` tool now produces a typed
+  `ToolResult` internally while preserving its existing LangChain list output,
+  `scrape`, and `hunt_contact` tools now follow the same typed-envelope pattern
+  while preserving existing LangChain outputs. Research/contact nodes capture
+  sanitized `tool_usage` records that flow into processing metadata as
+  `tool_events` and `tool_status`. Delivery idempotency keys are generated for
+  approved SendGrid delivery attempts and recorded in API responses, run-event
+  metadata, and app-owned delivery events. SendGrid delivery now has a typed
+  result envelope, and a local tool-spec registry lists the current tool
+  surface. MCP, queues, durable jobs, provider fallback runtime,
+  external-action retries, and new dependencies are not implemented yet.
+- Implemented Phase 6: Clerk protects the existing Next.js routes and FastAPI
+  verifies Clerk JWTs before protected API work. Lead list/detail/events and
+  approval actions are owner-scoped. Production CORS and critical-secret
+  checks fail closed; request/ICP limits, per-process authenticated write rate
+  limits, bounded redirect validation, public-DNS enforcement, and validated-IP
+  connection pinning are implemented. Plain identity headers require explicit
+  non-production bypass and are never trusted in production.
+- Current phase: Phase 7 Evaluation Framework, Testing & Quality Gates.
+- Planned: model/provider abstraction, durable execution runtime, evaluation
+  infrastructure, and production operations.
 
 ## Current Architecture
 
@@ -117,10 +135,35 @@ Phase constraints:
 Read these before making changes in their area:
 
 - `PLANS.md` - current roadmap and operating model
+- `specs/done/phase-6-auth-compliance-plan.md` - completed Phase 6
+  auth/compliance implementation record
+- `src/saas_lead_agent/schemas/auth.py` - Phase 6 no-dependency auth context,
+  protected-route policy, and user-owned access model contracts; not runtime
+  enforcement
+- `src/saas_lead_agent/schemas/compliance.py` - Phase 6 no-dependency CORS,
+  request-limit, secret, redaction, and audit-event contracts; not runtime
+  enforcement
+- `src/saas_lead_agent/schemas/ssrf.py` - Phase 6 no-dependency SSRF hardening
+  policy contracts; not scraper/runtime enforcement
+- `specs/in-progress/phase-6-auth-provider-session-decision.md` - completed Clerk auth
+  provider/session decision and enforcement order
+- `src/saas_lead_agent/api/auth.py` - Clerk JWT verification and explicit
+  non-production bypass handling
+- `src/saas_lead_agent/persistence/access.py` - pure snapshot ownership and
+  normalized artifact aggregate filtering helpers; not repository/API
+  enforcement
 - `specs/in-progress/phase-5-tooling-durable-execution.md` - active Phase 5
   tool/MCP/durable-execution design before implementation
 - `src/saas_lead_agent/tools/contracts.py` - Phase 5 tool spec, timeout,
   context, metadata, error, and result envelope contracts
+- `src/saas_lead_agent/tools/recording.py` - scoped sanitized tool-result
+  capture for graph nodes
+- `src/saas_lead_agent/tools/web_search.py` - runtime search tool adapted to
+  typed `ToolResult` while preserving LangChain tool output
+- `src/saas_lead_agent/tools/scraper.py` - runtime scraper tool adapted to
+  typed `ToolResult` while preserving LangChain tool output
+- `src/saas_lead_agent/tools/hunter.py` - runtime contact-finding tool adapted
+  to typed `ToolResult` while preserving LangChain tool output
 - `specs/in-progress/phase-4-rag-design.md` - Phase 4 RAG/context
   design before implementation
 - `src/saas_lead_agent/schemas/retrieval.py` - Phase 4 document/chunk/retrieval
@@ -197,6 +240,58 @@ Docs:
   such as `uv run python -m ruff ...` or `uv run python -m pytest ...` when
   direct `ruff`/`pytest` are unavailable.
 
+## Low-Credit Codex Rules
+
+Codex should preserve usage by default.
+
+Do:
+
+- Work on one specific task at a time.
+- Inspect only files required for the task.
+- Make small, focused edits.
+- Prefer targeted commands.
+- Stop after a failed command and explain.
+- Ask before expanding scope.
+
+Do not:
+
+- Scan the whole repository by default.
+- Run full test suites automatically.
+- Run full lint/type/build verification automatically.
+- Retry commands repeatedly without permission.
+- Refactor unrelated code.
+- Rewrite large files unnecessarily.
+- Modify unrelated documentation.
+
+Before editing, Codex should explain:
+
+1. Which files need inspection.
+2. Why those files are needed.
+3. What exact change will be made.
+
+## When I Ask for Production-Grade Work
+
+Do not interpret “production grade” as permission to change the entire
+repository.
+
+Break production work into small tasks, such as:
+
+1. Authentication only
+2. Rate limiting only
+3. SSRF protection only
+4. Schema/database changes only
+5. API versioning only
+6. Tests for one specific feature only
+7. Frontend recovery for one flow only
+
+For each task:
+
+- State the exact scope.
+- Inspect only relevant files.
+- Make minimal changes.
+- Suggest targeted verification.
+- Do not run full verification unless explicitly requested.
+
 ## Verification Strategy
 
 Use the three-tier strategy from `PLANS.md`.
@@ -241,14 +336,23 @@ uv run python -m pytest <targeted-test-files> -q
 
 ### Tier 3: Release Verification
 
-Run these only when the user explicitly asks for full or release verification:
+Full verification must not run automatically. Run these only when the user
+explicitly asks for full or release verification:
 
 ```bash
 uv run ruff check src/ tests/
 uv run ruff format --check src/ tests/
 uv run mypy src/
 uv run pytest -x --ff
-cd frontend && npm run build
+npm run build
+```
+
+For normal fixes, use targeted verification only. Examples:
+
+```bash
+uv run ruff check src/specific_file.py
+uv run pytest tests/test_specific_file.py -q
+npm run lint -- --file app/specific-file.tsx
 ```
 
 Docker builds, docker compose runs, eval suites, real external API checks,
@@ -265,13 +369,13 @@ files, state that clearly. Include:
 
 ## Development Workflow
 
-1. Read `PLANS.md` for the current phase and exact scope.
-2. Inspect the relevant code before editing.
-3. Keep changes scoped to the current milestone.
-4. Use `apply_patch` for manual edits.
-5. Add or update targeted tests for changed behavior.
-6. Run Tier 1 verification and targeted Tier 2 tests when appropriate.
-7. Summarize changed files, verification run, and skipped release-only checks.
+1. Inspect only relevant files.
+2. Make the smallest safe change.
+3. Show changed files.
+4. Summarize what changed.
+5. Suggest one targeted verification command.
+6. Do not run full verification unless the user explicitly requests it.
+7. Ask before expanding scope.
 8. Commit only when the user asks or when explicitly continuing a commit task.
 
 ## Current Technical Debt To Respect
@@ -298,13 +402,18 @@ These are tracked in `PLANS.md`; do not solve them out of phase:
   context as labeled data. Basic retrieval-quality metrics exist, but no vector
   memory, embedding provider, persisted retrieval-event table, frontend
   knowledge-base UI, or full retrieval eval runner exists yet.
-- Phase 5 has started with typed tool contracts and a durable-execution design
-  note. Existing runtime tools are not wrapped yet, and there is still no MCP
-  implementation, queue, durable job runner, retry/circuit-breaker runtime, or
-  provider fallback abstraction.
+- Phase 5 has a no-dependency foundation with typed tool contracts and a
+  durable-execution design note. `web_search`, `scrape`, and `hunt_contact`
+  are wrapped, and sanitized tool metadata is exposed through run processing
+  metadata. SendGrid delivery attempts now carry recorded idempotency keys and
+  use a typed delivery envelope internally. A local tool-spec registry exists.
+  There is still no MCP implementation, queue, durable job runner,
+  retry/circuit-breaker runtime, or provider fallback abstraction.
 - No dedicated eval harness yet.
-- CORS is still broad until the auth/compliance phase.
-- Strong SSRF hardening beyond first-pass URL checks belongs in Phase 6.
+- Production CORS requires an explicit allowlist; development may use wildcard
+  CORS when no allowlist is configured.
+- Scraper SSRF controls validate and pin public resolved addresses on every
+  bounded redirect hop. Keep this boundary intact when changing HTTP tooling.
 - Stale dependency/config cleanup requires explicit dependency approval.
 
 ## Future-Agent Reminder

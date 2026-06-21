@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 # factory checks this flag at create_app() time.  Without it Chainlit would
 # load its global socket.io / static-file routes for every test session.
 os.environ.setdefault("DISABLE_CHAINLIT", "1")
+os.environ.setdefault("APP_ENV", "test")
+os.environ.setdefault("AUTH_DEV_BYPASS_ENABLED", "true")
 
 
 def pytest_configure() -> None:

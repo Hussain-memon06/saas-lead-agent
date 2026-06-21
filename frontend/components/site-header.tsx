@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
+import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Settings } from "lucide-react";
 
@@ -95,6 +96,7 @@ export function SiteHeader() {
             <GithubMark className="h-4 w-4" />
             <span className="hidden sm:inline">GitHub</span>
           </a>
+          <UserButton />
         </div>
       </div>
     </header>
