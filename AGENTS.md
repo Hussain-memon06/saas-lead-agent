@@ -55,6 +55,20 @@ Follow this file together with `PLANS.md`.
   connection pinning are implemented. Plain identity headers require explicit
   non-production bypass and are never trusted in production.
 - Current phase: Phase 7 Evaluation Framework, Testing & Quality Gates.
+- Implemented Phase 7 foundation: evaluation design plus strict provider-free
+  contracts for versioned datasets, cases, expectations, metrics, case results,
+  and run summaries. Small synthetic golden/adversarial/retrieval seed datasets
+  and deterministic JSON loading now exist. Deterministic scoring and
+  structured-output evaluators produce sanitized per-case metrics. Retrieval
+  evaluation reuses the existing Phase 4 metrics over synthetic ranked chunks.
+  Grounding and outreach evaluation reuse existing deterministic business
+  engines. Offline tool-use and safety evaluators consume sanitized recorded
+  observations without invoking providers. Aggregate scoring metrics and a
+  provider-free local runner now exist and refuse provider-required cases.
+  Coverage reporting measures category/tag/provider coverage and the 15-case
+  gap from the current fifteen golden cases to the target of 30. Golden-dataset
+  expansion, live end-to-end checks, and LLM-as-judge behavior are not
+  implemented yet. Add reviewed behavioral cases; do not pad dataset counts.
 - Planned: model/provider abstraction, durable execution runtime, evaluation
   infrastructure, and production operations.
 

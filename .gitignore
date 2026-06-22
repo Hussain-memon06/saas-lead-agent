@@ -29,6 +29,10 @@ venv/
 # Ruff
 .ruff_cache/
 
+# Generated evaluation results
+evals/results/*
+!evals/results/.gitkeep
+
 # Chainlit auto-generated config + translations (regenerated on first run)
 .chainlit/
 .files/

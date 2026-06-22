@@ -1,0 +1,505 @@
+{
+  "schema_version": "1.0",
+  "name": "golden",
+  "version": "0.1.0",
+  "kind": "golden",
+  "cases": [
+    {
+      "case_id": "scoring.high-fit-saas",
+      "category": "scoring",
+      "description": "A sourced Series B SaaS company matching every ICP dimension should be high fit.",
+      "input": {
+        "profile": {
+          "name": "Acme Corp",
+          "tagline": "B2B SaaS workflow automation for sales teams",
+          "hq": "New York, United States",
+          "employees_estimate": "51-200",
+          "funding_stage": "Series B",
+          "products": ["Sales automation platform"],
+          "notable_customers": ["ExampleCo"],
+          "sources": ["https://acme.example.com/about"]
+        },
+        "contact": {
+          "name": "Alex Smith",
+          "title": "VP Sales",
+          "email": "alex@acme.example.com",
+          "confidence": 92,
+          "source": "hunter"
+        },
+        "signals": [
+          {
+            "signal_type": "funding",
+            "date": "2026-01",
+            "source": "https://acme.example.com/news",
+            "details": "Acme announced recent funding to expand sales automation."
+          },
+          {
+            "signal_type": "hiring",
+            "date": "2026-02",
+            "source": "https://acme.example.com/careers",
+            "details": "Acme is hiring sales and RevOps roles."
+          }
+        ],
+        "icp": {
+          "target_industries": ["B2B SaaS"],
+          "target_stages": ["Series B"],
+          "target_geographies": ["United States"],
+          "target_employees": "51-200",
+          "must_have_signals": ["recent funding", "hiring sales"],
+          "red_flags": ["consumer app"]
+        }
+      },
+      "expected": {
+        "expected_fit_level": "high",
+        "min_score": 8,
+        "max_score": 10,
+        "requires_human_approval": false
+      },
+      "tags": ["scoring", "high-fit", "saas"]
+    },
+    {
+      "case_id": "scoring.low-fit-missing-profile",
+      "category": "scoring",
+      "description": "A lead with no profile, contact, or signals should remain low confidence and low fit.",
+      "input": {
+        "profile": null,
+        "contact": null,
+        "signals": [],
+        "icp": {
+          "target_industries": ["B2B SaaS"],
+          "target_stages": ["Series B"],
+          "target_geographies": ["United States"],
+          "target_employees": "51-200",
+          "must_have_signals": ["recent funding"]
+        }
+      },
+      "expected": {
+        "expected_fit_level": "low",
+        "min_score": 1,
+        "max_score": 4,
+        "requires_human_approval": true
+      },
+      "tags": ["scoring", "low-fit", "missing-data"]
+    },
+    {
+      "case_id": "structured.lead-report-required-fields",
+      "category": "structured_output",
+      "description": "A lead report fixture should preserve its required API-facing fields.",
+      "input": {
+        "output": {
+          "thread_id": "lead:acme.example.com",
+          "fit_score": 9,
+          "fit_level": "high",
+          "email_subject": "Acme sales automation",
+          "email_body": "Hi Alex, your recent RevOps hiring suggests a timely workflow opportunity."
+        }
+      },
+      "expected": {
+        "output_schema": "qualify_response",
+        "required_fields": ["thread_id", "fit_score", "fit_level", "email_subject", "email_body"]
+      },
+      "tags": ["structured-output", "lead-report"]
+    },
+    {
+      "case_id": "grounding.sourced-profile-signals",
+      "category": "grounding",
+      "description": "A sourced profile, contact, signals, and matching draft should have complete grounding.",
+      "input": {
+        "profile": {
+          "name": "Acme Corp",
+          "tagline": "B2B SaaS sales automation",
+          "hq": "New York, United States",
+          "employees_estimate": "51-200",
+          "funding_stage": "Series B",
+          "products": ["Outbound workflow platform"],
+          "notable_customers": [],
+          "sources": ["https://acme.example.com/about"]
+        },
+        "contact": {
+          "name": "Alex Smith",
+          "title": "VP Sales",
+          "email": "alex@acme.example.com",
+          "confidence": 92,
+          "source": "hunter"
+        },
+        "signals": [
+          {
+            "signal_type": "funding",
+            "date": "2026-01",
+            "source": "https://acme.example.com/news",
+            "details": "Acme announced funding for sales team expansion."
+          },
+          {
+            "signal_type": "hiring",
+            "date": "2026-02",
+            "source": "https://acme.example.com/careers",
+            "details": "Acme is hiring sales and RevOps roles."
+          }
+        ],
+        "draft": {
+          "email_subject": "Quick question about Acme Corp",
+          "email_body": "Hi Alex, I saw Acme Corp's funding and hiring momentum. Could a quick chat next week about outbound workflows be useful?"
+        }
+      },
+      "expected": {
+        "max_unsupported_claim_rate": 0.0,
+        "min_evidence_coverage": 1.0,
+        "max_missing_source_rate": 0.0
+      },
+      "tags": ["grounding", "evidence", "sourced"]
+    },
+    {
+      "case_id": "outreach.personalized-clear-cta",
+      "category": "outreach",
+      "description": "Synthetic outreach should be personalized, restrained, and remain approval gated.",
+      "input": {
+        "profile": {
+          "name": "Acme Corp",
+          "tagline": "B2B SaaS sales automation",
+          "hq": "New York, United States",
+          "employees_estimate": "51-200",
+          "funding_stage": "Series B",
+          "products": ["Outbound workflow platform"],
+          "notable_customers": [],
+          "sources": ["https://acme.example.com/about"]
+        },
+        "contact": {
+          "name": "Alex Smith",
+          "title": "VP Sales",
+          "email": "alex@acme.example.com",
+          "confidence": 92,
+          "source": "hunter"
+        },
+        "signals": [
+          {
+            "signal_type": "funding",
+            "date": "2026-01",
+            "source": "https://acme.example.com/news",
+            "details": "Acme announced funding to expand sales."
+          }
+        ],
+        "draft": {
+          "email_subject": "Quick question about Acme Corp",
+          "email_body": "Hi Alex, I noticed Acme Corp's recent funding and the outbound workflow work your sales team is likely scaling. We help B2B SaaS teams turn that kind of momentum into qualified meetings without adding manual research. Would it be worth a quick chat next week?"
+        },
+        "human_approval_required": true
+      },
+      "expected": {
+        "min_personalization_density": 0.5,
+        "max_spamminess": 0.0,
+        "min_outreach_quality_score": 90,
+        "expected_cta_present": true,
+        "expected_placeholders_present": false,
+        "requires_human_approval": true
+      },
+      "tags": ["outreach", "personalization", "cta"]
+    },
+    {
+      "case_id": "scoring.medium-fit-missing-evidence",
+      "category": "scoring",
+      "description": "A mismatched stage and geography with no signals should remain medium fit and require review.",
+      "input": {
+        "profile": {
+          "name": "Acme Corp",
+          "tagline": "B2B SaaS workflow automation for sales teams",
+          "hq": "Berlin, Germany",
+          "employees_estimate": "51-200",
+          "funding_stage": "Seed",
+          "products": ["Sales automation platform", "Outbound workflow engine"],
+          "notable_customers": ["ExampleCo"],
+          "sources": ["https://acme.example.com/about"]
+        },
+        "contact": {
+          "name": "Alex Smith",
+          "title": "VP Sales",
+          "email": null,
+          "confidence": 70,
+          "source": "hunter"
+        },
+        "signals": [],
+        "icp": {
+          "target_industries": ["B2B SaaS"],
+          "target_stages": ["Series B"],
+          "target_geographies": ["United States"],
+          "target_employees": "51-200",
+          "must_have_signals": ["recent funding", "hiring sales"],
+          "red_flags": ["consumer app"]
+        }
+      },
+      "expected": {
+        "expected_fit_level": "medium",
+        "min_score": 5,
+        "max_score": 7,
+        "requires_human_approval": true
+      },
+      "tags": ["scoring", "medium-fit", "missing-evidence"]
+    },
+    {
+      "case_id": "scoring.generic-mode-high-fit",
+      "category": "scoring",
+      "description": "A well-sourced generic-mode lead should retain the established score of nine.",
+      "input": {
+        "profile": {
+          "name": "Acme Corp",
+          "tagline": "B2B SaaS workflow automation for sales teams",
+          "hq": "New York, United States",
+          "employees_estimate": "51-200",
+          "funding_stage": "Series B",
+          "products": ["Sales automation platform", "Outbound workflow engine"],
+          "notable_customers": ["ExampleCo"],
+          "sources": ["https://acme.example.com/about"]
+        },
+        "contact": {
+          "name": "Alex Smith",
+          "title": "VP Sales",
+          "email": "alex@acme.example.com",
+          "confidence": 92,
+          "source": "hunter"
+        },
+        "signals": [
+          {
+            "signal_type": "funding",
+            "date": "2026-01",
+            "source": "https://acme.example.com/news",
+            "details": "Acme announced recent funding to expand sales automation."
+          },
+          {
+            "signal_type": "hiring",
+            "date": "2026-02",
+            "source": "https://acme.example.com/careers",
+            "details": "Acme is hiring sales and RevOps roles."
+          }
+        ],
+        "icp": null
+      },
+      "expected": {
+        "expected_fit_level": "high",
+        "min_score": 9,
+        "max_score": 9,
+        "requires_human_approval": false
+      },
+      "tags": ["scoring", "generic-mode", "high-fit"]
+    },
+    {
+      "case_id": "scoring.red-flags-require-review",
+      "category": "scoring",
+      "description": "Detected consumer red flags must force human review regardless of the remaining fit evidence.",
+      "input": {
+        "profile": {
+          "name": "Acme Corp",
+          "tagline": "Consumer app for personal budgeting",
+          "hq": "New York, United States",
+          "employees_estimate": "51-200",
+          "funding_stage": "Series B",
+          "products": ["Personal budgeting app"],
+          "notable_customers": [],
+          "sources": ["https://acme.example.com/about"]
+        },
+        "contact": {
+          "name": "Alex Smith",
+          "title": "VP Sales",
+          "email": "alex@acme.example.com",
+          "confidence": 92,
+          "source": "hunter"
+        },
+        "signals": [
+          {
+            "signal_type": "funding",
+            "date": "2026-01",
+            "source": "https://acme.example.com/news",
+            "details": "Acme announced recent funding."
+          }
+        ],
+        "icp": {
+          "target_industries": ["B2B SaaS"],
+          "target_stages": ["Series B"],
+          "target_geographies": ["United States"],
+          "target_employees": "51-200",
+          "must_have_signals": ["recent funding"],
+          "red_flags": ["consumer app", "personal budgeting"]
+        }
+      },
+      "expected": {
+        "min_score": 1,
+        "max_score": 10,
+        "requires_human_approval": true
+      },
+      "tags": ["scoring", "red-flag", "human-review"]
+    },
+    {
+      "case_id": "structured.qualify-response-minimal-json",
+      "category": "structured_output",
+      "description": "A minimal serialized QualifyResponse should validate with optional fields omitted.",
+      "input": {
+        "output": "{\"thread_id\":\"lead:minimal.example.com\"}"
+      },
+      "expected": {
+        "output_schema": "qualify_response",
+        "required_fields": ["thread_id"]
+      },
+      "tags": ["structured-output", "json-string", "minimal"]
+    },
+    {
+      "case_id": "structured.lead-report-stubbed-delivery",
+      "category": "structured_output",
+      "description": "A LeadReport may record explicit stubbed delivery without claiming a real send.",
+      "input": {
+        "output": {
+          "fit_score": 8,
+          "fit_level": "high",
+          "needs_human_review": false,
+          "send_result": "stubbed",
+          "errors": []
+        }
+      },
+      "expected": {
+        "output_schema": "lead_report",
+        "required_fields": ["fit_score", "fit_level", "send_result"]
+      },
+      "tags": ["structured-output", "lead-report", "stubbed-delivery"]
+    },
+    {
+      "case_id": "grounding.uncited-external-url",
+      "category": "grounding",
+      "description": "An outreach URL outside the researched sources must be detected as unsupported.",
+      "input": {
+        "profile": {
+          "name": "Acme Corp",
+          "tagline": "B2B SaaS sales automation",
+          "products": ["Outbound workflow platform"],
+          "sources": ["https://acme.example.com/about"]
+        },
+        "contact": {
+          "name": "Alex Smith",
+          "title": "VP Sales",
+          "source": "hunter"
+        },
+        "signals": [
+          {
+            "signal_type": "funding",
+            "source": "https://acme.example.com/news",
+            "details": "Acme announced funding for sales growth."
+          }
+        ],
+        "draft": {
+          "email_subject": "Quick question about Acme Corp",
+          "email_body": "Hi Alex, Acme Corp's funding looks timely. Could we chat next week? https://competitor.example.com"
+        }
+      },
+      "expected": {
+        "min_unsupported_claim_rate": 0.2,
+        "max_evidence_coverage": 0.8
+      },
+      "tags": ["grounding", "unsupported-claim", "uncited-url"]
+    },
+    {
+      "case_id": "grounding.profile-missing-source",
+      "category": "grounding",
+      "description": "A profile-backed score without profile sources must be detected as weakly grounded.",
+      "input": {
+        "profile": {
+          "name": "Acme Corp",
+          "tagline": "B2B SaaS sales automation",
+          "products": ["Outbound workflow platform"],
+          "sources": []
+        },
+        "contact": {
+          "name": "Alex Smith",
+          "title": "VP Sales",
+          "source": "hunter"
+        },
+        "signals": [],
+        "draft": {
+          "email_subject": "Quick question about Acme Corp",
+          "email_body": "Hi Alex, Acme Corp looks relevant. Could we chat next week?"
+        }
+      },
+      "expected": {
+        "min_unsupported_claim_rate": 0.6,
+        "max_evidence_coverage": 0.4
+      },
+      "tags": ["grounding", "missing-source", "score-evidence"]
+    },
+    {
+      "case_id": "outreach.placeholders-detected",
+      "category": "outreach",
+      "description": "Unresolved template placeholders must be detected and keep quality low.",
+      "input": {
+        "profile": {"name": "Acme Corp", "sources": ["https://acme.example.com"]},
+        "contact": {"name": "Alex Smith", "source": "hunter"},
+        "signals": [],
+        "draft": {
+          "email_subject": "Quick question for [company name]",
+          "email_body": "Hi {{name}}, I saw [company name] is growing. Would you be open to a quick chat next week?"
+        },
+        "human_approval_required": true
+      },
+      "expected": {
+        "max_outreach_quality_score": 50,
+        "max_spamminess": 0.0,
+        "expected_cta_present": true,
+        "expected_placeholders_present": true,
+        "requires_human_approval": true
+      },
+      "tags": ["outreach", "placeholder", "negative-example"]
+    },
+    {
+      "case_id": "outreach.spam-language-detected",
+      "category": "outreach",
+      "description": "High-pressure spam language must be detected and fail the quality threshold.",
+      "input": {
+        "profile": {"name": "Acme Corp", "sources": ["https://acme.example.com"]},
+        "contact": {"name": "Alex Smith", "source": "hunter"},
+        "signals": [
+          {
+            "signal_type": "funding",
+            "source": "https://acme.example.com/news",
+            "details": "Acme announced funding to expand sales."
+          }
+        ],
+        "draft": {
+          "email_subject": "Quick question about Acme Corp",
+          "email_body": "Hi Alex, I saw Acme Corp's funding. This is a risk-free, 100% guaranteed way to grow. Act now and we can discuss the details on a quick call next week."
+        },
+        "human_approval_required": true
+      },
+      "expected": {
+        "min_spamminess": 1.0,
+        "max_outreach_quality_score": 70,
+        "expected_cta_present": true,
+        "expected_placeholders_present": false,
+        "requires_human_approval": true
+      },
+      "tags": ["outreach", "spam", "negative-example"]
+    },
+    {
+      "case_id": "outreach.missing-cta-short-body",
+      "category": "outreach",
+      "description": "Short outreach without a CTA must be detected as low quality.",
+      "input": {
+        "profile": {"name": "Acme Corp", "sources": ["https://acme.example.com"]},
+        "contact": {"name": "Alex Smith", "source": "hunter"},
+        "signals": [
+          {
+            "signal_type": "funding",
+            "source": "https://acme.example.com/news",
+            "details": "Acme announced funding."
+          }
+        ],
+        "draft": {
+          "email_subject": "Acme",
+          "email_body": "Hi Alex, congrats to Acme Corp on the funding."
+        },
+        "human_approval_required": true
+      },
+      "expected": {
+        "max_outreach_quality_score": 60,
+        "max_spamminess": 0.0,
+        "expected_cta_present": false,
+        "expected_placeholders_present": false,
+        "requires_human_approval": true
+      },
+      "tags": ["outreach", "missing-cta", "short-body", "negative-example"]
+    }
+  ]
+}

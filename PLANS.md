@@ -674,6 +674,24 @@ pytest tests/test_auth.py -q
 
 ## Phase 7: Evaluation Framework, Testing & Quality Gates
 
+Status: in progress. Milestones 7.1 and 7.2 define the provider-free evaluation
+architecture, strict Pydantic contracts, small synthetic golden/adversarial/
+retrieval seed datasets, deterministic local JSON loading, scoring evaluation,
+structured-output evaluation, and a retrieval adapter over the existing Phase
+4 metrics. Deterministic grounding and outreach-quality adapters reuse the
+existing business engines. Duplicate case IDs, malformed or schema-invalid
+files, empty expectations, incomplete metric thresholds, and inconsistent run
+totals are rejected. Offline tool-use evaluation consumes sanitized recorded
+metadata, and safety evaluation covers pure URL denial plus recorded untrusted
+instruction boundaries. Aggregate scoring metrics and the provider-free local
+runner now exist; the runner writes sanitized versioned JSON only when invoked
+and refuses provider-required cases. Expansion to 30 golden cases, opt-in
+end-to-end adversarial checks, and optional LLM-as-judge remain later
+milestones. Generated result artifacts are intentionally absent until a run is
+explicitly requested. Deterministic coverage reporting currently shows fifteen
+golden cases and a 15-case gap to the acceptance target while confirming the
+required category surfaces for all three seed datasets.
+
 ### Goal
 
 Create a repeatable quality system for the agent outputs, deterministic logic,

@@ -590,6 +590,147 @@ Begin Phase 7 with a narrow evaluation-contract and dataset-design milestone.
 Do not start broad eval runs or external LLM-as-judge calls without explicit
 approval.
 
+## Phase 7 Progress
+
+Milestone 7.1 establishes the provider-free evaluation foundation:
+
+- Added `specs/in-progress/phase-7-evaluation-design.md` with dataset,
+  reproducibility, privacy, metric-ownership, execution, and milestone policy.
+- Added strict evaluation contracts for datasets, cases, expectations, metric
+  results, case results, and run summaries.
+- External-provider execution defaults to false.
+- Duplicate case IDs, empty expectations, retrieval expectations without `k`,
+  incomplete metric threshold pairs, and inconsistent run totals are rejected.
+- Added focused contract tests without introducing an eval runner, datasets,
+  provider calls, or dependencies.
+
+Next: add small reviewed seed files for golden, adversarial, and retrieval
+datasets plus deterministic schema loading. Do not run models or external APIs.
+
+Milestone 7.2 adds the first provider-free dataset slice:
+
+- Added four synthetic golden cases, four adversarial cases, and two retrieval
+  cases under `evals/`.
+- Added strict UTF-8 JSON loading with a 2 MB limit, expected-kind checks, and
+  sanitized parse/schema failures.
+- Added focused tests for all seed files, provider-free defaults, kind
+  mismatches, malformed JSON, and schema-invalid data.
+- Added an ignore boundary for generated `evals/results/` artifacts.
+
+Next: implement deterministic scoring and structured-output evaluators against
+the seed cases. Do not add a broad runner or provider-backed evaluation yet.
+
+Milestone 7.3 adds the first executable deterministic evaluators:
+
+- Scoring fixtures validate existing company/contact/signal/ICP contracts and
+  run through the production `ScoringEngine`.
+- Per-case scoring metrics cover classification accuracy, score deviation, and
+  human-review safety behavior.
+- Structured-output evaluation covers JSON validity, required fields, selected
+  existing Pydantic schemas, and invalid enum counts.
+- Invalid fixture data returns sanitized failed case results instead of
+  escaping into a future runner.
+- Added focused tests against the synthetic seed data and malformed cases.
+
+Next: add the retrieval evaluator adapter using existing Phase 4 metrics. Keep
+aggregate runner behavior and provider-backed evaluation deferred.
+
+Milestone 7.4 adds deterministic retrieval evaluation:
+
+- Retrieval seed cases now contain synthetic ranked `RetrievedChunk` records
+  and explicit minimum recall, precision, MRR, and source-coverage thresholds.
+- The adapter reuses Phase 4's `evaluate_retrieval_quality` implementation.
+- Per-case output includes recall@k, precision@k, MRR, source coverage, and
+  expected chunk retrieval.
+- Malformed chunks return sanitized failed case results.
+- Added focused passing, threshold-failure, and invalid-fixture tests.
+
+Next: add deterministic grounding and outreach-quality evaluator adapters.
+Keep tool execution, safety execution, aggregate runners, and provider-backed
+evaluation deferred.
+
+Milestone 7.5 adds deterministic grounding and outreach evaluation:
+
+- Added a fully sourced synthetic grounding case and an engine-compatible
+  outreach case.
+- Grounding metrics cover unsupported-claim rate, evidence coverage, and
+  missing-source rate using existing scoring/grounding engines.
+- Outreach metrics cover quality score, personalization density, spam
+  incidence, CTA clarity, placeholder safety, and approval gating using the
+  existing outreach-quality engine.
+- Invalid fixtures return sanitized failed case results.
+- Added focused passing and failure tests for both adapters.
+
+Next: add provider-free tool-event and adversarial safety evaluators over
+already-recorded fixture data. Do not execute tools, fetch URLs, or send email.
+
+Milestone 7.6 adds offline tool-use and adversarial safety evaluation:
+
+- Tool-use cases now contain sanitized `ToolExecutionMetadata` observations.
+- Metrics cover tool selection, expected status/graceful handling, timeout
+  behavior, retry budgets, and approval gating without invoking tools.
+- Safety cases exercise the pure URL validator or verify that untrusted prompt
+  injection text has a recorded `treated_as_data` boundary outcome.
+- Added focused passing, mismatch, and invalid-metadata tests.
+- These checks do not replace later opt-in live adversarial tests.
+
+Next: add aggregate scoring metrics and a local provider-free runner that emits
+sanitized JSON results. Do not add external-provider or LLM-as-judge execution.
+
+Milestone 7.7 adds aggregate metrics and the local provider-free runner:
+
+- Aggregate scoring reports classification accuracy, average score deviation,
+  false-positive rate, and false-negative rate with explicit quality gates.
+- A category dispatcher routes every current case type to its deterministic
+  evaluator.
+- Provider-required cases are refused rather than executed implicitly.
+- `evals/run_eval.py` supports dataset/category selection and writes the
+  sanitized versioned run-result contract only when explicitly invoked.
+- Exit status reflects both per-case failures and aggregate quality gates.
+- Added focused dispatch, filtering, provider-refusal, and aggregation tests.
+
+Next: expand the golden dataset toward 30 reviewed cases and add coverage
+reporting. Keep live end-to-end and LLM-as-judge evaluation opt-in and deferred.
+
+Milestone 7.8 adds deterministic dataset coverage reporting:
+
+- Reports category and tag counts, provider-free/provider-required counts, and
+  missing categories appropriate to each dataset kind.
+- Reports the golden target and remaining gap without running evaluators.
+- Current coverage is ten golden cases with a 20-case gap; all three datasets
+  contain their required category surfaces and remain provider-free.
+- Added focused coverage and target-override tests.
+
+Next: expand the golden dataset in small reviewed slices, beginning with more
+high/medium/low scoring and structured-output edge cases. Do not bulk-generate
+cases merely to satisfy the count.
+
+Milestone 7.9 adds five reviewed golden cases:
+
+- Medium-fit scoring with missing evidence and mandatory review.
+- Generic-mode scoring with the established deterministic score of nine.
+- Red-flag scoring that must remain human-review gated.
+- Minimal serialized `QualifyResponse` validation.
+- Explicit stubbed-delivery `LeadReport` validation.
+
+Golden coverage is now 10 cases with a 20-case gap. Next: add a small reviewed
+grounding/outreach edge-case slice, including unsupported claims, missing
+sources, placeholders, spam language, and missing CTA behavior.
+
+Milestone 7.10 adds five reviewed negative-example cases:
+
+- Grounding detects an uncited external URL.
+- Grounding detects profile-backed scoring without profile source evidence.
+- Outreach detects unresolved placeholders.
+- Outreach detects high-pressure spam language.
+- Outreach detects a short body with no CTA.
+
+The expectation model now supports bounded degraded outcomes, CTA presence,
+and placeholder presence so correctly detected bad output passes the eval.
+Golden coverage is now 15 cases with a 15-case gap. Next: add another reviewed
+slice covering scoring uncertainty, structured-output failures represented as
+expected outcomes, and additional grounding source variation.
+
 ## Phase 5 Guardrails
 
 - MCP is deferred unless a concrete tool/resource boundary benefits from it.
