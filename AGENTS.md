@@ -168,6 +168,8 @@ Read these before making changes in their area:
   provider/session decision and enforcement order
 - `src/saas_lead_agent/api/auth.py` - Clerk JWT verification and explicit
   non-production bypass handling
+- `src/saas_lead_agent/api/logging_redaction.py` - HTTP client log redaction
+  for provider URLs and query-string secrets
 - `src/saas_lead_agent/persistence/access.py` - pure snapshot ownership and
   normalized artifact aggregate filtering helpers; not repository/API
   enforcement

@@ -794,9 +794,16 @@ Milestone 8.1 starts with a planning-only production operations record:
   - API version strategy
 - Kept CI, Docker, source code, dependencies, deployment settings, API routes,
   cloud checks, and external provider checks unchanged.
+- Added provider-log redaction for `httpx`/`httpcore` request logs so
+  query-string secrets such as Hunter `api_key` are replaced before log
+  formatting.
+- Completed the first operational inventory/config matrix covering current
+  docs/artifacts, frontend/backend topology, environment variables, and
+  prioritized Phase 8 gaps.
 
-Next: inspect only current deployment/config docs and deployment artifacts
-needed for the Milestone 8.1 operational inventory.
+Next: begin Milestone 8.2 with a small `/health` and `/ready` design and
+implementation slice, or first resolve the documented deployment-doc drift if
+the live backend host should be source-of-truth before code changes.
 
 ## Phase 5 Guardrails
 

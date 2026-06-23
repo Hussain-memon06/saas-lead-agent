@@ -773,10 +773,12 @@ user asks for eval or release verification.
 
 ## Phase 8: Production Deployment, CI/CD & Operational Readiness
 
-Status: started with a planning-only milestone in
-`specs/in-progress/phase-8-production-ops-plan.md`. Do not change CI, Docker,
-source code, dependencies, deployment settings, or API routes until the Phase 8
-operational inventory and implementation order are reviewed.
+Status: started with Milestone 8.1 in
+`specs/in-progress/phase-8-production-ops-plan.md`. The first operational
+inventory/config matrix is documented, and HTTP provider request logs now
+redact query-string secrets before formatting. Do not change CI, Docker,
+dependencies, deployment settings, or API routes until the next Phase 8
+implementation slice is approved.
 
 ### Goal
 

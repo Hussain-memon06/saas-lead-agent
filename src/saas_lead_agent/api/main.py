@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 
 import saas_lead_agent.api.routes as _routes
 from saas_lead_agent.api.auth import validate_auth_configuration
+from saas_lead_agent.api.logging_redaction import configure_http_logging_redaction
 from saas_lead_agent.api.routes import router
 from saas_lead_agent.api.security import (
     request_body_limit_bytes,
@@ -85,6 +86,7 @@ def create_app() -> FastAPI:
     The order is mandatory — mounting Chainlit before the router would
     cause every ``/api/*`` route to 404 (CLAUDE.md).
     """
+    configure_http_logging_redaction()
     app = FastAPI(
         title="Outbound Lead Agent",
         description="Research and qualify B2B SaaS companies.",
