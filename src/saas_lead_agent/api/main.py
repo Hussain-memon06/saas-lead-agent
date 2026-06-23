@@ -79,6 +79,29 @@ def _cors_origins() -> list[str]:
     return ["*"]
 
 
+def _readiness_checks() -> dict[str, object]:
+    checks: dict[str, object] = {
+        "auth_configuration": "ok",
+        "compliance_configuration": "ok",
+    }
+    missing: list[str] = []
+    try:
+        validate_auth_configuration()
+    except RuntimeError as exc:
+        checks["auth_configuration"] = "failed"
+        missing.append(str(exc))
+    try:
+        validate_compliance_configuration()
+    except RuntimeError as exc:
+        checks["compliance_configuration"] = "failed"
+        missing.append(str(exc))
+    return {
+        "ready": not missing,
+        "checks": checks,
+        "missing": missing,
+    }
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -93,6 +116,16 @@ def create_app() -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
     )
+
+    @app.get("/health", include_in_schema=False)
+    async def health() -> dict[str, object]:
+        return {"status": "ok", "service": "outbound-lead-agent"}
+
+    @app.get("/ready", include_in_schema=False)
+    async def ready() -> JSONResponse:
+        payload = _readiness_checks()
+        status_code = 200 if payload["ready"] is True else 503
+        return JSONResponse(status_code=status_code, content=payload)
 
     @app.middleware("http")
     async def add_request_id(

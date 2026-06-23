@@ -2,10 +2,10 @@
 
 ## Status
 
-Phase 8 has started with a planning-only milestone. This document defines the
-implementation order for production operations without changing runtime
-behavior, dependency manifests, CI configuration, Docker artifacts, or deployed
-infrastructure yet.
+Phase 8 has started. Milestone 8.1 documented the operational inventory and
+configuration matrix. Milestone 8.2 adds provider-free health/readiness
+endpoints without changing dependency manifests, CI configuration, Docker
+artifacts, or deployed infrastructure.
 
 The immediate goal is to make the remaining production work explicit and
 sequential so each slice can be implemented and verified without broad,
@@ -24,6 +24,7 @@ expensive default checks.
   Phase 8 review before implementation decisions.
 - HTTP provider request logs now redact sensitive query-string fields such as
   `api_key` before formatting `httpx`/`httpcore` log records.
+- `/health` and `/ready` now exist as provider-free service diagnostics.
 
 ## Milestone 8.1 Operational Inventory
 
@@ -147,6 +148,8 @@ Acceptance criteria:
 Goal: make backend service health inspectable without invoking external
 providers by default.
 
+Status: implemented for the current narrow milestone.
+
 Scope:
 
 - define `/health` and `/ready` semantics
@@ -159,6 +162,15 @@ Acceptance criteria:
 - Health endpoints do not leak secrets or PII.
 - Readiness reports missing critical configuration clearly.
 - Tests cover endpoint behavior without external API calls.
+
+Implementation notes:
+
+- `/health` returns process liveness and service identity only.
+- `/ready` reuses existing auth and compliance startup validators and returns
+  503 with safe missing-configuration messages when required production config
+  is absent.
+- Readiness intentionally does not call OpenAI, Tavily, Hunter, SendGrid,
+  Langfuse, Postgres, Clerk JWKS, or cloud services.
 
 ### Milestone 8.3: CI Quality Gates
 

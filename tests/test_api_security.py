@@ -18,6 +18,58 @@ from saas_lead_agent.schemas import AuthContext
 
 
 @pytest.mark.asyncio
+async def test_health_endpoint_reports_liveness() -> None:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "service": "outbound-lead-agent"}
+    assert "X-Request-ID" in response.headers
+
+
+@pytest.mark.asyncio
+async def test_ready_endpoint_reports_local_readiness() -> None:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/ready")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ready"] is True
+    assert payload["checks"] == {
+        "auth_configuration": "ok",
+        "compliance_configuration": "ok",
+    }
+    assert payload["missing"] == []
+
+
+@pytest.mark.asyncio
+async def test_ready_endpoint_reports_missing_production_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("AUTH_DEV_BYPASS_ENABLED", "false")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("CLERK_ISSUER", raising=False)
+    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "https://agent.hussainflow.com")
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/ready")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["ready"] is False
+    assert payload["checks"] == {
+        "auth_configuration": "failed",
+        "compliance_configuration": "failed",
+    }
+    assert "CLERK_ISSUER" in " ".join(payload["missing"])
+    assert "OPENAI_API_KEY" in " ".join(payload["missing"])
+    assert "sk-" not in str(payload)
+
+
+@pytest.mark.asyncio
 async def test_rate_limiter_returns_retry_after_when_limit_is_exhausted() -> None:
     limiter = InMemoryRateLimiter(clock=lambda: 100.0)
 

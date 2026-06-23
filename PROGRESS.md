@@ -805,6 +805,16 @@ Next: begin Milestone 8.2 with a small `/health` and `/ready` design and
 implementation slice, or first resolve the documented deployment-doc drift if
 the live backend host should be source-of-truth before code changes.
 
+Milestone 8.2 adds provider-free health/readiness endpoints:
+
+- `/health` reports process liveness and service identity.
+- `/ready` reuses existing auth/compliance startup validators and returns safe
+  configuration status without calling external providers.
+- Focused tests cover local readiness and missing production configuration.
+
+Next: choose either CI quality gates (Milestone 8.3) or resolve the documented
+deployment-doc drift before changing CI/Docker/deployment files.
+
 ## Phase 5 Guardrails
 
 - MCP is deferred unless a concrete tool/resource boundary benefits from it.

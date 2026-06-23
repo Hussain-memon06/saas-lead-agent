@@ -777,8 +777,9 @@ Status: started with Milestone 8.1 in
 `specs/in-progress/phase-8-production-ops-plan.md`. The first operational
 inventory/config matrix is documented, and HTTP provider request logs now
 redact query-string secrets before formatting. Do not change CI, Docker,
-dependencies, deployment settings, or API routes until the next Phase 8
-implementation slice is approved.
+dependencies, or deployment settings until the next Phase 8 implementation
+slice is approved. A narrow `/health` and `/ready` endpoint slice now provides
+provider-free liveness/readiness diagnostics.
 
 ### Goal
 
