@@ -13,7 +13,7 @@ _EVALS_DIR = _REPO_ROOT / "evals"
 @pytest.mark.parametrize(
     ("filename", "expected_kind", "expected_count"),
     [
-        ("golden_dataset.json", "golden", 15),
+        ("golden_dataset.json", "golden", 30),
         ("adversarial_dataset.json", "adversarial", 4),
         ("retrieval_dataset.json", "retrieval", 2),
     ],

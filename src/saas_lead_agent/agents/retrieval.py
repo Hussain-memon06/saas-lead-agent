@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from saas_lead_agent.retrieval import (
     InMemoryRetrievalRepository,
@@ -11,7 +11,7 @@ from saas_lead_agent.retrieval import (
     build_retrieval_event,
     hash_text,
 )
-from saas_lead_agent.schemas import ContextBundle, KnowledgeDocument
+from saas_lead_agent.schemas import ContextBundle, DocumentType, KnowledgeDocument
 from saas_lead_agent.state import LeadState
 
 _ICP_NODE = "retrieve_icp_context"
@@ -100,7 +100,7 @@ async def retrieve_icp_context(state: LeadState) -> dict[str, Any]:
         for document_type, text in documents.items():
             document = KnowledgeDocument(
                 document_id=f"{run_id}:{document_type}:request",
-                document_type=document_type,
+                document_type=cast(DocumentType, document_type),
                 trust_label="trusted_user",
                 title=f"Submitted {document_type} context",
                 source_uri=f"user://{document_type}/request",

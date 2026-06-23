@@ -107,9 +107,7 @@ def test_compose_has_migrate_service() -> None:
     """User-requested: separate migrations step in compose."""
     content = (_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     assert "migrate:" in content
-    assert "postgres_checkpointer" in content, (
-        "migrate service must run AsyncPostgresSaver.setup()"
-    )
+    assert "postgres_checkpointer" in content, "migrate service must run AsyncPostgresSaver.setup()"
 
 
 def test_compose_app_depends_on_migrate_completion() -> None:

@@ -28,59 +28,83 @@ def evaluate_structured_output_case(case: EvaluationCase) -> CaseEvaluationResul
         raise ValueError("structured-output evaluator requires a structured-output case")
     started_at = perf_counter()
     payload, json_valid = _parse_payload(case.input.get("output"))
+    expected_json_valid = (
+        case.expected.expected_json_valid if case.expected.expected_json_valid is not None else True
+    )
+    json_matches = json_valid == expected_json_valid
     metrics = [
         MetricResult(
             name="json_validity",
             value=1.0 if json_valid else 0.0,
-            threshold=1.0,
+            threshold=1.0 if expected_json_valid else 0.0,
             comparison="eq",
-            passed=json_valid,
+            passed=json_matches,
         )
     ]
     failures: list[str] = []
     if not json_valid or not isinstance(payload, dict):
-        failures.append("output is not a valid JSON object")
+        if not json_matches:
+            failures.append("JSON validity did not match expectation")
         return _result(case, metrics, failures, started_at)
 
     required_fields = case.expected.required_fields or []
     missing_fields = [field for field in required_fields if field not in payload]
     if required_fields:
+        expected_missing = sorted(case.expected.expected_missing_fields or [])
+        missing_matches = sorted(missing_fields) == expected_missing
         metrics.append(
             MetricResult(
                 name="missing_required_fields",
                 value=float(len(missing_fields)),
-                threshold=0.0,
+                threshold=float(len(expected_missing)),
                 comparison="eq",
-                passed=not missing_fields,
-                details={"missing_fields": missing_fields},
+                passed=missing_matches,
+                details={
+                    "missing_fields": missing_fields,
+                    "expected_missing_fields": expected_missing,
+                },
             )
         )
-        if missing_fields:
-            failures.append("output is missing required fields")
+        if not missing_matches:
+            failures.append("missing required fields did not match expectation")
 
     schema_name = case.expected.output_schema
     if schema_name is not None:
         schema_passed, invalid_enums = _validate_schema(schema_name, payload)
+        expected_schema_valid = (
+            case.expected.expected_schema_valid
+            if case.expected.expected_schema_valid is not None
+            else True
+        )
+        schema_matches = schema_passed == expected_schema_valid
+        minimum_invalid_enums = case.expected.min_invalid_enum_values
+        invalid_enums_pass = (
+            invalid_enums >= minimum_invalid_enums
+            if minimum_invalid_enums is not None
+            else invalid_enums == 0
+        )
         metrics.extend(
             [
                 MetricResult(
                     name="pydantic_validation_pass_rate",
                     value=1.0 if schema_passed else 0.0,
-                    threshold=1.0,
+                    threshold=1.0 if expected_schema_valid else 0.0,
                     comparison="eq",
-                    passed=schema_passed,
+                    passed=schema_matches,
                 ),
                 MetricResult(
                     name="invalid_enum_values",
                     value=float(invalid_enums),
-                    threshold=0.0,
-                    comparison="eq",
-                    passed=invalid_enums == 0,
+                    threshold=float(minimum_invalid_enums or 0),
+                    comparison="gte" if minimum_invalid_enums is not None else "eq",
+                    passed=invalid_enums_pass,
                 ),
             ]
         )
-        if not schema_passed:
-            failures.append("output failed Pydantic schema validation")
+        if not schema_matches:
+            failures.append("Pydantic validity did not match expectation")
+        if not invalid_enums_pass:
+            failures.append("invalid enum count did not match expectation")
 
     return _result(case, metrics, failures, started_at)
 
@@ -91,7 +115,7 @@ def _parse_payload(raw: Any) -> tuple[Any, bool]:
             return json.loads(raw), True
         except json.JSONDecodeError:
             return None, False
-    if isinstance(raw, (dict, list, int, float, bool)) or raw is None:
+    if isinstance(raw, dict | list | int | float | bool) or raw is None:
         return raw, True
     return None, False
 

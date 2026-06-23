@@ -164,9 +164,7 @@ def _request_pinned(url: str, address: str) -> httpx.Response:
     address_host = f"[{address}]" if ":" in address else address
     default_port = 443 if parsed.scheme == "https" else 80
     connect_netloc = address_host if port == default_port else f"{address_host}:{port}"
-    connect_url = urlunparse(
-        (parsed.scheme, connect_netloc, parsed.path, "", parsed.query, "")
-    )
+    connect_url = urlunparse((parsed.scheme, connect_netloc, parsed.path, "", parsed.query, ""))
     host_header = host.encode("idna").decode("ascii")
     if parsed.port is not None and parsed.port != default_port:
         host_header = f"{host_header}:{parsed.port}"

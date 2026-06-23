@@ -14,15 +14,15 @@ def test_golden_coverage_reports_remaining_target_gap() -> None:
 
     coverage = analyze_dataset_coverage(dataset)
 
-    assert coverage.total_cases == 15
+    assert coverage.total_cases == 30
     assert coverage.target_cases == 30
-    assert coverage.target_gap == 15
+    assert coverage.target_gap == 0
     assert coverage.missing_required_categories == []
     assert coverage.category_counts == {
-        "grounding": 3,
-        "outreach": 4,
-        "scoring": 5,
-        "structured_output": 3,
+        "grounding": 8,
+        "outreach": 7,
+        "scoring": 7,
+        "structured_output": 8,
     }
 
 
@@ -43,6 +43,6 @@ def test_seed_coverage_is_provider_free_and_has_required_categories(filename: st
 def test_coverage_supports_explicit_target_override() -> None:
     dataset = load_evaluation_dataset(_EVALS_DIR / "golden_dataset.json")
 
-    coverage = analyze_dataset_coverage(dataset, target_cases=15)
+    coverage = analyze_dataset_coverage(dataset, target_cases=30)
 
     assert coverage.target_gap == 0

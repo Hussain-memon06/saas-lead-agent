@@ -80,7 +80,9 @@ def evaluate_grounding_case(case: EvaluationCase) -> CaseEvaluationResult:
             maximum=expected.max_missing_source_rate,
         ),
     ]
-    failures = [f"grounding metric failed: {metric.name}" for metric in metrics if not metric.passed]
+    failures = [
+        f"grounding metric failed: {metric.name}" for metric in metrics if not metric.passed
+    ]
     return CaseEvaluationResult(
         case_id=case.case_id,
         category=case.category,

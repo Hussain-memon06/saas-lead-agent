@@ -45,9 +45,7 @@ def run_evaluation_dataset(
 ) -> EvaluationRunResult:
     """Run selected provider-free cases and return a sanitized result model."""
     started_at = datetime.now(UTC)
-    selected = [
-        case for case in dataset.cases if categories is None or case.category in categories
-    ]
+    selected = [case for case in dataset.cases if categories is None or case.category in categories]
     if not selected:
         raise ValueError("no evaluation cases matched the selected categories")
     provider_cases = [case.case_id for case in selected if case.requires_external_provider]

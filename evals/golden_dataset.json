@@ -500,6 +500,419 @@
         "requires_human_approval": true
       },
       "tags": ["outreach", "missing-cta", "short-body", "negative-example"]
+    },
+    {
+      "case_id": "scoring.thin-profile-uncertain",
+      "category": "scoring",
+      "description": "A thin unsourced profile with no contact or signals should remain low fit and require review.",
+      "input": {
+        "profile": {"name": "ThinCo"},
+        "contact": null,
+        "signals": [],
+        "icp": {
+          "target_industries": ["B2B SaaS"],
+          "target_stages": ["Series B"],
+          "target_geographies": ["United States"],
+          "target_employees": "51-200",
+          "must_have_signals": ["recent funding"]
+        }
+      },
+      "expected": {
+        "expected_fit_level": "low",
+        "min_score": 1,
+        "max_score": 4,
+        "requires_human_approval": true
+      },
+      "tags": ["scoring", "low-fit", "thin-profile", "uncertainty"]
+    },
+    {
+      "case_id": "structured.malformed-json-detected",
+      "category": "structured_output",
+      "description": "Malformed serialized output should be detected without echoing its content.",
+      "input": {"output": "{\"thread_id\":\"lead:broken.example.com\""},
+      "expected": {"expected_json_valid": false},
+      "tags": ["structured-output", "invalid-json", "negative-example"]
+    },
+    {
+      "case_id": "structured.invalid-send-result-detected",
+      "category": "structured_output",
+      "description": "An unsupported delivery enum should fail LeadReport schema validation.",
+      "input": {
+        "output": {"fit_score": 8, "fit_level": "high", "send_result": "delivered"}
+      },
+      "expected": {
+        "output_schema": "lead_report",
+        "expected_json_valid": true,
+        "expected_schema_valid": false,
+        "min_invalid_enum_values": 1
+      },
+      "tags": ["structured-output", "invalid-enum", "negative-example"]
+    },
+    {
+      "case_id": "grounding.signal-claims-without-signals",
+      "category": "grounding",
+      "description": "Funding and hiring claims without signal records must be detected as unsupported.",
+      "input": {
+        "profile": {
+          "name": "Acme Corp",
+          "tagline": "B2B SaaS sales automation",
+          "sources": ["https://acme.example.com/about"]
+        },
+        "contact": {"name": "Alex Smith", "source": "hunter"},
+        "signals": [],
+        "draft": {
+          "email_subject": "Quick question about Acme Corp",
+          "email_body": "Hi Alex, I saw Acme Corp's recent funding and hiring push. Could we chat next week?"
+        }
+      },
+      "expected": {
+        "min_unsupported_claim_rate": 0.5,
+        "max_evidence_coverage": 0.5
+      },
+      "tags": ["grounding", "missing-signal", "unsupported-claim"]
+    },
+    {
+      "case_id": "grounding.untrusted-contact-source",
+      "category": "grounding",
+      "description": "A contact with an unknown source must not be treated as trusted evidence.",
+      "input": {
+        "profile": {
+          "name": "Acme Corp",
+          "tagline": "B2B SaaS sales automation",
+          "sources": ["https://acme.example.com/about"]
+        },
+        "contact": {"name": "Alex Smith", "title": "VP Sales", "source": "unknown"},
+        "signals": [],
+        "draft": {
+          "email_subject": "Quick question about Acme Corp",
+          "email_body": "Hi Alex, Acme Corp looks relevant. Could we chat next week?"
+        }
+      },
+      "expected": {
+        "min_unsupported_claim_rate": 0.6,
+        "max_evidence_coverage": 0.4
+      },
+      "tags": ["grounding", "contact-source", "unsupported-claim"]
+    },
+    {
+      "case_id": "structured.invalid-score-type-detected",
+      "category": "structured_output",
+      "description": "A non-numeric fit score must fail LeadReport schema validation.",
+      "input": {
+        "output": {"fit_score": "high", "fit_level": "high", "errors": []}
+      },
+      "expected": {
+        "output_schema": "lead_report",
+        "expected_json_valid": true,
+        "expected_schema_valid": false
+      },
+      "tags": ["structured-output", "invalid-type", "negative-example"]
+    },
+    {
+      "case_id": "structured.expected-missing-fit-score",
+      "category": "structured_output",
+      "description": "Required-field evaluation should identify an intentionally missing fit score.",
+      "input": {"output": {"thread_id": "lead:missing-score.example.com"}},
+      "expected": {
+        "output_schema": "qualify_response",
+        "expected_schema_valid": true,
+        "required_fields": ["thread_id", "fit_score"],
+        "expected_missing_fields": ["fit_score"]
+      },
+      "tags": ["structured-output", "missing-field", "negative-example"]
+    },
+    {
+      "case_id": "grounding.draft-omits-company",
+      "category": "grounding",
+      "description": "A draft that omits the researched company must be detected as unsupported.",
+      "input": {
+        "profile": {
+          "name": "Acme Corp",
+          "tagline": "B2B SaaS sales automation",
+          "sources": ["https://acme.example.com/about"]
+        },
+        "contact": {"name": "Alex Smith", "source": "hunter"},
+        "signals": [],
+        "draft": {
+          "email_subject": "A quick workflow question",
+          "email_body": "Hi Alex, your team looks relevant. Could we chat next week?"
+        }
+      },
+      "expected": {
+        "min_unsupported_claim_rate": 0.3,
+        "max_evidence_coverage": 0.7
+      },
+      "tags": ["grounding", "company-reference", "unsupported-claim"]
+    },
+    {
+      "case_id": "grounding.draft-ignores-verified-signal",
+      "category": "grounding",
+      "description": "A draft that ignores all verified signals must be detected as weakly grounded.",
+      "input": {
+        "profile": {
+          "name": "Acme Corp",
+          "tagline": "B2B SaaS sales automation",
+          "sources": ["https://acme.example.com/about"]
+        },
+        "contact": {"name": "Alex Smith", "source": "hunter"},
+        "signals": [
+          {
+            "signal_type": "hiring",
+            "source": "https://acme.example.com/careers",
+            "details": "Acme is hiring RevOps leaders."
+          }
+        ],
+        "draft": {
+          "email_subject": "Quick question about Acme Corp",
+          "email_body": "Hi Alex, Acme Corp looks relevant. Could we chat next week?"
+        }
+      },
+      "expected": {
+        "min_unsupported_claim_rate": 0.2,
+        "max_evidence_coverage": 0.8
+      },
+      "tags": ["grounding", "signal-reference", "unsupported-claim"]
+    },
+    {
+      "case_id": "outreach.low-personalization-detected",
+      "category": "outreach",
+      "description": "Generic copy with no company, contact, product, or signal hooks must be detected.",
+      "input": {
+        "profile": {"name": "Acme Corp", "sources": ["https://acme.example.com"]},
+        "contact": {"name": "Alex Smith", "source": "hunter"},
+        "signals": [
+          {
+            "signal_type": "funding",
+            "source": "https://acme.example.com/news",
+            "details": "The company announced funding."
+          }
+        ],
+        "draft": {
+          "email_subject": "A workflow question",
+          "email_body": "Hello there, many growing teams spend too much time researching prospects and preparing outreach by hand. Our approach organizes that work into a consistent process while keeping people in control of every external action. Would it be worth a quick chat next week?"
+        },
+        "human_approval_required": true
+      },
+      "expected": {
+        "max_personalization_density": 0.0,
+        "max_spamminess": 0.0,
+        "max_outreach_quality_score": 80,
+        "expected_cta_present": true,
+        "expected_placeholders_present": false,
+        "requires_human_approval": true
+      },
+      "tags": ["outreach", "low-personalization", "negative-example"]
+    },
+    {
+      "case_id": "scoring.high-fit-contact-no-email",
+      "category": "scoring",
+      "description": "A strong ICP match with an identified decision-maker but no email should stay high fit while remaining inspectable.",
+      "input": {
+        "profile": {
+          "name": "NimbusFlow",
+          "tagline": "B2B SaaS workflow automation for RevOps teams",
+          "hq": "Austin, United States",
+          "employees_estimate": "51-200",
+          "funding_stage": "Series B",
+          "products": ["Revenue workflow automation"],
+          "notable_customers": ["ExampleCo"],
+          "sources": ["https://nimbusflow.example.com/about"]
+        },
+        "contact": {
+          "name": "Jordan Lee",
+          "title": "VP Sales",
+          "email": null,
+          "confidence": 75,
+          "source": "hunter"
+        },
+        "signals": [
+          {
+            "signal_type": "funding",
+            "date": "2026-03",
+            "source": "https://nimbusflow.example.com/news",
+            "details": "NimbusFlow announced recent funding to expand sales."
+          },
+          {
+            "signal_type": "hiring",
+            "date": "2026-04",
+            "source": "https://nimbusflow.example.com/careers",
+            "details": "NimbusFlow is hiring sales and RevOps roles."
+          }
+        ],
+        "icp": {
+          "target_industries": ["B2B SaaS"],
+          "target_stages": ["Series B"],
+          "target_geographies": ["United States"],
+          "target_employees": "51-200",
+          "must_have_signals": ["recent funding", "hiring sales"]
+        }
+      },
+      "expected": {
+        "expected_fit_level": "high",
+        "min_score": 8,
+        "max_score": 10,
+        "requires_human_approval": false
+      },
+      "tags": ["scoring", "high-fit", "contact-quality"]
+    },
+    {
+      "case_id": "structured.qualify-response-processing-metadata",
+      "category": "structured_output",
+      "description": "A qualify response with run metadata should validate without requiring generated email fields.",
+      "input": {
+        "output": {
+          "request_id": "req_eval_001",
+          "run_id": "run_eval_001",
+          "thread_id": "lead:nimbusflow.example.com",
+          "fit_score": 8,
+          "fit_level": "high",
+          "processing_metadata": {
+            "total_tokens": 0,
+            "estimated_cost_usd": 0.0,
+            "provider_status": {"company_researcher": "completed"}
+          },
+          "errors": []
+        }
+      },
+      "expected": {
+        "output_schema": "qualify_response",
+        "required_fields": ["thread_id", "run_id", "processing_metadata", "errors"]
+      },
+      "tags": ["structured-output", "processing-metadata", "qualify-response"]
+    },
+    {
+      "case_id": "grounding.clean-source-with-signal",
+      "category": "grounding",
+      "description": "A draft that references only sourced company and signal evidence should remain fully grounded.",
+      "input": {
+        "profile": {
+          "name": "NimbusFlow",
+          "tagline": "B2B SaaS workflow automation",
+          "hq": "Austin, United States",
+          "employees_estimate": "51-200",
+          "funding_stage": "Series B",
+          "products": ["Revenue workflow automation"],
+          "notable_customers": [],
+          "sources": ["https://nimbusflow.example.com/about"]
+        },
+        "contact": {
+          "name": "Jordan Lee",
+          "title": "VP Sales",
+          "email": "jordan@nimbusflow.example.com",
+          "confidence": 90,
+          "source": "hunter"
+        },
+        "signals": [
+          {
+            "signal_type": "hiring",
+            "date": "2026-04",
+            "source": "https://nimbusflow.example.com/careers",
+            "details": "NimbusFlow is hiring RevOps leaders."
+          }
+        ],
+        "draft": {
+          "email_subject": "Quick question about NimbusFlow",
+          "email_body": "Hi Jordan, I saw NimbusFlow is hiring RevOps leaders and scaling revenue workflow automation. Would it be worth a quick chat next week?"
+        }
+      },
+      "expected": {
+        "max_unsupported_claim_rate": 0.0,
+        "min_evidence_coverage": 1.0,
+        "max_missing_source_rate": 0.0
+      },
+      "tags": ["grounding", "sourced", "positive-example"]
+    },
+    {
+      "case_id": "outreach.personalized-vp-title",
+      "category": "outreach",
+      "description": "A concise VP-level draft with multiple concrete hooks should pass deterministic outreach checks.",
+      "input": {
+        "profile": {
+          "name": "NimbusFlow",
+          "tagline": "B2B SaaS workflow automation",
+          "hq": "Austin, United States",
+          "employees_estimate": "51-200",
+          "funding_stage": "Series B",
+          "products": ["Revenue workflow automation"],
+          "notable_customers": [],
+          "sources": ["https://nimbusflow.example.com/about"]
+        },
+        "contact": {
+          "name": "Jordan Lee",
+          "title": "VP Sales",
+          "email": "jordan@nimbusflow.example.com",
+          "confidence": 90,
+          "source": "hunter"
+        },
+        "signals": [
+          {
+            "signal_type": "hiring",
+            "date": "2026-04",
+            "source": "https://nimbusflow.example.com/careers",
+            "details": "NimbusFlow is hiring RevOps leaders."
+          }
+        ],
+        "draft": {
+          "email_subject": "NimbusFlow RevOps hiring",
+          "email_body": "Hi Jordan, as VP Sales at NimbusFlow, your Series B team appears to be scaling revenue workflow automation while hiring RevOps leaders. We help B2B SaaS teams turn that growth into consistent qualified meetings without extra manual research. Would it be worth a quick chat next week?"
+        },
+        "human_approval_required": true
+      },
+      "expected": {
+        "min_personalization_density": 0.8,
+        "max_spamminess": 0.0,
+        "min_outreach_quality_score": 90,
+        "expected_cta_present": true,
+        "expected_placeholders_present": false,
+        "requires_human_approval": true
+      },
+      "tags": ["outreach", "personalization", "positive-example"]
+    },
+    {
+      "case_id": "outreach.too-long-initial-email",
+      "category": "outreach",
+      "description": "An overlong first-touch email should be detected even when it contains real personalization.",
+      "input": {
+        "profile": {
+          "name": "NimbusFlow",
+          "tagline": "B2B SaaS workflow automation",
+          "hq": "Austin, United States",
+          "employees_estimate": "51-200",
+          "funding_stage": "Series B",
+          "products": ["Revenue workflow automation"],
+          "notable_customers": [],
+          "sources": ["https://nimbusflow.example.com/about"]
+        },
+        "contact": {
+          "name": "Jordan Lee",
+          "title": "VP Sales",
+          "email": "jordan@nimbusflow.example.com",
+          "confidence": 90,
+          "source": "hunter"
+        },
+        "signals": [
+          {
+            "signal_type": "hiring",
+            "date": "2026-04",
+            "source": "https://nimbusflow.example.com/careers",
+            "details": "NimbusFlow is hiring RevOps leaders."
+          }
+        ],
+        "draft": {
+          "email_subject": "Quick question about NimbusFlow RevOps hiring",
+          "email_body": "Hi Jordan, as VP Sales at NimbusFlow, your Series B team appears to be scaling revenue workflow automation while hiring RevOps leaders. I wanted to share a detailed thought because many B2B SaaS sales teams reach a point where prospect research, signal monitoring, account qualification, message drafting, approval tracking, and follow-up preparation all compete for the same manager time. When that happens, promising accounts can wait in queues, personalization becomes uneven, and outbound quality depends too much on manual effort. Our system helps organize company research, contact discovery, evidence-backed scoring, and human-approved outreach so teams can move faster while keeping control of external actions. It can also preserve the reasoning behind each lead, show why a score was assigned, surface weak evidence for review, and keep draft emails tied to the signals that triggered the opportunity. The workflow can also help managers compare opportunities across territories, keep notes consistent, reduce repeated research, preserve approval history, and understand which source supported each claim before any message leaves the system. That audit trail matters when sales teams are growing quickly because it gives leaders a way to review quality, coach reps, and avoid sending generic messages that ignore the actual reason a company looked interesting. For a team growing after funding and RevOps hiring, that kind of repeatable workflow may help protect quality while volume increases. Would it be worth a quick chat next week?"
+        },
+        "human_approval_required": true
+      },
+      "expected": {
+        "min_personalization_density": 0.8,
+        "max_spamminess": 0.0,
+        "max_outreach_quality_score": 90,
+        "expected_cta_present": true,
+        "expected_placeholders_present": false,
+        "requires_human_approval": true
+      },
+      "tags": ["outreach", "length", "negative-example"]
     }
   ]
 }

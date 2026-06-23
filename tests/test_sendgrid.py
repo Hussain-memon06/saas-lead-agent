@@ -52,10 +52,13 @@ def _patch_client(send_return: Any = None, send_side_effect: Any = None) -> Any:
 async def test_send_email_via_sendgrid_happy_path() -> None:
     response = _mock_response(status_code=202, message_id="msg-xyz")
     with (
-        patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "SG.test",
-            "SENDGRID_FROM_EMAIL": "sales@acme.test",
-        }),
+        patch.dict(
+            os.environ,
+            {
+                "SENDGRID_API_KEY": "SG.test",
+                "SENDGRID_FROM_EMAIL": "sales@acme.test",
+            },
+        ),
         _patch_client(send_return=response),
     ):
         result = await send_email_via_sendgrid(
@@ -75,15 +78,16 @@ async def test_send_email_via_sendgrid_missing_message_id_header() -> None:
     """If SendGrid response has no X-Message-Id header, message_id is None."""
     response = _mock_response(status_code=202, message_id=None)
     with (
-        patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "SG.test",
-            "SENDGRID_FROM_EMAIL": "sales@acme.test",
-        }),
+        patch.dict(
+            os.environ,
+            {
+                "SENDGRID_API_KEY": "SG.test",
+                "SENDGRID_FROM_EMAIL": "sales@acme.test",
+            },
+        ),
         _patch_client(send_return=response),
     ):
-        result = await send_email_via_sendgrid(
-            to="bob@example.com", subject="S", body="B"
-        )
+        result = await send_email_via_sendgrid(to="bob@example.com", subject="S", body="B")
 
     assert result["status_code"] == 202
     assert result["message_id"] is None
@@ -93,10 +97,13 @@ async def test_send_email_via_sendgrid_missing_message_id_header() -> None:
 async def test_run_sendgrid_delivery_returns_typed_success() -> None:
     response = _mock_response(status_code=202, message_id="msg-typed")
     with (
-        patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "SG.test",
-            "SENDGRID_FROM_EMAIL": "sales@acme.test",
-        }),
+        patch.dict(
+            os.environ,
+            {
+                "SENDGRID_API_KEY": "SG.test",
+                "SENDGRID_FROM_EMAIL": "sales@acme.test",
+            },
+        ),
         _patch_client(send_return=response),
     ):
         result = await run_sendgrid_delivery(
@@ -158,26 +165,30 @@ async def test_send_email_raises_on_non_2xx() -> None:
     """SendGrid 4xx/5xx response surfaces as RuntimeError."""
     response = _mock_response(status_code=400, message_id=None)
     with (
-        patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "SG.test",
-            "SENDGRID_FROM_EMAIL": "sales@acme.test",
-        }),
+        patch.dict(
+            os.environ,
+            {
+                "SENDGRID_API_KEY": "SG.test",
+                "SENDGRID_FROM_EMAIL": "sales@acme.test",
+            },
+        ),
         _patch_client(send_return=response),
     ):
         with pytest.raises(RuntimeError, match="non-2xx status 400"):
-            await send_email_via_sendgrid(
-                to="x@y.com", subject="s", body="b"
-            )
+            await send_email_via_sendgrid(to="x@y.com", subject="s", body="b")
 
 
 @pytest.mark.asyncio
 async def test_run_sendgrid_delivery_returns_typed_http_failure() -> None:
     response = _mock_response(status_code=500, message_id=None)
     with (
-        patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "SG.test",
-            "SENDGRID_FROM_EMAIL": "sales@acme.test",
-        }),
+        patch.dict(
+            os.environ,
+            {
+                "SENDGRID_API_KEY": "SG.test",
+                "SENDGRID_FROM_EMAIL": "sales@acme.test",
+            },
+        ),
         _patch_client(send_return=response),
     ):
         result = await run_sendgrid_delivery(to="x@y.com", subject="s", body="b")
@@ -193,16 +204,17 @@ async def test_run_sendgrid_delivery_returns_typed_http_failure() -> None:
 async def test_send_email_wraps_sdk_exceptions() -> None:
     """Any exception from the SDK becomes a RuntimeError with context."""
     with (
-        patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "SG.test",
-            "SENDGRID_FROM_EMAIL": "sales@acme.test",
-        }),
+        patch.dict(
+            os.environ,
+            {
+                "SENDGRID_API_KEY": "SG.test",
+                "SENDGRID_FROM_EMAIL": "sales@acme.test",
+            },
+        ),
         _patch_client(send_side_effect=ConnectionError("network down")),
     ):
         with pytest.raises(RuntimeError, match="SendGrid delivery failed"):
-            await send_email_via_sendgrid(
-                to="x@y.com", subject="s", body="b"
-            )
+            await send_email_via_sendgrid(to="x@y.com", subject="s", body="b")
 
 
 @pytest.mark.asyncio
@@ -211,27 +223,29 @@ async def test_send_email_accepts_2xx_boundary_values() -> None:
     for ok_status in (200, 202, 299):
         response = _mock_response(status_code=ok_status)
         with (
-            patch.dict(os.environ, {
-                "SENDGRID_API_KEY": "SG.test",
-                "SENDGRID_FROM_EMAIL": "sales@acme.test",
-            }),
+            patch.dict(
+                os.environ,
+                {
+                    "SENDGRID_API_KEY": "SG.test",
+                    "SENDGRID_FROM_EMAIL": "sales@acme.test",
+                },
+            ),
             _patch_client(send_return=response),
         ):
-            result = await send_email_via_sendgrid(
-                to="x@y.com", subject="s", body="b"
-            )
+            result = await send_email_via_sendgrid(to="x@y.com", subject="s", body="b")
             assert result["status_code"] == ok_status
 
     for fail_status in (199, 300, 500):
         response = _mock_response(status_code=fail_status)
         with (
-            patch.dict(os.environ, {
-                "SENDGRID_API_KEY": "SG.test",
-                "SENDGRID_FROM_EMAIL": "sales@acme.test",
-            }),
+            patch.dict(
+                os.environ,
+                {
+                    "SENDGRID_API_KEY": "SG.test",
+                    "SENDGRID_FROM_EMAIL": "sales@acme.test",
+                },
+            ),
             _patch_client(send_return=response),
         ):
             with pytest.raises(RuntimeError, match="non-2xx"):
-                await send_email_via_sendgrid(
-                    to="x@y.com", subject="s", body="b"
-                )
+                await send_email_via_sendgrid(to="x@y.com", subject="s", body="b")

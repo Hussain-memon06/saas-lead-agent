@@ -33,13 +33,24 @@ but vector storage, embedding providers, persisted retrieval-event tables,
 knowledge-base UI, and the full retrieval eval runner still require explicit
 approval before implementation.
 
-Phase 5 has started with a no-dependency tooling foundation.
-Typed tool contracts and a durable-execution/MCP design note exist, but existing
-runtime tools are partially wrapped. `web_search`, `scrape`, and
-`hunt_contact` now have typed `ToolResult` adapters and sanitized tool-event
-capture, but SendGrid, MCP server/client, queue, durable job runner,
-retry/circuit-breaker runtime, and provider fallback abstraction are not
-implemented yet.
+Phase 5 is complete for the no-dependency tooling milestone. Typed tool
+contracts, current runtime tool wrappers, sanitized tool-event metadata,
+delivery idempotency-key recording, and a local tool registry exist. MCP
+runtime, queues, durable job infrastructure, new provider dependencies,
+provider fallback runtime, and external-action retries remain deferred.
+
+Phase 6 is complete for the current auth/compliance milestone and committed.
+Clerk protects the existing frontend route surface, FastAPI verifies Clerk
+JWTs, protected lead APIs are owner-scoped, production auth/CORS checks fail
+closed, request/rate limits are enforced, and scraper SSRF controls validate
+redirects and pinned public DNS/IP targets.
+
+Phase 7 is complete for the provider-free evaluation milestone. The project
+now has strict eval contracts, provider-free golden/adversarial/retrieval
+datasets, deterministic evaluators, a local runner, coverage reporting, and 30
+reviewed golden cases. Targeted Phase 7 tests and the golden eval runner pass.
+
+Current phase: Phase 8 Production Deployment, CI/CD & Operational Readiness.
 
 ## What We Completed
 
@@ -730,6 +741,62 @@ and placeholder presence so correctly detected bad output passes the eval.
 Golden coverage is now 15 cases with a 15-case gap. Next: add another reviewed
 slice covering scoring uncertainty, structured-output failures represented as
 expected outcomes, and additional grounding source variation.
+
+Milestone 7.11 adds five reviewed golden cases:
+
+- Thin-profile scoring uncertainty with mandatory human review.
+- Malformed JSON detection as an expected structured-output failure.
+- Invalid delivery-enum detection as an expected schema failure.
+- Unsupported funding/hiring claims without signal evidence.
+- Unknown contact provenance that must not count as trusted evidence.
+
+Golden coverage is now 20 cases with a 10-case gap. Next: add two more reviewed
+five-case slices, then run targeted evaluation verification to confirm the
+classification and structured-output quality gates.
+
+Milestone 7.12 adds five reviewed golden cases:
+
+- Invalid fit-score type detection.
+- Expected missing required-field detection.
+- Missing researched-company reference in outreach grounding.
+- Draft copy that ignores verified signal evidence.
+- Generic outreach with zero personalization hooks.
+
+Golden coverage is now 25 cases with a five-case gap. Next: add the final
+balanced five-case slice, then run targeted evaluation and coverage verification
+before deciding whether Phase 7 meets its acceptance criteria.
+
+Milestone 7.13 adds the final five reviewed golden cases:
+
+- High-fit scoring when a decision-maker is identified without an email.
+- `QualifyResponse` validation with run processing metadata.
+- Positive grounding for sourced company and signal evidence.
+- Positive outreach with multiple concrete personalization hooks.
+- Overlong first-touch outreach detection.
+
+Golden coverage is now 30 cases and the target gap is zero. Targeted
+provider-free runner, coverage, dataset, scoring, and structured-output
+verification passed, and the local golden eval runner passed 30/30 while
+emitting a sanitized result artifact. Next: begin Phase 8 with a narrow
+production-operations planning milestone.
+
+## Phase 8 Progress
+
+Milestone 8.1 starts with a planning-only production operations record:
+
+- Added `specs/in-progress/phase-8-production-ops-plan.md`.
+- Defined the Phase 8 implementation order:
+  - operational inventory and config matrix
+  - health/readiness and startup diagnostics
+  - CI quality gates
+  - Docker and runtime hardening
+  - monitoring, alerts, and runbooks
+  - API version strategy
+- Kept CI, Docker, source code, dependencies, deployment settings, API routes,
+  cloud checks, and external provider checks unchanged.
+
+Next: inspect only current deployment/config docs and deployment artifacts
+needed for the Milestone 8.1 operational inventory.
 
 ## Phase 5 Guardrails
 

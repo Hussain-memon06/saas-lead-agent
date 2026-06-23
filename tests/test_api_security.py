@@ -31,7 +31,7 @@ async def test_write_rate_limit_raises_429(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setenv("QUALIFY_RATE_LIMIT_PER_MINUTE", "1")
     limiter = InMemoryRateLimiter(clock=lambda: 100.0)
     request = Request({"type": "http", "headers": [], "client": ("127.0.0.1", 5000)})
-    auth = AuthContext(mode="authenticated", user_id="user-1")
+    auth = AuthContext(mode="authenticated", user_id="user-1", roles=["user"])
 
     with patch("saas_lead_agent.api.security._WRITE_LIMITER", limiter):
         await enforce_write_rate_limit(action="qualify", auth=auth, request=request)

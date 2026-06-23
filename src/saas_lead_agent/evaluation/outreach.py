@@ -47,10 +47,11 @@ def evaluate_outreach_case(case: EvaluationCase) -> CaseEvaluationResult:
     has_cta = "draft is missing a clear call to action" not in quality.issues
     has_no_placeholders = not quality.placeholder_terms
     metrics = [
-        _minimum_metric(
+        _bounded_metric(
             "personalization_density",
             personalization_density,
-            expected.min_personalization_density,
+            minimum=expected.min_personalization_density,
+            maximum=expected.max_personalization_density,
         ),
         _bounded_metric(
             "spamminess",

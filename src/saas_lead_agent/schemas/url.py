@@ -86,7 +86,7 @@ def resolve_public_http_target(raw: str) -> tuple[str, tuple[str, ...]]:
         raise ValueError("url hostname could not be resolved")
     resolved_addresses: list[str] = []
     for address in addresses:
-        resolved = ip_address(address[4][0].split("%", 1)[0])
+        resolved = ip_address(str(address[4][0]).split("%", 1)[0])
         if not resolved.is_global:
             raise ValueError("url hostname resolves to a non-public IP address")
         normalized_address = str(resolved)

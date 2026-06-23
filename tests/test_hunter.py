@@ -100,10 +100,18 @@ def test_pick_best_prefers_target_department_over_confidence() -> None:
 
 
 def test_pick_best_falls_back_to_highest_confidence() -> None:
-    no_target: dict[str, Any] = {"value": "a@acme.com", "seniority": "junior",
-                                  "department": "sales", "confidence": 60}
-    higher: dict[str, Any] = {"value": "b@acme.com", "seniority": "junior",
-                               "department": "sales", "confidence": 80}
+    no_target: dict[str, Any] = {
+        "value": "a@acme.com",
+        "seniority": "junior",
+        "department": "sales",
+        "confidence": 60,
+    }
+    higher: dict[str, Any] = {
+        "value": "b@acme.com",
+        "seniority": "junior",
+        "department": "sales",
+        "confidence": 80,
+    }
     result = _pick_best([no_target, higher])
     assert result is not None
     assert result["value"] == "b@acme.com"
@@ -161,8 +169,16 @@ def test_hunt_contact_all_fields_present(monkeypatch: pytest.MonkeyPatch) -> Non
     with patch("saas_lead_agent.tools.hunter.httpx.get", return_value=mock_resp):
         result = hunt_contact.invoke({"domain": "acme.com"})
 
-    for field in ("value", "first_name", "last_name", "position", "seniority",
-                  "department", "confidence", "linkedin"):
+    for field in (
+        "value",
+        "first_name",
+        "last_name",
+        "position",
+        "seniority",
+        "department",
+        "confidence",
+        "linkedin",
+    ):
         assert field in result, f"missing field: {field}"
 
 

@@ -28,13 +28,17 @@ OwnedResourceType = Literal[
 ]
 
 
+def _default_roles() -> list[UserRole]:
+    return ["anonymous"]
+
+
 class AuthContext(StrictBaseModel):
     """Request identity context before auth enforcement is wired in."""
 
     mode: AuthMode = "anonymous_demo"
     user_id: str | None = Field(default=None, max_length=200)
     email: str | None = Field(default=None, max_length=320)
-    roles: list[UserRole] = Field(default_factory=lambda: ["anonymous"], max_length=10)
+    roles: list[UserRole] = Field(default_factory=_default_roles, max_length=10)
 
     @model_validator(mode="after")
     def validate_identity_for_mode(self) -> "AuthContext":

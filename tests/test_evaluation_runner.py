@@ -22,7 +22,7 @@ _EVALS_DIR = Path(__file__).resolve().parents[1] / "evals"
 @pytest.mark.parametrize(
     ("filename", "expected_count"),
     [
-        ("golden_dataset.json", 15),
+        ("golden_dataset.json", 30),
         ("adversarial_dataset.json", 4),
         ("retrieval_dataset.json", 2),
     ],
@@ -48,7 +48,7 @@ def test_runner_filters_categories_and_aggregates_scoring() -> None:
 
     result = run_evaluation_dataset(dataset, categories={"scoring"}, run_id="scoring-only")
 
-    assert result.total_cases == 5
+    assert result.total_cases == 7
     assert {metric.name for metric in result.aggregate_metrics} == {
         "classification_accuracy",
         "score_deviation",

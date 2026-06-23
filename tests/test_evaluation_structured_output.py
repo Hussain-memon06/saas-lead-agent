@@ -40,7 +40,7 @@ def test_structured_output_evaluator_reports_invalid_json() -> None:
     result = evaluate_structured_output_case(case)
 
     assert result.passed is False
-    assert result.failure_reasons == ["output is not a valid JSON object"]
+    assert result.failure_reasons == ["JSON validity did not match expectation"]
     assert "do-not-echo" not in str(result)
 
 

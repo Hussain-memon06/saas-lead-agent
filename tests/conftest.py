@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 os.environ.setdefault("DISABLE_CHAINLIT", "1")
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("AUTH_DEV_BYPASS_ENABLED", "true")
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 
 def pytest_configure() -> None:

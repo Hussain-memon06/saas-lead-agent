@@ -1,7 +1,6 @@
 """Pydantic v2 request/response models for the lead-research API."""
 
 import json
-
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator

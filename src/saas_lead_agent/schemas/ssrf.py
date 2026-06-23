@@ -51,7 +51,9 @@ class SsrfFetchPolicy(StrictBaseModel):
         check_names = {check.name for check in self.checks}
         required = {"redirect", "dns_rebinding", "post_resolution"}
         if not required.issubset(check_names):
-            raise ValueError("SSRF policy must include redirect, DNS rebinding, and post-resolution checks")
+            raise ValueError(
+                "SSRF policy must include redirect, DNS rebinding, and post-resolution checks"
+            )
         return self
 
 
@@ -87,7 +89,9 @@ SSRF_FETCH_POLICY = SsrfFetchPolicy(
         SsrfCheckPolicy(
             name="private_ip",
             phase="pre_fetch",
-            description="Reject direct private, loopback, reserved, multicast, and unspecified IPs.",
+            description=(
+                "Reject direct private, loopback, reserved, multicast, and unspecified IPs."
+            ),
         ),
         SsrfCheckPolicy(
             name="link_local",

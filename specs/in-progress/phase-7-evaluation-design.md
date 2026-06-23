@@ -2,11 +2,12 @@
 
 ## Status
 
-Milestones 7.1 through 7.10 complete: deterministic evaluation contracts,
+Milestones 7.1 through 7.13 complete: deterministic evaluation contracts,
 dataset boundaries, small synthetic seed datasets, strict local JSON loading,
 scoring evaluation, structured-output evaluation, and retrieval evaluation
 plus grounding and outreach-quality evaluation exist without running models,
-providers, vector infrastructure, or broad eval suites.
+providers, vector infrastructure, or broad eval suites. The local provider-free
+golden eval runner passes 30/30 and emits sanitized JSON results.
 
 ## Goals
 
@@ -187,3 +188,35 @@ outreach bodies are excluded from result artifacts by default.
 - Negative examples pass only when deterministic evaluators detect the expected
   degraded behavior.
 - Coverage reports a 15-case gap rather than treating this slice as complete.
+
+## Milestone 7.11 Acceptance
+
+- Golden data expands from fifteen to twenty reviewed provider-free cases.
+- Scoring covers thin-profile uncertainty and mandatory review.
+- Structured-output expectations represent malformed JSON and invalid enums as
+  expected detected failures rather than successful output.
+- Grounding covers unsupported signal claims and unknown contact provenance.
+- Coverage reports a 10-case gap rather than treating this slice as complete.
+
+## Milestone 7.12 Acceptance
+
+- Golden data expands from twenty to twenty-five reviewed provider-free cases.
+- Structured-output cases cover invalid scalar types and expected missing
+  required fields.
+- Grounding cases cover omitted company references and ignored verified
+  signals.
+- Outreach covers intentionally generic copy with zero personalization hooks.
+- Coverage reports a five-case gap rather than treating this slice as complete.
+
+## Milestone 7.13 Acceptance
+
+- Golden data expands from twenty-five to thirty reviewed provider-free cases.
+- Scoring covers high-fit qualification when a decision-maker is identified
+  without a discovered email address.
+- Structured-output coverage includes qualify responses with run processing
+  metadata.
+- Grounding includes another positive sourced signal fixture.
+- Outreach includes both high-personalization positive copy and overlong
+  first-touch copy detection.
+- Coverage reports the 30-case target as met, and targeted runner/coverage
+  verification passes for the provider-free Phase 7 slice.

@@ -18,7 +18,7 @@ def test_scoring_seed_cases_pass_deterministically() -> None:
 
     results = [evaluate_scoring_case(case) for case in scoring_cases]
 
-    assert len(results) == 5
+    assert len(results) == 7
     assert all(result.passed for result in results)
     assert all(result.evaluator_version == "scoring-v1" for result in results)
     assert {metric.name for result in results for metric in result.metrics} == {

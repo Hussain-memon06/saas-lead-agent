@@ -674,7 +674,8 @@ pytest tests/test_auth.py -q
 
 ## Phase 7: Evaluation Framework, Testing & Quality Gates
 
-Status: in progress. Milestones 7.1 and 7.2 define the provider-free evaluation
+Status: complete for the Phase 7 provider-free milestone. Milestones 7.1
+through 7.13 define the provider-free evaluation
 architecture, strict Pydantic contracts, small synthetic golden/adversarial/
 retrieval seed datasets, deterministic local JSON loading, scoring evaluation,
 structured-output evaluation, and a retrieval adapter over the existing Phase
@@ -685,12 +686,15 @@ totals are rejected. Offline tool-use evaluation consumes sanitized recorded
 metadata, and safety evaluation covers pure URL denial plus recorded untrusted
 instruction boundaries. Aggregate scoring metrics and the provider-free local
 runner now exist; the runner writes sanitized versioned JSON only when invoked
-and refuses provider-required cases. Expansion to 30 golden cases, opt-in
-end-to-end adversarial checks, and optional LLM-as-judge remain later
-milestones. Generated result artifacts are intentionally absent until a run is
-explicitly requested. Deterministic coverage reporting currently shows fifteen
-golden cases and a 15-case gap to the acceptance target while confirming the
-required category surfaces for all three seed datasets.
+and refuses provider-required cases. The golden dataset now has 30 reviewed
+provider-free cases. Opt-in end-to-end adversarial checks and optional
+LLM-as-judge remain later milestones. Generated result artifacts are
+intentionally absent until a run is explicitly requested. Deterministic
+coverage reporting now shows the 30-case acceptance target is met while
+confirming the required category surfaces for all three seed datasets. Targeted
+provider-free Phase 7 verification is passing for the runner, coverage,
+dataset, scoring, and structured-output slices, and the local golden eval
+runner passes 30/30 while emitting a sanitized JSON result artifact.
 
 ### Goal
 
@@ -768,6 +772,11 @@ Eval suites are opt-in for normal Codex work and should be run only when the
 user asks for eval or release verification.
 
 ## Phase 8: Production Deployment, CI/CD & Operational Readiness
+
+Status: started with a planning-only milestone in
+`specs/in-progress/phase-8-production-ops-plan.md`. Do not change CI, Docker,
+source code, dependencies, deployment settings, or API routes until the Phase 8
+operational inventory and implementation order are reviewed.
 
 ### Goal
 
@@ -1050,30 +1059,10 @@ documented with their outputs.
 
 ## Immediate Next Step
 
-Phase 5 has started with the no-dependency tooling foundation, and
-`web_search`, `scrape`, and `hunt_contact` are adapted to typed tool-result
-envelopes with sanitized tool metadata in run processing metadata, and a
-delivery-idempotency key is now carried through approved send attempts and
-app-owned delivery event records for future SendGrid retry protection. SendGrid
-delivery now has a typed result envelope, and a local tool-spec registry lists
-the current tool surface. Phase 5's no-dependency implementation boundary is
-complete; MCP, queues, durable job infrastructure, external-action retries,
-provider fallback runtime, auth, evals, vector DB, embeddings, and new provider
-dependencies remain deferred without explicit approval. Begin Phase 6 only with
-a narrow auth/compliance planning milestone. The Phase 6 planning milestone now
-lives in `specs/in-progress/phase-6-auth-compliance-plan.md`; do not implement
-auth dependencies, session storage, production CORS changes, rate limiting, or
-deeper SSRF enforcement until a small Phase 6 implementation scope is approved.
-The first no-dependency Phase 6 slice now exists as auth context and
-protected-route policy contracts. User-owned access model contracts now exist
-for app-owned entities and retrieval context. Compliance configuration
-contracts now document CORS, request limits, critical secrets, redaction, and
-audit events. SSRF hardening contracts now document redirect, DNS rebinding,
-post-resolution, private/link-local, localhost, and dangerous-port policy;
-Clerk now protects the existing Next.js route surface, existing frontend API
-calls send Clerk JWTs, and FastAPI verifies those tokens before protected API
-work. Lead list/detail/events/approve/reject access is owner-scoped. Plain
-identity headers require explicit non-production bypass and are never trusted
-in production. Production auth and CORS configuration fail closed. Remaining
-Phase 6 runtime controls are rate limiting, request-size middleware, and deeper
-redirect/DNS SSRF enforcement.
+Begin Phase 8 Milestone 8.1 with a narrow operational inventory and
+configuration matrix. Inspect only current deployment/config docs and
+deployment artifacts needed to document the real production surface. Do not
+modify CI, Docker, source code, dependencies, deployment settings, or API
+routes until the inventory is reviewed. Do not run Docker builds, frontend
+production builds, full tests, cloud smoke tests, eval suites, or external
+provider checks unless explicitly requested.

@@ -35,7 +35,7 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def _snapshot_owner_id(snapshot: "LeadRunSnapshot") -> str | None:
+def _snapshot_owner_id(snapshot: LeadRunSnapshot) -> str | None:
     value = snapshot.result.get("user_id")
     if not isinstance(value, str):
         return None
@@ -144,9 +144,7 @@ class InMemoryLeadRunRepository:
             reverse=True,
         )
         return [
-            snapshot
-            for snapshot in snapshots
-            if _snapshot_owner_id(snapshot) == owner_user_id
+            snapshot for snapshot in snapshots if _snapshot_owner_id(snapshot) == owner_user_id
         ][:limit]
 
     async def save_artifacts(self, artifacts: LeadArtifacts) -> None:

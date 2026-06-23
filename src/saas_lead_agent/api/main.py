@@ -104,27 +104,27 @@ def create_app() -> FastAPI:
         if content_length:
             try:
                 if int(content_length) > max_body_bytes:
-                    response = JSONResponse(
+                    error_response = JSONResponse(
                         status_code=413,
                         content={"detail": "Request body exceeds the configured limit"},
                     )
-                    response.headers["X-Request-ID"] = request_id
-                    return response
+                    error_response.headers["X-Request-ID"] = request_id
+                    return error_response
             except ValueError:
-                response = JSONResponse(
+                error_response = JSONResponse(
                     status_code=400,
                     content={"detail": "Invalid Content-Length header"},
                 )
-                response.headers["X-Request-ID"] = request_id
-                return response
+                error_response.headers["X-Request-ID"] = request_id
+                return error_response
         body = await request.body()
         if len(body) > max_body_bytes:
-            response = JSONResponse(
+            error_response = JSONResponse(
                 status_code=413,
                 content={"detail": "Request body exceeds the configured limit"},
             )
-            response.headers["X-Request-ID"] = request_id
-            return response
+            error_response.headers["X-Request-ID"] = request_id
+            return error_response
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
         return response

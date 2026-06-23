@@ -54,8 +54,8 @@ Follow this file together with `PLANS.md`.
   limits, bounded redirect validation, public-DNS enforcement, and validated-IP
   connection pinning are implemented. Plain identity headers require explicit
   non-production bypass and are never trusted in production.
-- Current phase: Phase 7 Evaluation Framework, Testing & Quality Gates.
-- Implemented Phase 7 foundation: evaluation design plus strict provider-free
+- Current phase: Phase 8 Production Deployment, CI/CD & Operational Readiness.
+- Implemented Phase 7: evaluation design plus strict provider-free
   contracts for versioned datasets, cases, expectations, metrics, case results,
   and run summaries. Small synthetic golden/adversarial/retrieval seed datasets
   and deterministic JSON loading now exist. Deterministic scoring and
@@ -65,12 +65,14 @@ Follow this file together with `PLANS.md`.
   engines. Offline tool-use and safety evaluators consume sanitized recorded
   observations without invoking providers. Aggregate scoring metrics and a
   provider-free local runner now exist and refuse provider-required cases.
-  Coverage reporting measures category/tag/provider coverage and the 15-case
-  gap from the current fifteen golden cases to the target of 30. Golden-dataset
-  expansion, live end-to-end checks, and LLM-as-judge behavior are not
-  implemented yet. Add reviewed behavioral cases; do not pad dataset counts.
-- Planned: model/provider abstraction, durable execution runtime, evaluation
-  infrastructure, and production operations.
+  Coverage reporting measures category/tag/provider coverage, and the golden
+  dataset now reaches the 30-case target with reviewed provider-free cases.
+  Targeted provider-free runner, coverage, dataset, scoring, and
+  structured-output checks pass for the current slice. Live end-to-end checks
+  and LLM-as-judge behavior are not implemented yet. Add future behavioral
+  cases only when they improve coverage; do not pad dataset counts.
+- Planned: model/provider abstraction, durable execution runtime, optional
+  provider-backed evals, LLM-as-judge checks, and production operations.
 
 ## Current Architecture
 
@@ -149,6 +151,9 @@ Phase constraints:
 Read these before making changes in their area:
 
 - `PLANS.md` - current roadmap and operating model
+- `specs/in-progress/phase-8-production-ops-plan.md` - active Phase 8
+  production operations plan before CI, Docker, deployment, monitoring, or API
+  versioning changes
 - `specs/done/phase-6-auth-compliance-plan.md` - completed Phase 6
   auth/compliance implementation record
 - `src/saas_lead_agent/schemas/auth.py` - Phase 6 no-dependency auth context,

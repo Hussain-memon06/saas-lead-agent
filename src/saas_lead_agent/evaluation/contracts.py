@@ -66,16 +66,23 @@ class EvaluationExpectation(StrictBaseModel):
     min_mrr: float | None = Field(default=None, ge=0, le=1)
     min_source_coverage: float | None = Field(default=None, ge=0, le=1)
     output_schema: OutputSchemaName | None = None
+    expected_json_valid: bool | None = None
+    expected_schema_valid: bool | None = None
+    min_invalid_enum_values: int | None = Field(default=None, ge=0)
     required_fields: list[str] | None = Field(default=None, min_length=1)
+    expected_missing_fields: list[str] | None = Field(default=None, min_length=1)
     expected_tool_name: str | None = Field(default=None, min_length=1, max_length=100)
-    expected_tool_status: Literal[
-        "completed",
-        "failed",
-        "skipped",
-        "timeout",
-        "rate_limited",
-        "stubbed",
-    ] | None = None
+    expected_tool_status: (
+        Literal[
+            "completed",
+            "failed",
+            "skipped",
+            "timeout",
+            "rate_limited",
+            "stubbed",
+        ]
+        | None
+    ) = None
     expected_graceful_failure: bool | None = None
     min_unsupported_claim_rate: float | None = Field(default=None, ge=0, le=1)
     max_unsupported_claim_rate: float | None = Field(default=None, ge=0, le=1)
@@ -84,6 +91,7 @@ class EvaluationExpectation(StrictBaseModel):
     min_missing_source_rate: float | None = Field(default=None, ge=0, le=1)
     max_missing_source_rate: float | None = Field(default=None, ge=0, le=1)
     min_personalization_density: float | None = Field(default=None, ge=0, le=1)
+    max_personalization_density: float | None = Field(default=None, ge=0, le=1)
     min_spamminess: float | None = Field(default=None, ge=0, le=1)
     max_spamminess: float | None = Field(default=None, ge=0, le=1)
     min_outreach_quality_score: int | None = Field(default=None, ge=0, le=100)
@@ -110,6 +118,11 @@ class EvaluationExpectation(StrictBaseModel):
             (self.min_missing_source_rate, self.max_missing_source_rate, "missing source rate"),
             (self.min_spamminess, self.max_spamminess, "spamminess"),
             (
+                self.min_personalization_density,
+                self.max_personalization_density,
+                "personalization density",
+            ),
+            (
                 self.min_outreach_quality_score,
                 self.max_outreach_quality_score,
                 "outreach quality score",
@@ -120,6 +133,15 @@ class EvaluationExpectation(StrictBaseModel):
                 raise ValueError(f"minimum {label} cannot exceed maximum")
         if self.expected_chunk_ids is not None and self.retrieval_k is None:
             raise ValueError("retrieval_k is required when expected_chunk_ids are defined")
+        if self.output_schema is None and (
+            self.expected_schema_valid is not None or self.min_invalid_enum_values is not None
+        ):
+            raise ValueError("output_schema is required for schema-validity expectations")
+        if self.expected_missing_fields is not None:
+            if self.required_fields is None:
+                raise ValueError("required_fields are required for missing-field expectations")
+            if not set(self.expected_missing_fields).issubset(self.required_fields):
+                raise ValueError("expected missing fields must be listed in required_fields")
         return self
 
 
@@ -148,7 +170,14 @@ class EvaluationCase(StrictBaseModel):
         ):
             raise ValueError("retrieval cases require chunk or source expectations")
         if self.category == "structured_output" and not any(
-            value is not None for value in (expected.output_schema, expected.required_fields)
+            value is not None
+            for value in (
+                expected.output_schema,
+                expected.expected_json_valid,
+                expected.expected_schema_valid,
+                expected.required_fields,
+                expected.expected_missing_fields,
+            )
         ):
             raise ValueError("structured-output cases require schema or field expectations")
         if self.category == "grounding" and not any(
@@ -167,6 +196,7 @@ class EvaluationCase(StrictBaseModel):
             value is not None
             for value in (
                 expected.min_personalization_density,
+                expected.max_personalization_density,
                 expected.min_spamminess,
                 expected.max_spamminess,
                 expected.min_outreach_quality_score,

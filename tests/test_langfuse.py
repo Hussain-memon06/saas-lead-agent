@@ -79,9 +79,7 @@ def test_handler_returns_callback_when_configured() -> None:
 def test_handler_is_singleton() -> None:
     """Repeated calls return the same instance without re-importing the SDK."""
     fake_handler = MagicMock(name="CallbackHandler")
-    with patch.dict(
-        os.environ, {"LANGFUSE_PUBLIC_KEY": "pk-lf-test"}, clear=False
-    ):
+    with patch.dict(os.environ, {"LANGFUSE_PUBLIC_KEY": "pk-lf-test"}, clear=False):
         with (
             patch("langfuse.Langfuse") as mock_client_cls,
             patch("langfuse.langchain.CallbackHandler", return_value=fake_handler),
@@ -97,9 +95,7 @@ def test_handler_is_singleton() -> None:
 
 def test_handler_caches_none_after_failed_init() -> None:
     """A None result is also cached; we don't retry SDK init on every call."""
-    with patch.dict(
-        os.environ, {"LANGFUSE_PUBLIC_KEY": "pk-lf-test"}, clear=False
-    ):
+    with patch.dict(os.environ, {"LANGFUSE_PUBLIC_KEY": "pk-lf-test"}, clear=False):
         with patch("langfuse.Langfuse", side_effect=RuntimeError("boom")) as mock_client:
             assert get_langfuse_handler() is None
             assert get_langfuse_handler() is None
@@ -126,9 +122,7 @@ def test_config_omits_callbacks_when_handler_none() -> None:
 def test_config_includes_callbacks_when_handler_present() -> None:
     """Handler available → config carries it under 'callbacks'."""
     fake_handler = MagicMock(name="CallbackHandler")
-    with patch.dict(
-        os.environ, {"LANGFUSE_PUBLIC_KEY": "pk-lf-test"}, clear=False
-    ):
+    with patch.dict(os.environ, {"LANGFUSE_PUBLIC_KEY": "pk-lf-test"}, clear=False):
         with (
             patch("langfuse.Langfuse"),
             patch("langfuse.langchain.CallbackHandler", return_value=fake_handler),
@@ -153,9 +147,7 @@ def test_flush_calls_sdk_when_handler_present() -> None:
     """When a handler exists, flush_langfuse forwards to get_client().flush()."""
     fake_handler = MagicMock(name="CallbackHandler")
     fake_client = MagicMock(name="LangfuseClient")
-    with patch.dict(
-        os.environ, {"LANGFUSE_PUBLIC_KEY": "pk-lf-test"}, clear=False
-    ):
+    with patch.dict(os.environ, {"LANGFUSE_PUBLIC_KEY": "pk-lf-test"}, clear=False):
         with (
             patch("langfuse.Langfuse"),
             patch("langfuse.langchain.CallbackHandler", return_value=fake_handler),
@@ -172,9 +164,7 @@ def test_flush_calls_sdk_when_handler_present() -> None:
 def test_flush_swallows_sdk_errors() -> None:
     """A flush failure during shutdown must not propagate."""
     fake_handler = MagicMock(name="CallbackHandler")
-    with patch.dict(
-        os.environ, {"LANGFUSE_PUBLIC_KEY": "pk-lf-test"}, clear=False
-    ):
+    with patch.dict(os.environ, {"LANGFUSE_PUBLIC_KEY": "pk-lf-test"}, clear=False):
         with (
             patch("langfuse.Langfuse"),
             patch("langfuse.langchain.CallbackHandler", return_value=fake_handler),
@@ -191,9 +181,7 @@ async def test_langfuse_lifespan_flushes_on_exit() -> None:
     fake_handler = MagicMock(name="CallbackHandler")
     fake_client = MagicMock(name="LangfuseClient")
 
-    with patch.dict(
-        os.environ, {"LANGFUSE_PUBLIC_KEY": "pk-lf-test"}, clear=False
-    ):
+    with patch.dict(os.environ, {"LANGFUSE_PUBLIC_KEY": "pk-lf-test"}, clear=False):
         with (
             patch("langfuse.Langfuse"),
             patch("langfuse.langchain.CallbackHandler", return_value=fake_handler),

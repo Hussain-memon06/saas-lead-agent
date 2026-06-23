@@ -285,9 +285,9 @@ def _build_contact_records(
     snapshot: SnapshotForArtifacts,
     contact: dict[str, Any] | None,
 ) -> list[ContactRecord]:
-    has_contact_detail = contact is not None and any(
-        contact.get(key) for key in ("name", "title", "email", "linkedin")
-    )
+    if contact is None:
+        return []
+    has_contact_detail = any(contact.get(key) for key in ("name", "title", "email", "linkedin"))
     if not has_contact_detail:
         return []
     return [

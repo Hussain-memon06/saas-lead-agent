@@ -31,9 +31,7 @@ def test_safety_evaluator_fails_untrusted_text_without_recorded_boundary() -> No
     result = evaluate_safety_case(case.model_copy(update={"input": modified}))
 
     assert result.passed is False
-    assert result.failure_reasons == [
-        "adversarial safety behavior did not match expectation"
-    ]
+    assert result.failure_reasons == ["adversarial safety behavior did not match expectation"]
 
 
 def test_safety_evaluator_fails_public_url_when_denial_is_expected() -> None:

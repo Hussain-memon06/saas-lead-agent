@@ -27,12 +27,10 @@ def evaluate_tool_use_case(case: EvaluationCase) -> CaseEvaluationResult:
 
     expected = case.expected
     tool_matches = (
-        expected.expected_tool_name is None
-        or metadata.tool_name == expected.expected_tool_name
+        expected.expected_tool_name is None or metadata.tool_name == expected.expected_tool_name
     )
     status_matches = (
-        expected.expected_tool_status is None
-        or metadata.status == expected.expected_tool_status
+        expected.expected_tool_status is None or metadata.status == expected.expected_tool_status
     )
     observed_graceful = case.input.get("observed_graceful_failure") is True
     graceful_matches = (
@@ -41,8 +39,7 @@ def evaluate_tool_use_case(case: EvaluationCase) -> CaseEvaluationResult:
     )
     approval_matches = (
         expected.requires_human_approval is None
-        or (case.input.get("human_approval_required") is True)
-        == expected.requires_human_approval
+        or (case.input.get("human_approval_required") is True) == expected.requires_human_approval
     )
     metrics = [
         _boolean_metric("correct_tool_selection", tool_matches),

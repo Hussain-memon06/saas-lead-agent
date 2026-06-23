@@ -13,7 +13,6 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
 from saas_lead_agent.api.auth import public_auth_metadata, resolve_auth_context
-from saas_lead_agent.api.security import enforce_write_rate_limit
 from saas_lead_agent.api.schemas import (
     ApproveResponse,
     LeadListResponse,
@@ -23,10 +22,12 @@ from saas_lead_agent.api.schemas import (
     RunEventResponse,
     RunEventsResponse,
 )
+from saas_lead_agent.api.security import enforce_write_rate_limit
 from saas_lead_agent.graph import build_graph_with_memory
 from saas_lead_agent.memory.langfuse_handler import get_langfuse_handler
 from saas_lead_agent.persistence import (
     InMemoryLeadRunRepository,
+    LeadRunRepository,
     LeadRunSnapshot,
     RunEvent,
     RunStatus,
@@ -41,7 +42,7 @@ logger = logging.getLogger(__name__)
 # Module-level singletons are swapped by the FastAPI lifespan when Postgres is
 # configured. The in-memory defaults keep local dev and tests cheap.
 _graph = build_graph_with_memory()
-_lead_store = InMemoryLeadRunRepository()
+_lead_store: LeadRunRepository = InMemoryLeadRunRepository()
 
 
 def _domain_from_url(url: str) -> str:
@@ -339,6 +340,8 @@ def _processing_metadata(
     provider_summary = _aggregate_provider_usage(provider_usage or [])
     public_tool_usage = tool_usage or []
     tool_summary = _aggregate_tool_usage(public_tool_usage)
+    auth_mode = auth_metadata.get("auth_mode") if auth_metadata else None
+    auth_user_present = auth_metadata.get("auth_user_present") if auth_metadata else False
     combined_timings = {
         **timings_ms,
         **provider_summary["timings_ms"],
@@ -354,7 +357,8 @@ def _processing_metadata(
         token_usage=provider_summary["token_usage"],
         cost_breakdown_usd=provider_summary["cost_breakdown_usd"],
         provider_status=provider_summary["provider_status"],
-        **(auth_metadata or {}),
+        auth_mode=auth_mode if isinstance(auth_mode, str) else None,
+        auth_user_present=auth_user_present is True,
         retrieval_events=retrieval_events or [],
         tool_events=public_tool_usage,
         tool_status=tool_summary["tool_status"],
