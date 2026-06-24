@@ -779,7 +779,9 @@ inventory/config matrix is documented, and HTTP provider request logs now
 redact query-string secrets before formatting. Do not change CI, Docker,
 dependencies, or deployment settings until the next Phase 8 implementation
 slice is approved. A narrow `/health` and `/ready` endpoint slice now provides
-provider-free liveness/readiness diagnostics.
+provider-free liveness/readiness diagnostics. GitHub Actions CI now runs
+deterministic backend and frontend gates, while provider-free eval datasets are
+manual-dispatch only.
 
 ### Goal
 

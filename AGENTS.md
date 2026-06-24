@@ -154,6 +154,8 @@ Read these before making changes in their area:
 - `specs/in-progress/phase-8-production-ops-plan.md` - active Phase 8
   production operations plan before CI, Docker, deployment, monitoring, or API
   versioning changes
+- `.github/workflows/ci.yml` - Phase 8 deterministic CI checks and manual
+  provider-free eval workflow
 - `specs/done/phase-6-auth-compliance-plan.md` - completed Phase 6
   auth/compliance implementation record
 - `src/saas_lead_agent/schemas/auth.py` - Phase 6 no-dependency auth context,

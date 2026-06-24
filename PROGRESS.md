@@ -815,6 +815,19 @@ Milestone 8.2 adds provider-free health/readiness endpoints:
 Next: choose either CI quality gates (Milestone 8.3) or resolve the documented
 deployment-doc drift before changing CI/Docker/deployment files.
 
+Milestone 8.3 adds GitHub Actions CI quality gates:
+
+- Backend job runs Ruff check, Ruff format check, mypy, and pytest.
+- Frontend job runs `npm ci` and `npm run build` from `frontend/`.
+- Provider-free eval datasets are available only by manual workflow dispatch
+  with `run_evals=true`.
+- Docker builds, compose runs, cloud smoke tests, real external API checks,
+  SendGrid delivery, and Langfuse trace verification remain release-only and
+  are not part of default CI.
+
+Next: choose either Docker/runtime hardening (Milestone 8.4) or monitoring and
+runbook docs (Milestone 8.5).
+
 ## Phase 5 Guardrails
 
 - MCP is deferred unless a concrete tool/resource boundary benefits from it.
