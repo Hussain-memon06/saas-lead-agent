@@ -784,7 +784,9 @@ deterministic backend and frontend gates, while provider-free eval datasets are
 manual-dispatch only. Docker runtime now expands `$PORT` and exposes a
 lightweight healthcheck. Initial operations runbooks now document monitoring
 signals, rollback, provider-outage, cost-spike, email-delivery, and data
-lifecycle response paths.
+lifecycle response paths. The `/api/v1` strategy is compatibility-first:
+introduce aliases for the existing protected route surface before any frontend
+migration or response-envelope change.
 
 ### Goal
 

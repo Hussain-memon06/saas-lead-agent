@@ -35,6 +35,8 @@ expensive default checks.
 - `specs/in-progress/phase-8-operations-runbooks.md` now documents initial
   monitoring signals, alert thresholds, rollback, provider-outage, cost-spike,
   email-delivery, and data lifecycle response paths.
+- `specs/in-progress/phase-8-api-versioning-strategy.md` now records the
+  compatibility-first `/api/v1` alias strategy before route implementation.
 
 ## Milestone 8.1 Operational Inventory
 
@@ -66,7 +68,7 @@ expensive default checks.
 | CI | GitHub Actions workflow added | Backend and frontend checks run on push/PR; provider-free evals are manual dispatch only. |
 | Docker | Multi-stage backend image plus local compose | Runtime command expands `${PORT:-8080}` and includes a local `/health` healthcheck. |
 | Health/readiness | Not implemented in Phase 8 yet | `/health` and `/ready` semantics remain Milestone 8.2. |
-| API versioning | Not implemented | `/api/v1` strategy remains Milestone 8.6. |
+| API versioning | Strategy documented | `/api/v1` should be introduced as aliases before any frontend migration or response-envelope change. |
 
 ### Environment And Configuration Matrix
 
@@ -106,7 +108,8 @@ expensive default checks.
 3. Confirm monitoring vendor/destination and wire dashboards or alert routing.
 4. Confirm data retention/export/deletion policy before adding user-facing data
    lifecycle endpoints.
-5. Decide `/api/v1` alias/migration strategy before route changes.
+5. Implement `/api/v1` aliases after reviewing the compatibility-first
+   strategy.
 
 ## Non-Goals For This Planning Milestone
 
@@ -273,6 +276,7 @@ Acceptance criteria:
 
 - The versioning plan protects current app behavior.
 - Any implementation slice can be tested with targeted API tests.
+- `/api/v1` route implementation remains separate from the strategy milestone.
 
 ## Verification Policy
 

@@ -856,6 +856,20 @@ Milestone 8.5 adds initial operations runbooks:
 Next: begin Milestone 8.6 with an API versioning strategy. Route alias
 implementation should wait until the compatibility plan is explicit.
 
+Milestone 8.6 documents the API versioning strategy:
+
+- Added `specs/in-progress/phase-8-api-versioning-strategy.md`.
+- Recorded the current six protected `/api/*` route families used by the
+  frontend.
+- Chose a compatibility-first `/api/v1` alias approach instead of a breaking
+  migration.
+- Deferred frontend API URL migration and response-envelope changes to later
+  explicit slices.
+- Defined targeted acceptance criteria for a future alias implementation.
+
+Next: implement `/api/v1` aliases as a separate route slice, or stop for review
+before changing route behavior.
+
 ## Phase 5 Guardrails
 
 - MCP is deferred unless a concrete tool/resource boundary benefits from it.
