@@ -70,6 +70,9 @@ USER app
 
 EXPOSE 8080
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"PORT\", \"8080\")}/health', timeout=3).read()" || exit 1
+
 # Cloud Run injects PORT; default to 8080 for docker-compose / local.
 # Use sh -c so ${PORT} is expanded at container start, not build.
-CMD ["sh", "-c", "uvicorn saas_lead_agent.api.main:app --host 0.0.0.0 --port 8080 --timeout-keep-alive 120"]
+CMD ["sh", "-c", "uvicorn saas_lead_agent.api.main:app --host 0.0.0.0 --port ${PORT:-8080} --timeout-keep-alive 120"]

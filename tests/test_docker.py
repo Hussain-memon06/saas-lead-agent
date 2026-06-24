@@ -77,9 +77,18 @@ def test_dockerfile_uses_uv() -> None:
 def test_dockerfile_command_respects_port_env() -> None:
     """Cloud Run injects $PORT; the CMD must honour it."""
     content = (_ROOT / "Dockerfile").read_text(encoding="utf-8")
-    assert "${PORT" in content or "$PORT" in content, (
-        "CMD must expand ${PORT} so Cloud Run can override the listen port"
+    command_lines = [line for line in content.splitlines() if line.startswith("CMD ")]
+    assert command_lines, "Dockerfile must define a runtime CMD"
+    assert "${PORT:-8080}" in command_lines[-1], (
+        "CMD must expand ${PORT:-8080} so platforms can override the listen port"
     )
+
+
+def test_dockerfile_has_healthcheck() -> None:
+    """Container platforms should have a cheap local liveness probe."""
+    content = (_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert "HEALTHCHECK" in content
+    assert "/health" in content
 
 
 def test_dockerignore_excludes_secrets() -> None:
@@ -114,6 +123,12 @@ def test_compose_app_depends_on_migrate_completion() -> None:
     """App must wait for migrations to finish before starting."""
     content = (_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     assert "service_completed_successfully" in content
+
+
+def test_compose_sets_app_port_env() -> None:
+    """Compose should document the runtime port used by the Docker CMD."""
+    content = (_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    assert 'PORT: "8080"' in content
 
 
 def test_deployment_md_exists() -> None:

@@ -828,6 +828,18 @@ Milestone 8.3 adds GitHub Actions CI quality gates:
 Next: choose either Docker/runtime hardening (Milestone 8.4) or monitoring and
 runbook docs (Milestone 8.5).
 
+Milestone 8.4 hardens Docker/runtime behavior:
+
+- Docker runtime command now expands `${PORT:-8080}`.
+- Dockerfile includes a lightweight Python-stdlib healthcheck against
+  `/health`.
+- Compose sets `PORT: "8080"` explicitly for local runtime parity.
+- Docker artifact tests now assert the runtime command, healthcheck, and compose
+  port contract.
+
+Next: add monitoring, alerting, runbook, rollback, provider-outage, cost-spike,
+and data lifecycle documentation for Milestone 8.5.
+
 ## Phase 5 Guardrails
 
 - MCP is deferred unless a concrete tool/resource boundary benefits from it.

@@ -58,6 +58,7 @@ services:
       - path: .env
         required: false
     environment:
+      PORT: "8080"
       POSTGRES_URL: postgresql://saas_lead:password@postgres:5432/saas_lead
       # Override env_file entries that are wrong for in-cluster networking.
       # User can still set OPENAI_API_KEY etc. in .env.

@@ -6,7 +6,8 @@ Phase 8 has started. Milestone 8.1 documented the operational inventory and
 configuration matrix. Milestone 8.2 added provider-free health/readiness
 endpoints. Milestone 8.3 adds deterministic GitHub Actions quality gates
 without changing dependency manifests, Docker artifacts, or deployed
-infrastructure.
+infrastructure. Milestone 8.4 hardens Docker runtime behavior for `$PORT` and
+local health checks.
 
 The immediate goal is to make the remaining production work explicit and
 sequential so each slice can be implemented and verified without broad,
@@ -29,6 +30,8 @@ expensive default checks.
 - `.github/workflows/ci.yml` now runs backend and frontend deterministic
   checks, with provider-free eval datasets available only through explicit
   manual dispatch.
+- Docker runtime now expands `${PORT:-8080}` and includes a lightweight
+  `/health` healthcheck.
 
 ## Milestone 8.1 Operational Inventory
 
@@ -58,7 +61,7 @@ expensive default checks.
 | Email | SendGrid or explicit stub mode | Development should use `SENDGRID_STUB_ENABLED=true`; production must not report fake sends. |
 | Observability | Optional Langfuse plus app metadata | No monitoring/alerting runbook exists yet. |
 | CI | GitHub Actions workflow added | Backend and frontend checks run on push/PR; provider-free evals are manual dispatch only. |
-| Docker | Multi-stage backend image plus local compose | Dockerfile comment/docs mention `$PORT`, but the current `CMD` uses fixed port `8080`; this needs a focused Docker slice. |
+| Docker | Multi-stage backend image plus local compose | Runtime command expands `${PORT:-8080}` and includes a local `/health` healthcheck. |
 | Health/readiness | Not implemented in Phase 8 yet | `/health` and `/ready` semantics remain Milestone 8.2. |
 | API versioning | Not implemented | `/api/v1` strategy remains Milestone 8.6. |
 
@@ -97,11 +100,10 @@ expensive default checks.
 1. Add `/health` and `/ready` endpoints with safe startup/config diagnostics.
 2. Resolve deployment-doc drift: Railway/Vercel versus Cloud Run/Vercel and
    the actual live backend host.
-3. Fix Docker `$PORT` behavior or update docs if fixed `8080` is intentional.
-4. Add monitoring/runbook docs for latency, 5xx, provider/tool failures,
+3. Add monitoring/runbook docs for latency, 5xx, provider/tool failures,
    retrieval failures, token/cost spikes, and email delivery failures.
-5. Add rollback, provider outage, cost spike, and data lifecycle notes.
-6. Decide `/api/v1` alias/migration strategy before route changes.
+4. Add rollback, provider outage, cost spike, and data lifecycle notes.
+5. Decide `/api/v1` alias/migration strategy before route changes.
 
 ## Non-Goals For This Planning Milestone
 
@@ -209,6 +211,8 @@ Implementation notes:
 
 Goal: make container behavior predictable for the backend deployment target.
 
+Status: implemented for file-level Docker/runtime checks.
+
 Scope:
 
 - confirm `$PORT` handling
@@ -221,6 +225,13 @@ Acceptance criteria:
 
 - Docker behavior is documented and testable.
 - Docker build/compose checks remain release-candidate checks unless requested.
+
+Implementation notes:
+
+- Docker runtime command uses `${PORT:-8080}` rather than a hardcoded port.
+- Dockerfile includes a Python-stdlib healthcheck against `/health`.
+- Compose sets `PORT: "8080"` explicitly for local runtime parity.
+- Docker build and compose execution remain release-candidate checks.
 
 ### Milestone 8.5: Monitoring, Alerts, And Runbooks
 
