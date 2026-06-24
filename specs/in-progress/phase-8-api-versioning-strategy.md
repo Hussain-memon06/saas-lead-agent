@@ -1,6 +1,6 @@
 # Phase 8 API Versioning Strategy
 
-Status: Milestone 8.6 strategy. No route implementation yet.
+Status: Milestone 8.6 strategy plus first alias implementation slice.
 
 ## Current Route Surface
 
@@ -52,17 +52,29 @@ later explicit deprecation window is approved.
 Avoid `/api/v1/api/...`; the version prefix should replace the current
 top-level `/api` segment.
 
+## Implemented Alias Slice
+
+The first alias slice registers `/api/v1` paths against the existing route
+handlers while preserving current `/api/*` routes and frontend URLs.
+
+Implemented aliases:
+
+- `POST /api/v1/qualify`
+- `GET /api/v1/leads`
+- `GET /api/v1/leads/{thread_id}`
+- `GET /api/v1/leads/{thread_id}/events`
+- `POST /api/v1/leads/{thread_id}/approve`
+- `POST /api/v1/leads/{thread_id}/reject`
+
 ## Implementation Shape
 
-Recommended next implementation slice:
+Completed implementation shape:
 
-1. Extract route path constants or add a small alias-registration helper for
-   the existing endpoint callables.
-2. Register both unversioned and `/api/v1` paths against the same handlers.
-3. Keep OpenAPI summaries clear enough that aliases are identifiable.
-4. Add targeted tests that confirm `/api/v1` routes enforce auth and return the
-   same basic response shape as existing routes.
-5. Do not change frontend API URLs until aliases are verified.
+1. Register both unversioned and `/api/v1` paths against the same handlers.
+2. Keep the current flat response models and summaries.
+3. Add targeted tests confirming alias registration, existing response shape,
+   and unauthenticated rejection when dev bypass is disabled.
+4. Do not change frontend API URLs until a later migration slice.
 
 ## Response Envelope Policy
 

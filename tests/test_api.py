@@ -234,6 +234,45 @@ async def test_qualify_happy_path() -> None:
     assert body["errors"] == []
 
 
+def test_v1_aliases_registered_for_current_api_surface() -> None:
+    paths = {getattr(route, "path", "") for route in app.routes}
+
+    assert {
+        "/api/v1/qualify",
+        "/api/v1/leads",
+        "/api/v1/leads/{thread_id}",
+        "/api/v1/leads/{thread_id}/events",
+        "/api/v1/leads/{thread_id}/approve",
+        "/api/v1/leads/{thread_id}/reject",
+    }.issubset(paths)
+
+
+@pytest.mark.asyncio
+async def test_v1_qualify_alias_uses_existing_response_shape() -> None:
+    mock_graph = AsyncMock()
+    mock_graph.ainvoke = AsyncMock(return_value=_GRAPH_RESULT)
+
+    with patch("saas_lead_agent.api.routes._graph", mock_graph):
+        async with await _client() as client:
+            resp = await client.post("/api/v1/qualify", json={"url": "https://acme.example.com"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["thread_id"] == "lead:acme.example.com"
+    assert body["fit_score"] == 8
+    assert "company_profile" in body
+
+
+@pytest.mark.asyncio
+async def test_v1_qualify_alias_requires_bearer_when_dev_bypass_disabled(monkeypatch) -> None:
+    monkeypatch.setenv("AUTH_DEV_BYPASS_ENABLED", "false")
+
+    async with await _client() as client:
+        resp = await client.post("/api/v1/qualify", json={"url": "https://acme.example.com"})
+
+    assert resp.status_code == 401
+
+
 @pytest.mark.asyncio
 async def test_qualify_processing_metadata_aggregates_provider_usage() -> None:
     store = InMemoryLeadRunRepository()

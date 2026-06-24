@@ -572,6 +572,11 @@ def _initial_state(
 
 
 @router.post(
+    "/api/v1/qualify",
+    response_model=QualifyResponse,
+    summary="Research and qualify a B2B SaaS company",
+)
+@router.post(
     "/api/qualify",
     response_model=QualifyResponse,
     summary="Research and qualify a B2B SaaS company",
@@ -746,6 +751,11 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
 
 
 @router.get(
+    "/api/v1/leads",
+    response_model=LeadListResponse,
+    summary="List recent stored lead runs",
+)
+@router.get(
     "/api/leads",
     response_model=LeadListResponse,
     summary="List recent stored lead runs",
@@ -766,6 +776,11 @@ async def list_leads(
     )
 
 
+@router.get(
+    "/api/v1/leads/{thread_id}",
+    response_model=QualifyResponse,
+    summary="Return the latest stored lead dossier state",
+)
 @router.get(
     "/api/leads/{thread_id}",
     response_model=QualifyResponse,
@@ -790,6 +805,11 @@ async def get_lead(thread_id: str, request: Request) -> QualifyResponse:
     )
 
 
+@router.get(
+    "/api/v1/leads/{thread_id}/events",
+    response_model=RunEventsResponse,
+    summary="Return audit-style run events for a lead",
+)
 @router.get(
     "/api/leads/{thread_id}/events",
     response_model=RunEventsResponse,
@@ -975,6 +995,11 @@ async def _resume(
 
 
 @router.post(
+    "/api/v1/leads/{thread_id}/approve",
+    response_model=ApproveResponse,
+    summary="Approve the drafted email and resume the graph",
+)
+@router.post(
     "/api/leads/{thread_id}/approve",
     response_model=ApproveResponse,
     summary="Approve the drafted email and resume the graph",
@@ -991,6 +1016,11 @@ async def approve(thread_id: str, request: Request) -> ApproveResponse:
     )
 
 
+@router.post(
+    "/api/v1/leads/{thread_id}/reject",
+    response_model=ApproveResponse,
+    summary="Reject the drafted email and resume the graph",
+)
 @router.post(
     "/api/leads/{thread_id}/reject",
     response_model=ApproveResponse,

@@ -786,7 +786,9 @@ lightweight healthcheck. Initial operations runbooks now document monitoring
 signals, rollback, provider-outage, cost-spike, email-delivery, and data
 lifecycle response paths. The `/api/v1` strategy is compatibility-first:
 introduce aliases for the existing protected route surface before any frontend
-migration or response-envelope change.
+migration or response-envelope change. The first alias slice now registers the
+current protected route surface under `/api/v1` while leaving frontend calls on
+the existing `/api/*` paths.
 
 ### Goal
 

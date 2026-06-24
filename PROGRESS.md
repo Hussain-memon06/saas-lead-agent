@@ -870,6 +870,18 @@ Milestone 8.6 documents the API versioning strategy:
 Next: implement `/api/v1` aliases as a separate route slice, or stop for review
 before changing route behavior.
 
+Milestone 8.6 also implements the first compatibility alias slice:
+
+- Registered `/api/v1` aliases for qualification, lead list, lead detail, lead
+  events, approval, and rejection against the existing handlers.
+- Preserved current `/api/*` routes, flat response shapes, frontend API URLs,
+  auth behavior, ownership checks, and rate-limit behavior.
+- Added targeted tests for alias registration, existing response shape, and
+  unauthenticated rejection when dev bypass is disabled.
+
+Next: decide whether to migrate the frontend API client to `/api/v1`, or leave
+the frontend on `/api/*` until production usage is observed.
+
 ## Phase 5 Guardrails
 
 - MCP is deferred unless a concrete tool/resource boundary benefits from it.
