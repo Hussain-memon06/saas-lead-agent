@@ -22,8 +22,8 @@ expensive default checks.
 - Phase 6 production auth/CORS/startup checks now fail closed for the current
   protected route surface.
 - Phase 7 provider-free evaluation exists and the golden dataset passes 30/30.
-- Existing Docker, compose, deployment, and README artifacts need a focused
-  Phase 8 review before implementation decisions.
+- Existing deployment and README artifacts still need a focused Phase 8 review
+  before deployment-target decisions.
 - HTTP provider request logs now redact sensitive query-string fields such as
   `api_key` before formatting `httpx`/`httpcore` log records.
 - `/health` and `/ready` now exist as provider-free service diagnostics.
@@ -32,6 +32,9 @@ expensive default checks.
   manual dispatch.
 - Docker runtime now expands `${PORT:-8080}` and includes a lightweight
   `/health` healthcheck.
+- `specs/in-progress/phase-8-operations-runbooks.md` now documents initial
+  monitoring signals, alert thresholds, rollback, provider-outage, cost-spike,
+  email-delivery, and data lifecycle response paths.
 
 ## Milestone 8.1 Operational Inventory
 
@@ -59,7 +62,7 @@ expensive default checks.
 | Persistence | Optional Postgres | Required for durable HITL resume across process restart; unset uses in-memory state. |
 | Auth | Clerk | Frontend sends Clerk JWT; backend verifies issuer/signature and owner scopes protected lead routes. |
 | Email | SendGrid or explicit stub mode | Development should use `SENDGRID_STUB_ENABLED=true`; production must not report fake sends. |
-| Observability | Optional Langfuse plus app metadata | No monitoring/alerting runbook exists yet. |
+| Observability | Optional Langfuse plus app metadata | Initial monitoring/alerting/runbook documentation exists; vendor-specific dashboards are not implemented. |
 | CI | GitHub Actions workflow added | Backend and frontend checks run on push/PR; provider-free evals are manual dispatch only. |
 | Docker | Multi-stage backend image plus local compose | Runtime command expands `${PORT:-8080}` and includes a local `/health` healthcheck. |
 | Health/readiness | Not implemented in Phase 8 yet | `/health` and `/ready` semantics remain Milestone 8.2. |
@@ -100,9 +103,9 @@ expensive default checks.
 1. Add `/health` and `/ready` endpoints with safe startup/config diagnostics.
 2. Resolve deployment-doc drift: Railway/Vercel versus Cloud Run/Vercel and
    the actual live backend host.
-3. Add monitoring/runbook docs for latency, 5xx, provider/tool failures,
-   retrieval failures, token/cost spikes, and email delivery failures.
-4. Add rollback, provider outage, cost spike, and data lifecycle notes.
+3. Confirm monitoring vendor/destination and wire dashboards or alert routing.
+4. Confirm data retention/export/deletion policy before adding user-facing data
+   lifecycle endpoints.
 5. Decide `/api/v1` alias/migration strategy before route changes.
 
 ## Non-Goals For This Planning Milestone
@@ -251,6 +254,8 @@ Acceptance criteria:
 
 - Operators know what to watch and what to do when a production signal fires.
 - Runbooks avoid requiring secret values in docs.
+- Initial runbooks cover rollback, provider outage, cost spikes, email delivery
+  failures, and data lifecycle notes without adding monitoring dependencies.
 
 ### Milestone 8.6: API Version Strategy
 

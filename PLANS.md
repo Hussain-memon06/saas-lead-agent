@@ -781,7 +781,10 @@ dependencies, or deployment settings until the next Phase 8 implementation
 slice is approved. A narrow `/health` and `/ready` endpoint slice now provides
 provider-free liveness/readiness diagnostics. GitHub Actions CI now runs
 deterministic backend and frontend gates, while provider-free eval datasets are
-manual-dispatch only.
+manual-dispatch only. Docker runtime now expands `$PORT` and exposes a
+lightweight healthcheck. Initial operations runbooks now document monitoring
+signals, rollback, provider-outage, cost-spike, email-delivery, and data
+lifecycle response paths.
 
 ### Goal
 

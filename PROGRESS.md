@@ -840,6 +840,22 @@ Milestone 8.4 hardens Docker/runtime behavior:
 Next: add monitoring, alerting, runbook, rollback, provider-outage, cost-spike,
 and data lifecycle documentation for Milestone 8.5.
 
+Milestone 8.5 adds initial operations runbooks:
+
+- Added `specs/in-progress/phase-8-operations-runbooks.md`.
+- Documented initial monitoring signals and alert thresholds for latency, 5xx,
+  provider failures, tool failures, retrieval failures, token/cost spikes,
+  email delivery failures, auth failures, and readiness failures.
+- Added rollback, external provider outage, cost spike, and email delivery
+  failure runbooks.
+- Added data lifecycle notes for retention, export, deletion, tenant scoping,
+  and future vector metadata cleanup.
+- Kept monitoring vendor integration, cloud smoke tests, external provider
+  checks, Docker builds, and source-code changes out of scope.
+
+Next: begin Milestone 8.6 with an API versioning strategy. Route alias
+implementation should wait until the compatibility plan is explicit.
+
 ## Phase 5 Guardrails
 
 - MCP is deferred unless a concrete tool/resource boundary benefits from it.
