@@ -882,6 +882,22 @@ Milestone 8.6 also implements the first compatibility alias slice:
 Next: decide whether to migrate the frontend API client to `/api/v1`, or leave
 the frontend on `/api/*` until production usage is observed.
 
+Resolved the main deployment-doc drift:
+
+- README now describes Vercel plus a Docker-compatible FastAPI backend instead
+  of hardcoding Railway as the backend.
+- README's local uvicorn command now uses `saas_lead_agent.api.main:app`.
+- Deployment notes explain that `NEXT_PUBLIC_API_BASE_URL` is optional when the
+  frontend proxy is used and that production API behavior requires Clerk Bearer
+  JWTs.
+- `DEPLOYMENT.md` is now clearly an optional Cloud Run backend runbook.
+- Cloud Run smoke tests now use `/health` and `/ready` rather than
+  unauthenticated protected API calls or real approval/send behavior.
+
+Next: confirm the actual live backend host before adding provider-specific
+deployment automation. Frontend migration to `/api/v1` remains optional and
+separate.
+
 ## Phase 5 Guardrails
 
 - MCP is deferred unless a concrete tool/resource boundary benefits from it.

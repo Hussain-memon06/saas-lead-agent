@@ -3,6 +3,11 @@
 End-to-end runbook for deploying the AI SDR lead-research agent to Cloud Run
 with Supabase as the Postgres backend.
 
+Current deployment note: the production frontend is Vercel-backed at
+`https://agent.hussainflow.com/`. Cloud Run is one supported backend target for
+the Docker image; it is not required if another Docker-compatible backend host
+is selected.
+
 ---
 
 ## Prerequisites
@@ -54,9 +59,9 @@ Manager for anything that's not a connection string.
 echo -n "sk-..."       | gcloud secrets create OPENAI_API_KEY      --data-file=-
 echo -n "tvly-..."     | gcloud secrets create TAVILY_API_KEY      --data-file=-
 echo -n "..."          | gcloud secrets create HUNTER_API_KEY      --data-file=-
-echo -n "SG.xxx"       | gcloud secrets create SENDGRID_API_KEY    --data-file=-
+echo -n "SENDGRID_KEY_PLACEHOLDER" | gcloud secrets create SENDGRID_API_KEY    --data-file=-
 echo -n "pk-lf-..."    | gcloud secrets create LANGFUSE_PUBLIC_KEY --data-file=-
-echo -n "sk-lf-..."    | gcloud secrets create LANGFUSE_SECRET_KEY --data-file=-
+echo -n "LANGFUSE_SECRET_PLACEHOLDER" | gcloud secrets create LANGFUSE_SECRET_KEY --data-file=-
 echo -n "postgresql://postgres:PWD@db.PROJ.supabase.co:5432/postgres" \
                        | gcloud secrets create POSTGRES_URL        --data-file=-
 ```
@@ -164,16 +169,17 @@ gcloud run services logs read saas-lead-agent --region=us-central1 --limit=50
 URL=$(gcloud run services describe saas-lead-agent \
       --region=us-central1 --format='value(status.url)')
 
-# 1. Run the pipeline (graph pauses at await_approval)
-curl -s -X POST "$URL/api/qualify" \
-    -H 'Content-Type: application/json' \
-    -d '{"url":"https://stripe.com"}' | jq .interrupted    # → true
+# 1. Process liveness
+curl -s "$URL/health" | jq .
 
-# 2. Approve — SendGrid actually delivers if SENDGRID_API_KEY set
-curl -s -X POST "$URL/api/leads/lead:stripe.com/approve" | jq .send_result
-
-# 3. Browser: $URL/chainlit shows the chat UI
+# 2. Startup/config readiness
+curl -s "$URL/ready" | jq .
 ```
+
+Protected API routes such as `/api/qualify`, `/api/v1/qualify`, approval, and
+lead recovery require a valid Clerk Bearer JWT in production. Do not use
+unauthenticated curl calls as production smoke tests, and do not approve a real
+send unless delivery behavior is intentionally being tested.
 
 ---
 

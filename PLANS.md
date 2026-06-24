@@ -788,7 +788,9 @@ lifecycle response paths. The `/api/v1` strategy is compatibility-first:
 introduce aliases for the existing protected route surface before any frontend
 migration or response-envelope change. The first alias slice now registers the
 current protected route surface under `/api/v1` while leaving frontend calls on
-the existing `/api/*` paths.
+the existing `/api/*` paths. Deployment docs now describe Vercel plus a
+Docker-compatible backend, with Cloud Run documented as an optional backend
+target rather than the only production path.
 
 ### Goal
 

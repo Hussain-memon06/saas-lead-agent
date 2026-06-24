@@ -4,10 +4,10 @@
 
 Phase 8 has started. Milestone 8.1 documented the operational inventory and
 configuration matrix. Milestone 8.2 added provider-free health/readiness
-endpoints. Milestone 8.3 adds deterministic GitHub Actions quality gates
-without changing dependency manifests, Docker artifacts, or deployed
-infrastructure. Milestone 8.4 hardens Docker runtime behavior for `$PORT` and
-local health checks.
+endpoints. Milestone 8.3 added deterministic GitHub Actions quality gates.
+Milestone 8.4 hardened Docker runtime behavior for `$PORT` and local health
+checks. Milestone 8.5 added initial operations runbooks. Milestone 8.6
+documented and implemented compatibility-first `/api/v1` aliases.
 
 The immediate goal is to make the remaining production work explicit and
 sequential so each slice can be implemented and verified without broad,
@@ -61,14 +61,14 @@ expensive default checks.
 | Frontend hosting | Vercel | `README.md` says Vercel; no Vercel config was reviewed in this slice. |
 | Frontend API routing | Dev proxy to `http://localhost:8080` by default | `NEXT_PUBLIC_API_BASE_URL` disables the rewrite and makes browser calls absolute. |
 | Backend | FastAPI app in Docker-capable Python service | Local dev can run directly with uvicorn or through compose. |
-| Backend hosting | Unclear from source-of-truth docs | `README.md` says Railway; `DEPLOYMENT.md` is a Cloud Run runbook. Treat as documentation drift until the live backend host is confirmed. |
+| Backend hosting | Docker-compatible backend host | README no longer hardcodes Railway; `DEPLOYMENT.md` is an optional Cloud Run backend runbook. Confirm the live backend host before provider-specific deployment automation. |
 | Persistence | Optional Postgres | Required for durable HITL resume across process restart; unset uses in-memory state. |
 | Auth | Clerk | Frontend sends Clerk JWT; backend verifies issuer/signature and owner scopes protected lead routes. |
 | Email | SendGrid or explicit stub mode | Development should use `SENDGRID_STUB_ENABLED=true`; production must not report fake sends. |
 | Observability | Optional Langfuse plus app metadata | Initial monitoring/alerting/runbook documentation exists; vendor-specific dashboards are not implemented. |
 | CI | GitHub Actions workflow added | Backend and frontend checks run on push/PR; provider-free evals are manual dispatch only. |
 | Docker | Multi-stage backend image plus local compose | Runtime command expands `${PORT:-8080}` and includes a local `/health` healthcheck. |
-| Health/readiness | Not implemented in Phase 8 yet | `/health` and `/ready` semantics remain Milestone 8.2. |
+| Health/readiness | Implemented | `/health` and `/ready` provide provider-free liveness/readiness diagnostics. |
 | API versioning | Alias slice implemented | `/api/v1` aliases exist for the current protected route surface; frontend remains on `/api/*`. |
 
 ### Environment And Configuration Matrix
@@ -104,21 +104,21 @@ expensive default checks.
 ### Prioritized Phase 8 Gaps
 
 1. Add `/health` and `/ready` endpoints with safe startup/config diagnostics.
-2. Resolve deployment-doc drift: Railway/Vercel versus Cloud Run/Vercel and
-   the actual live backend host.
+2. Confirm the actual live backend host before adding provider-specific
+   deployment automation.
 3. Confirm monitoring vendor/destination and wire dashboards or alert routing.
 4. Confirm data retention/export/deletion policy before adding user-facing data
    lifecycle endpoints.
 5. Decide whether and when to migrate the frontend API client to `/api/v1`.
 
-## Non-Goals For This Planning Milestone
+## Remaining Non-Goals
 
-- No GitHub Actions workflow changes yet.
-- No Dockerfile or compose changes yet.
+- No provider-specific deployment automation until the live backend host is
+  confirmed.
 - No dependency or package-manifest changes.
 - No production build, Docker build, compose run, cloud smoke test, or external
   provider check.
-- No API route rewrites or `/api/v1` migration yet.
+- No frontend migration to `/api/v1` yet.
 - No monitoring vendor integration yet.
 - No background queue, durable job runtime, vector database, or MCP runtime.
 
@@ -303,7 +303,7 @@ docker compose up -d
 
 ## Immediate Next Step
 
-Begin Milestone 8.1 by inspecting only the current deployment/config docs and
-deployment artifacts needed to build an operational inventory. Do not modify
-CI, Docker, source code, dependencies, or deployment settings until that
-inventory is reviewed.
+Confirm the live backend hosting target, then decide whether the next Phase 8
+slice should migrate the frontend API client to `/api/v1`, add
+provider-specific deployment automation, or keep the current compatibility
+surface unchanged until production traffic is observed.

@@ -6,7 +6,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-1.1-1C3C3C)
 ![Next.js](https://img.shields.io/badge/Next.js-14-000000?logo=next.js&logoColor=white)
-![Deployed](https://img.shields.io/badge/Deployed-Railway%20%2B%20Vercel-9333EA)
+![Deployed](https://img.shields.io/badge/Deployed-Vercel%20%2B%20Docker%20API-9333EA)
 ![License](https://img.shields.io/badge/License-MIT-22C55E)
 
 ---
@@ -48,7 +48,7 @@ Paste a company URL and Outbound Lead Agent researches the company end-to-end: i
 ```mermaid
 flowchart LR
     User([User]) -->|paste URL| Web[Next.js 14 frontend<br/>Vercel]
-    Web -->|POST /api/qualify| API[FastAPI backend<br/>Railway]
+    Web -->|POST /api/qualify| API[FastAPI backend<br/>Docker-compatible host]
     API --> Graph[(LangGraph StateGraph<br/>checkpointer: InMemory or Postgres)]
     Graph --> IC[retrieve_icp_context]
     IC --> R[company_researcher]
@@ -87,7 +87,7 @@ flowchart LR
 | Observability | Langfuse v3 | Optional per-node tracing; None-safe fallback |
 | Email | SendGrid (sync SDK in `asyncio.to_thread`) | Optional outbound delivery; explicit stub fallback for dev |
 | Alt UI | Chainlit v2 (mounted at `/chainlit`) | Chat-style interface sharing the same graph instance |
-| Deployment | Railway (backend), Vercel (frontend), Docker (multi-stage, non-root, runs locally via `docker compose`) | Production hosting |
+| Deployment | Vercel frontend, Docker-compatible FastAPI backend, optional Cloud Run runbook, local `docker compose` | Production hosting |
 | Quality | ruff, mypy (strict), pytest, pytest-asyncio | 170+ tests, ruff + mypy clean on every change |
 
 ---
@@ -132,7 +132,7 @@ is always disabled when `APP_ENV=production`.
 
 ```bash
 uv sync
-uv run uvicorn src.saas_lead_agent.api.main:app --env-file .env --reload --port 8080 --timeout-keep-alive 120
+uv run uvicorn saas_lead_agent.api.main:app --env-file .env --reload --port 8080 --timeout-keep-alive 120
 ```
 
 Backend listens on `http://localhost:8080`. The Chainlit UI is at `/chainlit`, the OpenAPI docs at `/docs`.
@@ -191,13 +191,13 @@ verification strategy. Full verification must not run automatically.
 
 ## Deployment
 
-**Frontend (Vercel).** Connect the repo, set the project root to `frontend/`, and add `NEXT_PUBLIC_API_BASE_URL` pointing at the Railway URL. `frontend/vercel.json` already pins `buildCommand` and `outputDirectory`.
+**Frontend (Vercel).** Connect the repo, set the project root to `frontend/`, and use `https://agent.hussainflow.com/` as the production frontend domain. Set `NEXT_PUBLIC_API_BASE_URL` only when browser calls should go directly to a separate backend origin; otherwise the frontend proxy can route API calls to `BACKEND_PROXY_TARGET`.
 
-**Backend (Railway).** Connect the repo and Railway picks up the multi-stage `Dockerfile` automatically. Add every env var from the table above to the Railway *Variables* tab. The container honours `$PORT` so Railway can route traffic without code changes.
+**Backend (Docker-compatible host).** Deploy the root `Dockerfile` to the chosen backend platform and add every required env var from the table above. The container honours `$PORT`, exposes `/health` and `/ready`, and requires Clerk Bearer JWTs for protected API behavior in production.
 
 **Local full-stack (Docker).** `docker compose up --build` boots Postgres + a one-shot migration step + the FastAPI app on port 8080 — useful for testing a deploy-shaped run on your own machine.
 
-For a step-by-step Cloud Run runbook (alternative target with Secret Manager), see [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+For a step-by-step Cloud Run runbook with Secret Manager, see [`DEPLOYMENT.md`](./DEPLOYMENT.md). Treat Cloud Run as one supported backend target, not the only possible deployment platform.
 
 ---
 
@@ -220,7 +220,7 @@ saas-lead-agent/
 ├── specs/              # phase plans + ADRs (decisions.md)
 ├── Dockerfile          # multi-stage, non-root, ${PORT}-aware
 ├── docker-compose.yml  # postgres + migrate + app
-└── DEPLOYMENT.md       # Cloud Run runbook
+└── DEPLOYMENT.md       # optional Cloud Run backend runbook
 ```
 
 ---
