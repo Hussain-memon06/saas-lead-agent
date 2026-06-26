@@ -6,10 +6,10 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const STEPS = [
-  { label: "Scraping the company website", duration: 8 },
-  { label: "Searching for buying signals", duration: 18 },
-  { label: "Finding the decision-maker", duration: 14 },
-  { label: "Drafting the outreach email", duration: 12 },
+  { label: "Identifying the company", duration: 8 },
+  { label: "Reviewing positioning and fit signals", duration: 18 },
+  { label: "Looking for decision-makers", duration: 14 },
+  { label: "Preparing the review and outreach draft", duration: 12 },
 ] as const;
 
 /**
@@ -34,10 +34,10 @@ export function LoadingState({ url }: { url: string }) {
   }, []);
 
   return (
-    <Card className="space-y-6 p-8">
+    <Card className="space-y-6 rounded-2xl border-border bg-card/95 p-6 shadow-sm shadow-black/[0.02] sm:p-8">
       <div className="space-y-2">
-        <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          Researching
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+          Building dossier
         </p>
         <p className="break-all text-base font-semibold text-foreground">{url}</p>
         <p className="text-sm text-muted-foreground">
@@ -56,7 +56,7 @@ export function LoadingState({ url }: { url: string }) {
             >
               <span className="flex h-5 w-5 shrink-0 items-center justify-center">
                 {state === "done" && (
-                  <CheckCircle2 className="h-5 w-5 text-primary" aria-hidden />
+                  <CheckCircle2 className="h-5 w-5 text-success" aria-hidden />
                 )}
                 {state === "active" && (
                   <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />

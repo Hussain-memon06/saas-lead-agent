@@ -49,10 +49,10 @@ function TagSelector({
             onClick={() => toggle(opt)}
             aria-pressed={active}
             className={
-              "rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
+              "rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
               (active
-                ? "bg-primary text-primary-foreground"
-                : "border border-border bg-background text-foreground hover:border-primary/40 hover:bg-secondary")
+                ? "border border-primary/25 bg-primary/10 text-primary"
+                : "border border-border bg-card text-foreground hover:border-primary/30 hover:bg-secondary")
             }
           >
             {opt}
@@ -89,10 +89,10 @@ function CheckboxGroup({
           <label
             key={opt}
             className={
-              "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors " +
+              "flex cursor-pointer items-center gap-2 rounded-lg border px-3.5 py-2.5 text-sm font-medium transition-colors " +
               (checked
-                ? "border-primary/50 bg-primary/5 text-foreground"
-                : "border-border bg-background text-foreground hover:bg-secondary")
+                ? "border-primary/30 bg-primary/5 text-foreground"
+                : "border-border bg-card text-foreground hover:bg-secondary")
             }
           >
             <input
@@ -151,23 +151,23 @@ export default function SettingsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-10 px-6 py-12">
-      <div className="space-y-3">
+    <div className="mx-auto max-w-5xl space-y-8 px-6 py-10 sm:py-14">
+      <div className="rounded-2xl border border-border bg-card/90 p-6 shadow-sm shadow-black/[0.02] sm:p-8">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Back home
         </Link>
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+        <div className="mt-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
             Settings
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          <h1 className="text-4xl font-semibold tracking-tight text-foreground">
             Configure your ICP
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
             Tell Outbound Lead Agent what your ideal customer looks like. Your settings
             stay on this device — they&apos;re sent with each research request
             so the agent scores against your actual targets.
@@ -175,14 +175,14 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-12">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* ---------- Section A ---------- */}
-        <section className="space-y-8">
-          <div className="space-y-1">
-            <h2 className="text-xl font-semibold tracking-tight text-foreground">
+        <section className="space-y-7 rounded-2xl border border-border bg-card/90 p-6 shadow-sm shadow-black/[0.02] sm:p-8">
+          <div className="mb-8 space-y-2 border-b border-border pb-6">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               Who are you selling to?
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
               The agent uses these to filter and score prospects.
             </p>
           </div>
@@ -194,6 +194,7 @@ export default function SettingsPage() {
               value={icp.seller_name}
               onChange={(e) => update("seller_name")(e.target.value)}
               placeholder="e.g. John at Acme Agency"
+              className="h-11 rounded-lg bg-card"
             />
           </div>
 
@@ -204,6 +205,7 @@ export default function SettingsPage() {
               value={icp.offering}
               onChange={(e) => update("offering")(e.target.value)}
               placeholder="e.g. B2B sales automation software for SaaS companies"
+              className="h-11 rounded-lg bg-card"
             />
           </div>
 
@@ -243,7 +245,7 @@ export default function SettingsPage() {
               id="target_employees"
               value={icp.target_employees}
               onChange={(e) => update("target_employees")(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:max-w-xs"
+              className="flex h-11 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:max-w-xs"
             >
               {EMPLOYEE_RANGE_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
@@ -255,12 +257,12 @@ export default function SettingsPage() {
         </section>
 
         {/* ---------- Section B ---------- */}
-        <section className="space-y-8">
-          <div className="space-y-1">
-            <h2 className="text-xl font-semibold tracking-tight text-foreground">
+        <section className="space-y-7 rounded-2xl border border-border bg-card/90 p-6 shadow-sm shadow-black/[0.02] sm:p-8">
+          <div className="mb-8 space-y-2 border-b border-border pb-6">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               What makes a great lead?
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
               The agent rewards must-have signals and penalizes red flags.
             </p>
           </div>
@@ -295,21 +297,22 @@ export default function SettingsPage() {
               onChange={(e) => update("value_proposition")(e.target.value)}
               placeholder="e.g. We help B2B SaaS companies automate their outbound so SDRs focus on closing not prospecting. We've helped teams at Linear and Notion book 3x more meetings."
               rows={4}
+              className="rounded-lg bg-card"
             />
           </div>
         </section>
 
         {/* ---------- Actions ---------- */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card/90 p-4 shadow-sm shadow-black/[0.02] sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Button type="submit" size="lg" className="h-11 sm:px-8">
+            <Button type="submit" size="lg" className="h-11 rounded-lg sm:px-8">
               Save settings
             </Button>
             <Button
               type="button"
               size="lg"
               variant="outline"
-              className="h-11"
+              className="h-11 rounded-lg"
               onClick={handleReset}
             >
               <RotateCcw className="mr-2 h-4 w-4" aria-hidden />
@@ -328,7 +331,7 @@ export default function SettingsPage() {
           <div
             role="status"
             aria-live="polite"
-            className="flex items-start gap-3 rounded-lg border border-success/30 bg-success/5 p-4"
+            className="flex items-start gap-3 rounded-2xl border border-success/20 bg-success/5 p-4"
           >
             <CheckCircle2
               className="mt-0.5 h-5 w-5 shrink-0 text-success"

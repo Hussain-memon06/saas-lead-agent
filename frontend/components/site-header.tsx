@@ -47,7 +47,7 @@ function IcpStatusBadge() {
 
   if (configured) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-success/20 bg-success/5 px-3 py-1.5 text-xs font-semibold text-success">
         <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
         ICP configured
       </span>
@@ -56,7 +56,7 @@ function IcpStatusBadge() {
   return (
     <Link
       href="/settings"
-      className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/15"
+      className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
     >
       <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
       Set your ICP
@@ -68,21 +68,18 @@ export function SiteHeader() {
   return (
     <header
       aria-label="Site header"
-      className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/82 backdrop-blur supports-[backdrop-filter]:bg-background/72"
+      className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/78"
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+      <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-3 tracking-tight">
           <HfMark />
           <span className="text-lg font-semibold text-foreground">HussainFlow</span>
-          <span className="hidden rounded-full border border-primary/15 bg-primary/5 px-2.5 py-1 text-xs font-semibold text-primary md:inline-flex">
-            Outbound Lead Agent
-          </span>
         </Link>
         <div className="flex items-center gap-3">
           <IcpStatusBadge />
           <Link
             href="/settings"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background/60 px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border bg-card/70 px-3.5 text-sm font-semibold text-muted-foreground shadow-sm shadow-black/[0.02] transition-colors hover:bg-secondary hover:text-foreground"
           >
             <Settings className="h-4 w-4" aria-hidden />
             Settings
@@ -91,7 +88,7 @@ export function SiteHeader() {
             href={REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-background/60 px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card/70 px-3.5 text-sm font-semibold text-muted-foreground shadow-sm shadow-black/[0.02] transition-colors hover:bg-secondary hover:text-foreground"
           >
             <GithubMark className="h-4 w-4" />
             <span className="hidden sm:inline">GitHub</span>

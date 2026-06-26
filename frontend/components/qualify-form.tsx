@@ -70,7 +70,7 @@ export function QualifyForm() {
       noValidate
     >
       <div className="space-y-2">
-        <Label htmlFor="url" className="text-sm font-medium">
+        <Label htmlFor="url" className="text-sm font-semibold">
           Company URL
         </Label>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -83,17 +83,17 @@ export function QualifyForm() {
             aria-invalid={Boolean(form.formState.errors.url) || undefined}
             aria-describedby={form.formState.errors.url ? "url-error" : undefined}
             disabled={mutation.isPending}
-            className="h-11 sm:flex-1"
+            className="h-12 rounded-lg border-border bg-card text-[15px] shadow-sm shadow-black/[0.02] sm:flex-1"
             {...form.register("url")}
           />
           <Button
             type="submit"
             size="lg"
             disabled={mutation.isPending}
-            className="h-11 sm:w-40"
+            className="group h-12 rounded-lg px-6 font-semibold shadow-sm shadow-primary/15 transition-all duration-300 hover:shadow-md hover:shadow-primary/20 sm:w-44"
           >
-            Research
-            <ArrowRight className="ml-1 h-4 w-4" aria-hidden />
+            Build dossier
+            <ArrowRight className="ml-1 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1.5" aria-hidden />
           </Button>
         </div>
         {form.formState.errors.url && (
