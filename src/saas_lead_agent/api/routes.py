@@ -22,7 +22,10 @@ from saas_lead_agent.api.schemas import (
     RunEventResponse,
     RunEventsResponse,
 )
-from saas_lead_agent.api.security import enforce_write_rate_limit
+from saas_lead_agent.api.security import (
+    enforce_write_rate_limit,
+    qualification_account_limit,
+)
 from saas_lead_agent.graph import build_graph_with_memory
 from saas_lead_agent.memory.langfuse_handler import get_langfuse_handler
 from saas_lead_agent.persistence import (
@@ -588,6 +591,20 @@ async def qualify(body: QualifyRequest, request: Request) -> QualifyResponse:
     request_id = _request_id(request)
     auth = await resolve_auth_context(request)
     await enforce_write_rate_limit(action="qualify", auth=auth, request=request)
+    if auth.user_id is not None:
+        account_limit = qualification_account_limit()
+        remaining = await _lead_store.reserve_qualification(
+            auth.user_id,
+            account_limit,
+        )
+        if remaining is None:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    "Account research limit reached. "
+                    f"Each account can build up to {account_limit} dossiers."
+                ),
+            )
     auth_metadata = public_auth_metadata(auth)
     run_id = str(uuid4())
     started_at = datetime.now(UTC)

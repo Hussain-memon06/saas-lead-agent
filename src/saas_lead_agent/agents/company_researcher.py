@@ -120,6 +120,16 @@ def _verify_sources(profile: dict[str, Any], domain: str) -> dict[str, Any]:
     }
 
 
+def _normalize_funding_stage(profile: dict[str, Any]) -> dict[str, Any]:
+    """Map common company-status wording into the strict funding contract."""
+    funding_stage = profile.get("funding_stage")
+    if not isinstance(funding_stage, str):
+        return profile
+    if funding_stage.strip().casefold() not in {"private", "private company", "privately held"}:
+        return profile
+    return {**profile, "funding_stage": "Unknown"}
+
+
 async def company_researcher(state: LeadState) -> dict[str, Any]:
     """LangGraph node: research a company URL and populate ``company_profile``.
 
@@ -212,7 +222,7 @@ async def company_researcher(state: LeadState) -> dict[str, Any]:
 
     # Precision over recall: if no source URL contains the company domain,
     # the model likely pulled info from a different company. Wipe fields.
-    verified = _verify_sources(profile, state["domain"])
+    verified = _normalize_funding_stage(_verify_sources(profile, state["domain"]))
     try:
         validated = CompanyProfile.model_validate(verified)
     except ValidationError as exc:

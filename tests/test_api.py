@@ -513,6 +513,35 @@ async def test_qualify_attaches_user_id_to_snapshot_and_lead_artifact() -> None:
 
 
 @pytest.mark.asyncio
+async def test_qualify_rejects_fourth_request_for_authenticated_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QUALIFY_ACCOUNT_LIMIT", "3")
+    store = InMemoryLeadRunRepository()
+    mock_graph = _make_graph_mock(_GRAPH_RESULT, next_nodes=("await_approval",))
+
+    with (
+        patch("saas_lead_agent.api.routes._graph", mock_graph),
+        patch("saas_lead_agent.api.routes._lead_store", store),
+    ):
+        async with await _client() as client:
+            responses = [
+                await client.post(
+                    "/api/qualify",
+                    json={"url": f"https://company-{index}.example.com"},
+                    headers={"X-OLA-User-ID": "user-quota"},
+                )
+                for index in range(1, 5)
+            ]
+
+    assert [response.status_code for response in responses] == [200, 200, 200, 429]
+    assert responses[-1].json()["detail"] == (
+        "Account research limit reached. Each account can build up to 3 dossiers."
+    )
+    assert mock_graph.ainvoke.call_count == 3
+
+
+@pytest.mark.asyncio
 async def test_get_lead_returns_404_when_snapshot_missing() -> None:
     store = InMemoryLeadRunRepository()
 

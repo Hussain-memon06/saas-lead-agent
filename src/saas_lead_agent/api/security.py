@@ -65,6 +65,11 @@ async def enforce_write_rate_limit(
         )
 
 
+def qualification_account_limit() -> int:
+    """Return the lifetime qualification allowance for one account."""
+    return _positive_env_int("QUALIFY_ACCOUNT_LIMIT", 3)
+
+
 def request_body_limit_bytes() -> int:
     """Return the configured request cap, defaulting to the Phase 6 policy."""
     default = COMPLIANCE_CONFIGURATION_PLAN.request_limits.max_body_bytes

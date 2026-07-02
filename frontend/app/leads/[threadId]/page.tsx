@@ -81,7 +81,8 @@ export default function LeadPage() {
     );
   }
 
-  const errored = data.errors.length > 0 && !data.interrupted;
+  const decided = data.send_result !== null;
+  const errored = data.errors.length > 0 && !data.interrupted && !decided;
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-6 py-12">

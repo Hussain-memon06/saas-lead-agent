@@ -7,6 +7,7 @@ browser refresh and operators can inspect coarse run lifecycle events.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
@@ -87,6 +88,9 @@ class LeadRunRepository(Protocol):
     ) -> list[LeadRunSnapshot]:
         """Return recent snapshots for one owner, or legacy unowned records."""
 
+    async def reserve_qualification(self, owner_user_id: str, limit: int) -> int | None:
+        """Atomically reserve one qualification and return remaining uses."""
+
     async def save_artifacts(self, artifacts: LeadArtifacts) -> None:
         """Persist normalized app-owned records derived from a snapshot."""
 
@@ -107,6 +111,8 @@ class InMemoryLeadRunRepository:
         self._snapshots: dict[str, LeadRunSnapshot] = {}
         self._artifacts: dict[str, LeadArtifacts] = {}
         self._events: list[RunEvent] = []
+        self._qualification_counts: dict[str, int] = {}
+        self._qualification_lock = asyncio.Lock()
 
     async def setup(self) -> None:
         return None
@@ -146,6 +152,15 @@ class InMemoryLeadRunRepository:
         return [
             snapshot for snapshot in snapshots if _snapshot_owner_id(snapshot) == owner_user_id
         ][:limit]
+
+    async def reserve_qualification(self, owner_user_id: str, limit: int) -> int | None:
+        async with self._qualification_lock:
+            used = self._qualification_counts.get(owner_user_id, 0)
+            if used >= limit:
+                return None
+            used += 1
+            self._qualification_counts[owner_user_id] = used
+            return limit - used
 
     async def save_artifacts(self, artifacts: LeadArtifacts) -> None:
         self._artifacts[artifacts.lead.thread_id] = artifacts
@@ -218,6 +233,17 @@ class PostgresLeadRunRepository:
                     user_id TEXT PRIMARY KEY,
                     email TEXT,
                     display_name TEXT,
+                    created_at TIMESTAMPTZ NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            await conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS app_account_usage (
+                    user_id TEXT PRIMARY KEY,
+                    qualification_count INTEGER NOT NULL DEFAULT 0
+                        CHECK (qualification_count >= 0),
                     created_at TIMESTAMPTZ NOT NULL,
                     updated_at TIMESTAMPTZ NOT NULL
                 )
@@ -488,6 +514,33 @@ class PostgresLeadRunRepository:
                     limit,
                 )
         return [self._snapshot_from_row(row) for row in rows]
+
+    async def reserve_qualification(self, owner_user_id: str, limit: int) -> int | None:
+        pool = self._require_pool()
+        now = utc_now()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO app_account_usage (
+                    user_id,
+                    qualification_count,
+                    created_at,
+                    updated_at
+                )
+                VALUES ($1, 1, $2, $2)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    qualification_count = app_account_usage.qualification_count + 1,
+                    updated_at = EXCLUDED.updated_at
+                WHERE app_account_usage.qualification_count < $3
+                RETURNING qualification_count
+                """,
+                owner_user_id,
+                now,
+                limit,
+            )
+        if row is None:
+            return None
+        return limit - int(row["qualification_count"])
 
     async def save_artifacts(self, artifacts: LeadArtifacts) -> None:
         pool = self._require_pool()

@@ -280,6 +280,21 @@ async def test_company_researcher_schema_validation_error() -> None:
 
 
 @pytest.mark.asyncio
+async def test_company_researcher_normalizes_private_funding_stage() -> None:
+    private_profile = {**_PROFILE, "funding_stage": "Private"}
+    mock_agent = _make_agent_mock(json.dumps(private_profile))
+
+    with patch(
+        "saas_lead_agent.agents.company_researcher._get_researcher_agent",
+        return_value=mock_agent,
+    ):
+        result = await company_researcher(_BASE_STATE)
+
+    assert result["company_profile"]["funding_stage"] == "Unknown"
+    assert "errors" not in result
+
+
+@pytest.mark.asyncio
 async def test_company_researcher_agent_exception() -> None:
     mock_agent = MagicMock()
     mock_agent.ainvoke = AsyncMock(side_effect=RuntimeError("LLM quota exceeded"))
